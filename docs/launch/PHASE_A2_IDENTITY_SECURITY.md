@@ -32,7 +32,7 @@
       '/sign-up(.*)',
       '/api/webhooks(.*)', // Paystack & Clerk incoming webhooks verified by crypto signatures
       '/api/inngest(.*)',  // Inngest worker endpoint verified by Inngest signing key
-      '/api/health',       // Cloud Run uptime monitoring probe
+      '/api/health',       // Synthetic uptime monitoring probe
     ]);
     ```
   - All standard cockpit pages (`/radar`, `/gap-matrix`, `/executive`, `/marketing`) and core `/api/*` routes MUST require an authenticated Clerk session with an active `orgId`.

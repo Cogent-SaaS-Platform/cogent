@@ -1,16 +1,16 @@
 # Phase A7: Deployment, Cutover & Launch
 
-> **Objective:** Execute the DNS transition from Hostinger to Cloudflare, configure Cloud Run custom domain mapping with edge SSL/TLS Full (Strict), audit all production environment variables, enforce security headers, and execute the final zero-downtime launch.  
-> **Target Tooling:** Hostinger Domain Registrar + Cloudflare Edge CDN/DNS + Google Cloud Run.
+> **Objective:** Execute the DNS transition from Hostinger to Cloudflare, configure Vercel custom domain mapping with edge SSL/TLS Full (Strict), audit all production environment variables, enforce security headers, and execute the final zero-downtime launch.  
+> **Target Tooling:** Hostinger Domain Registrar + Cloudflare Edge CDN/DNS + Vercel.
 
 ---
 
 ## 1. Executive Summary & Deliverables
 
 1. **DNS Cutover (Hostinger -> Cloudflare):** Delegate nameservers from Hostinger to Cloudflare to activate edge DDoS mitigation, free TLS certificates, and edge caching.
-2. **Cloud Run Custom Domain Mapping:** Route traffic from Cloudflare Edge to the Google Cloud Run service in `europe-west3`.
+2. **Vercel Custom Domain Mapping:** Route traffic from Cloudflare Edge to Vercel deployment with edge SSL.
 3. **Enterprise Security Headers:** Configure HSTS, Content Security Policy (CSP), `X-Frame-Options`, and `X-Content-Type-Options` directly in `next.config.ts`.
-4. **Production Secrets Audit:** Verify that all production API keys, database credentials, and signing secrets are securely injected into Cloud Run with zero leaks.
+4. **Production Secrets Audit:** Verify that all production API keys, database credentials, and signing secrets are securely injected into Vercel environment variables with zero leaks.
 5. **Launch Day Runbook & Rollback Protocol:** Provide exact step-by-step verification commands, smoke tests, and an instant rollback strategy in case of unexpected errors.
 
 ---
@@ -139,18 +139,18 @@
    - Toggle **Automatic HTTPS Rewrites** to `ON`.
    - Set **Minimum TLS Version** to `TLS 1.2`.
 
-### Step 3: Google Cloud Run Custom Domain Mapping
-1. In Google Cloud Console:
-   - Navigate to **Cloud Run** -> Click on your service `cogent-web`.
-   - Click **Manage Custom Domains** -> **Add Mapping**.
-   - Select domain: `yourdomain.com` (and `www.yourdomain.com`).
-   - Cloud Run will provide DNS resource records (either CNAME `ghs.googlehosted.com` or specific Anycast IP addresses).
+### Step 3: Vercel Custom Domain Mapping
+1. In Vercel Project Dashboard:
+   - Navigate to **Settings** -> **Domains**.
+   - Add your domain: `yourdomain.com` (and `www.yourdomain.com`).
+   - Vercel will indicate the recommended DNS configuration:
+     - For Apex (`yourdomain.com`): `A` record pointing to `76.76.21.21` or `CNAME` pointing to `cname.vercel-dns.com`.
+     - For Subdomain (`www.yourdomain.com` or `app.yourdomain.com`): `CNAME` record pointing to `cname.vercel-dns.com`.
 2. In Cloudflare DNS:
-   - Add a `CNAME` record:
-     - Name: `@` (or `app`)
-     - Target: `ghs.googlehosted.com`
+   - Add an `A` record for `@` pointing to `76.76.21.21` (or `CNAME` if CNAME flattening is active).
      - Proxy status: **Proxied (Orange Cloud)**.
-   - Add a `CNAME` record for `www` pointing to `@` (or direct to Google).
+   - Add a `CNAME` record for `www` (or `app`) pointing to `cname.vercel-dns.com`.
+     - Proxy status: **Proxied (Orange Cloud)**.
 
 ---
 
@@ -177,9 +177,7 @@
 
 ### Instant Rollback Protocol
 If an unrecoverable failure occurs post-deployment:
-1. In Google Cloud Console -> **Cloud Run** -> **cogent-web** -> **Revisions**.
-2. Select the previous stable revision.
-3. Click **Route Traffic**:
-   - Set previous revision to `100%`.
-   - Click **Save**.
-4. Traffic instantly shifts back in <2 seconds with zero build delays.
+1. In Vercel Dashboard -> Navigate to your project -> **Deployments**.
+2. Locate the previous known stable deployment.
+3. Click the three dots `...` on the deployment -> Select **Instant Rollback** (or **Promote to Production**).
+4. Traffic instantly shifts back in <1 second with zero build delay.

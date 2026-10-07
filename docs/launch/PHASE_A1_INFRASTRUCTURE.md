@@ -1,15 +1,15 @@
 # Phase A1: The Infrastructure & Project Foundation
 
 > **Objective:** Establish the production source control, container runtime, compute hosting, database consistency, and object storage baseline.  
-> **Target Cloud Environment:** Google Cloud Run (Compute) + Cloudflare (Edge/R2) + Supabase (Database).
+> **Target Cloud Environment:** Vercel (Edge & Serverless Compute) + Cloudflare (Edge/R2) + Supabase (Database).
 
 ---
 
 ## 1. Executive Summary & Deliverables
 
 1. **Version Control:** Initialize Git repository, configure `.gitignore` for security hygiene, and define strict GitHub branch protection rules on `main`.
-2. **Container Engine:** Create a multi-stage `Dockerfile` leveraging Next.js 16 standalone output on `node:22-alpine` with non-root security execution.
-3. **Compute Runtime:** Google Cloud Run service blueprint in `europe-west3` (Frankfurt) collocated with Supabase and Google Gemini infrastructure.
+2. **Container Engine (Zero Vendor Lock-in):** Create a multi-stage `Dockerfile` leveraging Next.js 16 standalone output on `node:22-alpine` with non-root security execution to guarantee future container portability.
+3. **Compute Runtime:** Vercel Edge & Serverless hosting pinned to Frankfurt (`fra1`) collocated with Supabase Frankfurt (`eu-central-1`) infrastructure ($0 upfront, no credit card required).
 4. **Database Migration Consistency:** Fix Supabase migration timestamp collision (`20261006_connected_compliance_cascade.sql` vs `20261006_radar_circulars_and_lineage.sql`) so `supabase db push` runs deterministically.
 5. **Object Storage (Cloudflare R2):** Establish S3-compatible credentials and bucket topology for zero-egress document and database backup storage.
 
@@ -142,27 +142,18 @@
    - Check **Require status checks to pass before merging** (We will hook this up in Phase A5).
    - Check **Block force pushes** and **Prevent deletions**.
 
-### Step 2: Google Cloud Platform (GCP) Project & Cloud Run Setup
-1. Visit the [Google Cloud Console](https://console.cloud.google.com/).
-2. Create a new project: `cogent-production`.
-3. Enable billing (Google Cloud provides $300 in free startup credits for new accounts).
-4. Enable required APIs in **APIs & Services**:
-   - `run.googleapis.com` (Cloud Run Admin API)
-   - `artifactregistry.googleapis.com` (Artifact Registry API)
-   - `cloudbuild.googleapis.com` (Cloud Build API)
-5. Create an Artifact Registry repository:
-   - Name: `cogent-docker-repo`
-   - Format: **Docker**
-   - Region: `europe-west3` (Frankfurt)
-6. Cloud Run service specifications:
-   - Service name: `cogent-web`
-   - Region: `europe-west3` (Collocated with Supabase and Gemini Frankfurt endpoint)
-   - Minimum instances: `0` (enables scale-to-zero = $0 idle cost)
-   - Maximum instances: `10`
-   - Memory: `1 GiB`
-   - CPU: `1 vCPU`
-   - Port: `8080`
-   - Ingress: **Allow direct internet traffic** (protected via Cloudflare in Phase A7)
+### Step 2: Vercel Project Setup ($0 / Zero Credit Card Required)
+1. Visit [Vercel](https://vercel.com/) and sign in with your GitHub account.
+2. Click **Add New...** -> **Project**.
+3. Import your GitHub repository: `cogent` (or `cogent-saas`).
+4. Framework Preset: Automatically detected as **Next.js**.
+5. Build and Output Settings:
+   - Build Command: `npm run build` (or default `next build`)
+   - Output Directory: `.next`
+   - Serverless Function Region: Set to **Frankfurt, Germany (`fra1`)** (collocated with Supabase Frankfurt `eu-central-1` database). This is also pinned via `vercel.json`.
+6. Environment Variables:
+   - Enter initial variables from `.env.example` (or configure after Phase A2/A3).
+7. Click **Deploy**. Vercel will build and assign an immediate preview URL (e.g. `cogent.vercel.app`) with automatic SSL/TLS.
 
 ### Step 3: Cloudflare R2 Storage Provisioning
 1. Log into [Cloudflare Dashboard](https://dash.cloudflare.com/).
@@ -182,7 +173,8 @@
 ## 4. Acceptance Criteria & Phase A1 Verification Checklist
 
 - [ ] Repository is tracked by Git on branch `main` with zero tracked secrets in history.
-- [ ] Multi-stage `Dockerfile` successfully builds locally via `docker build -t cogent:test .`.
-- [ ] Container boots up locally and serves HTTP requests on port 8080.
+- [ ] Next.js 16 standalone build succeeds cleanly with zero type errors.
+- [ ] Multi-stage `Dockerfile` and `.dockerignore` exist for zero-vendor-lockin container deployment.
+- [ ] `vercel.json` configured with Frankfurt (`fra1`) region collocation.
 - [ ] Supabase migrations directory has unique, sequentially ordered timestamp prefixes with zero naming collisions.
-- [ ] Cloudflare R2 bucket exists and accepts test read/write calls using the S3 client wrapper.
+- [ ] Cloudflare R2 client wrapper (`src/shared/storage/r2Client.ts`) created and tested with unit tests passing.

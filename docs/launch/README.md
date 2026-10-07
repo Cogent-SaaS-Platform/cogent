@@ -1,8 +1,8 @@
 # Cogent — Production Launch Roadmap & Operations Master Index
 
 > **Target Horizon:** Production-Ready Beta & Commercial SaaS Launch  
-> **Architecture Pattern:** Zero-Ops, High-Security, Ultra-Low-Cost ($0–$3/month startup base)  
-> **Infrastructure Baseline:** Google Cloud Run + Cloudflare Edge + Supabase Postgres (`pgvector`) + Cloudflare R2 + Clerk Multi-Tenant Auth + Paystack  
+> **Architecture Pattern:** Zero-Ops, High-Security, Ultra-Low-Cost ($0.00 startup base, zero card required)  
+> **Infrastructure Baseline:** Vercel Edge & Serverless + Cloudflare Edge + Supabase Postgres (`pgvector`) + Cloudflare R2 + Clerk Multi-Tenant Auth + Paystack  
 
 ---
 
@@ -18,17 +18,18 @@
 │  • Edge SSL/TLS Termination (Strict Full HTTPS)                                        │
 │  • Global CDN Static Asset Caching                                                     │
 │  • Edge DDoS Protection & WAF Rules                                                    │
-│  • DNS Routing to Google Cloud Run Custom Domain Mapping                               │
+│  • DNS Routing to Vercel Custom Domain (cname.vercel-dns.com)                          │
 └──────────────────────────────────────────┬─────────────────────────────────────────────┘
                                            │ HTTPS (Encrypted)
                                            ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                        GOOGLE CLOUD RUN (Frankfurt: europe-west3)                      │
-│  • Multi-stage Docker Container (Next.js 16.3.8 Standalone Node.js 22 Engine)          │
-│  • Auto-scaling: 0 to N instances (Scale-to-zero = $0 idle cost)                       │
+│                        VERCEL EDGE & SERVERLESS (Frankfurt: fra1)                      │
+│  • Next.js 16.3.8 Native Runtime (React 19 Server Components & Actions)                │
+│  • Collocated with Supabase Frankfurt Database for <5ms execution                      │
 │  • Next 16 `proxy.ts` Edge Gateway: Tenant Context Resolution & Role Protection        │
 │  • Upstash Redis Token Bucket: API Abuse & Rate Limiting                               │
 │  • Inngest Durable Execution Endpoints (/api/inngest)                                  │
+│  • Standalone Dockerfile maintained for 100% portable zero-vendor-lockin               │
 └──────────────┬───────────────────────────┬───────────────────────────────┬─────────────┘
                │                           │                               │
                │ Authenticated Bearer JWT  │ S3 API Protocol               │ Event Webhooks
@@ -49,7 +50,7 @@
 
 | Subsystem | Service / Tool Selected | Tier / Plan | Monthly Cost | Strategic Rationale |
 |---|---|---|---|---|
-| **App Hosting** | Google Cloud Run | Free Tier (2M req/mo, 360k GB-sec) | **$0.00 – $3.00** | Supports full Docker image, scale-to-zero, EU region near DB, zero idle overhead. |
+| **App Hosting** | Vercel | Hobby Tier ($0, no card required) | **$0.00** | Native 1st-party Next.js 16 host. Global CDN, automated SSL, zero-downtime deploys. 1-click upgrade to Pro ($20) upon revenue. |
 | **Edge & CDN** | Cloudflare DNS & CDN | Free Tier | **$0.00** | Free SSL/TLS, edge DDoS mitigation, unlimited bandwidth. |
 | **Primary Database** | Supabase PostgreSQL (`pgvector`) | Free Tier (500 MB DB) | **$0.00** | Stores >100,000 regulatory clauses/embeddings. Upgradable to Pro ($25) in 1-click once cash flowing. |
 | **Blob Storage** | Cloudflare R2 | Free Tier (10 GB storage, $0 egress) | **$0.00** | Zero egress fees. Holds regulatory PDFs, uploaded policies, generated audit ZIPs, and DB dumps. |
@@ -60,8 +61,8 @@
 | **Billing & Payments**| Paystack | Standard Pay-as-you-go | **0% fixed** (1.5% + ₦100 per txn) | Native Nigerian / Pan-African billing engine, recurring subscriptions, card tokenization. |
 | **Observability** | Sentry (`@sentry/nextjs`) | Developer Free Tier (5k errors/mo) | **$0.00** | Real-time crash alerting, Next.js instrumentation, release tracking. |
 | **Uptime & Logs** | Better Stack (Better Uptime + Logs)| Free Tier (5 monitors, 1 GB logs) | **$0.00** | Status page, HTTP synthetic monitoring, automated heartbeat alerting. |
-| **CI / CD Pipeline** | GitHub Actions | Free Tier (2,000 mins/mo) | **$0.00** | Automated linting, typechecking, Vitest suite, Docker build & Cloud Run deployment. |
-| **Total Base Cost** | — | — | **~$0.00 – $3.00 / month** | *Zero burn rate during pre-revenue beta phase.* |
+| **CI / CD Pipeline** | GitHub Actions + Vercel Git | Free Tier | **$0.00** | Automated linting, typechecking, Vitest suite, and instant preview/production deployments. |
+| **Total Base Cost** | — | — | **$0.00 / month** | *Zero burn rate during pre-revenue beta phase. No credit card or upfront deposit required.* |
 
 ---
 
@@ -71,9 +72,9 @@ Every phase has its own dedicated documentation file with comprehensive technica
 
 1. [PHASE A1: Infrastructure & Project Foundation](./PHASE_A1_INFRASTRUCTURE.md)
    - Git repository initialization & GitHub branch protection rules
-   - Docker multi-stage containerization (`node:22-alpine` standalone)
-   - Cloud Run service blueprint & IAM least privilege
-   - Supabase migration version collision fix (`20261006_*`) & R2 backup runner
+   - Docker multi-stage containerization (`node:22-alpine` standalone) for portable zero-vendor-lockin
+   - Vercel compute setup pinned to Frankfurt (`fra1`) collocated with Supabase
+   - Supabase migration version collision fix (`20261006_*`) & Cloudflare R2 client
 2. [PHASE A2: Core Identity & Security (AuthN, AuthZ & RLS)](./PHASE_A2_IDENTITY_SECURITY.md)
    - Next.js 16 migration from deprecated `middleware.ts` to `proxy.ts`
    - Hardened Clerk JWT claims integration with Supabase RLS
@@ -94,7 +95,7 @@ Every phase has its own dedicated documentation file with comprehensive technica
    - Resolving 168 ESLint errors and establishing zero-warning build gates
    - Vitest unit/integration suites + Playwright end-to-end verification
    - GitHub Actions CI pipeline (`lint` -> `typecheck` -> `test` -> `build`)
-   - GitHub Actions CD pipeline (Build Docker container -> Push to Google Artifact Registry -> Deploy to Cloud Run)
+   - Continuous deployment integration with Vercel production releases
 6. [PHASE A6: Observability, Monitoring & Logging](./PHASE_A6_OBSERVABILITY_MONITORING.md)
    - Sentry error monitoring and Next.js 16 server instrumentation
    - Better Stack logging drain & synthetic uptime monitors
@@ -103,16 +104,16 @@ Every phase has its own dedicated documentation file with comprehensive technica
 7. [PHASE A7: Deployment, Cutover & Launch](./PHASE_A7_DEPLOYMENT_LAUNCH.md)
    - Hostinger DNS to Cloudflare Nameserver cutover
    - Cloudflare SSL/TLS Full (Strict) configuration
-   - Google Cloud Run custom domain mapping
+   - Vercel custom domain mapping & edge routing
    - Production environment secrets auditing & zero-downtime release runbook
-   - Day-1 Disaster Recovery and rollback procedures
+   - Day-1 Disaster Recovery and 1-click rollback procedures
 
 ---
 
 ## 4. Execution Dependency Graph
 
 ```
- Phase A1: Git + Docker + Cloud Run + Supabase Setup
+ Phase A1: Git + Docker + Vercel + Supabase Setup
    │
    ▼
  Phase A2: Next 16 `proxy.ts` + Hardened Clerk JWT + RLS Purge

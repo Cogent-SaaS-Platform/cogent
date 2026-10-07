@@ -1,7 +1,7 @@
 # Phase A5: CI/CD & Automated Testing Gates
 
-> **Objective:** Fix all 168 ESLint errors, automate linting and test execution via GitHub Actions, and configure automated Docker container builds deployed to Google Cloud Run.  
-> **Target Tooling:** GitHub Actions + ESLint 9 + Vitest + Playwright + Google Artifact Registry + Cloud Run.
+> **Objective:** Fix all 168 ESLint errors, automate linting and test execution via GitHub Actions, and configure automated Vercel continuous deployment with Docker container build verification.  
+> **Target Tooling:** GitHub Actions + ESLint 9 + Vitest + Playwright + Vercel + Docker.
 
 ---
 
@@ -10,7 +10,7 @@
 1. **Lint Remediation Plan:** Fix the 168 ESLint errors (predominantly `@typescript-eslint/no-explicit-any` and unused variables in `src/shared/types/index.ts` and presentation types).
 2. **Deterministic CI Test Suite:** Ensure all 31 Vitest test files (145 tests) and Playwright E2E tests execute cleanly inside GitHub Actions runners.
 3. **Continuous Integration (CI) Workflow:** Create `.github/workflows/ci.yml` that validates code hygiene (`lint` -> `typecheck` -> `test` -> `build`) on every pull request targeting `main`.
-4. **Continuous Deployment (CD) Workflow:** Create `.github/workflows/deploy.yml` that triggers on merge to `main`, builds the production Docker image, pushes it to Google Artifact Registry, and deploys to Cloud Run with zero downtime.
+4. **Continuous Deployment (CD) Workflow:** Configure Vercel Git-integrated deployment on merge to `main`, and include a Docker container compilation check in CI to guarantee long-term container portability.
 
 ---
 
@@ -79,79 +79,31 @@
             NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_ci_mock"
   ```
 
-### Task A5.3: GitHub Actions Continuous Deployment (CD) Workflow
-- **Target File:** `.github/workflows/deploy.yml`
-- **Workflow Definition:**
+### Task A5.3: Automated Deployment & Continuous Delivery (CD)
+- **Deployment Engine:** Vercel Git-Integrated Releases + Container Build Smoke Check.
+- **Workflow Architecture:**
+  1. **Continuous Deployment via Vercel Git Integration:** When a PR passes CI and merges into `main`, Vercel immediately triggers an automated, zero-downtime production deployment pinned to Frankfurt (`fra1`).
+  2. **Container Build Verification in CI:** Add a container build step to `.github/workflows/ci.yml` so that every PR verifies the multi-stage `Dockerfile` compiles cleanly, ensuring perpetual container readiness.
   ```yaml
-  name: Cogent CD - Cloud Run Release
-
-  on:
-    push:
-      branches: [main]
-
-  jobs:
-    deploy-production:
-      name: Build Docker & Deploy to Google Cloud Run
-      runs-on: ubuntu-latest
-      permissions:
-        contents: read
-        id-token: write
-
-      steps:
-        - name: Checkout Code
-          uses: actions/checkout@v4
-
-        - name: Authenticate to Google Cloud
-          uses: google-github-actions/auth@v2
-          with:
-            credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-        - name: Set up Google Cloud SDK
-          uses: google-github-actions/setup-gcloud@v2
-
-        - name: Configure Docker for Google Artifact Registry
-          run: |
-            gcloud auth configure-docker europe-west3-docker.pkg.dev --quiet
-
-        - name: Build & Tag Container Image
-          run: |
-            IMAGE_TAG="europe-west3-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cogent-docker-repo/cogent-web:${{ github.sha }}"
-            docker build -t "$IMAGE_TAG" -t "europe-west3-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cogent-docker-repo/cogent-web:latest" .
-            docker push "$IMAGE_TAG"
-            docker push "europe-west3-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cogent-docker-repo/cogent-web:latest"
-
-        - name: Deploy to Cloud Run
-          uses: google-github-actions/deploy-cloudrun@v2
-          with:
-            service: cogent-web
-            region: europe-west3
-            image: "europe-west3-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/cogent-docker-repo/cogent-web:${{ github.sha }}"
-            flags: "--allow-unauthenticated --port=8080 --min-instances=0 --max-instances=10 --cpu=1 --memory=1Gi"
+        - name: Verify Multi-Stage Dockerfile Compilation
+          run: docker build -t cogent:test .
   ```
 
 ---
 
 ## 3. Human-Operator Setup Guide (Your Step-by-Step Actions)
 
-### Step 1: Create Google Cloud Service Account for GitHub Actions
-1. In Google Cloud Console, navigate to **IAM & Admin** -> **Service Accounts**.
-2. Click **Create Service Account**:
-   - Name: `github-actions-deployer`
-   - Description: `Deploys Cogent releases from GitHub Actions`
-3. Assign required IAM Roles:
-   - **Artifact Registry Writer** (`roles/artifactregistry.writer`)
-   - **Cloud Run Developer** (`roles/run.developer`)
-   - **Service Account User** (`roles/iam.serviceAccountUser`)
-4. Create and Download JSON Key:
-   - Select the newly created service account -> **Keys** tab -> **Add Key** -> **Create new key (JSON)**.
-   - Save the downloaded JSON file on your machine.
+### Step 1: Connect GitHub Repository to Vercel
+1. In your [Vercel Dashboard](https://vercel.com/), ensure your repository `cogent` is connected under Git settings.
+2. In **Settings** -> **Git**:
+   - Production Branch: `main`
+   - Automatically deploy branch merges to Production.
+   - Automatically generate isolated Preview deployments for Pull Requests.
 
-### Step 2: Add Secrets to GitHub Repository
-1. In your GitHub repository:
-   - Navigate to **Settings** -> **Secrets and variables** -> **Actions**.
-2. Click **New repository secret** and add:
-   - `GCP_PROJECT_ID`: Your GCP project ID (e.g. `cogent-production`).
-   - `GCP_SA_KEY`: The entire contents of the downloaded JSON key file.
+### Step 2: Configure Environment Variables in Vercel
+1. In Vercel -> **Settings** -> **Environment Variables**:
+   - Add all required production secrets (Clerk, Supabase, Cloudflare R2, Paystack, Upstash, Inngest, Sentry).
+   - Scope them to **Production** and **Preview** environments.
 
 ---
 
@@ -159,6 +111,6 @@
 
 - [ ] `npm run lint` completes with zero errors and zero warnings.
 - [ ] Pull requests trigger GitHub Actions CI and block merge if any test or lint check fails.
-- [ ] Merging a PR into `main` automatically builds the multi-stage Docker image in GitHub Actions.
-- [ ] Container image is published to Google Artifact Registry in `europe-west3`.
-- [ ] Cloud Run successfully rolls out a new revision with zero manual SSH or CLI steps.
+- [ ] Docker container build step succeeds in CI guaranteeing continuous container portability.
+- [ ] Merging a PR into `main` automatically deploys a new production release to Vercel with zero downtime.
+- [ ] Instant rollback can be triggered via Vercel dashboard in <1 second.

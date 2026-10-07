@@ -127,13 +127,13 @@
    - Platform: **Next.js**
    - Project name: `cogent-production`
 3. Copy the **DSN** (`https://xxx@xxx.ingest.sentry.io/xxx`).
-4. Add to Cloud Run secrets as `SENTRY_DSN`.
+4. Add to Vercel environment variables as `SENTRY_DSN`.
 
 ### Step 2: Better Stack (Logs & Uptime) Setup
 1. Log into [Better Stack](https://betterstack.com/).
 2. Under **Logs**:
-   - Click **Sources** -> **Connect source** -> Select **Node.js (Pino)**.
-   - Name: `cogent-cloudrun-logs`.
+   - Click **Sources** -> **Connect source** -> Select **Node.js (Pino)** or **Vercel Integration**.
+   - Name: `cogent-production-logs`.
    - Copy the **Source Token** (`BETTER_STACK_SOURCE_TOKEN`).
 3. Under **Better Uptime**:
    - Click **Monitors** -> **Create Monitor**.

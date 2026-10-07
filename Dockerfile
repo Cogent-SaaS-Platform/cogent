@@ -1,7 +1,7 @@
 # ==============================================================================
 # Cogent Production Multi-Stage Dockerfile
 # Base: node:22-alpine | Output: Next.js 16 Standalone
-# Target: Google Cloud Run (Frankfurt: europe-west3)
+# Target: Portable Production Container Engine (Zero Vendor Lock-in)
 # Adheres to docs/launch/PHASE_A1_INFRASTRUCTURE.md & docs/SECURITY.md
 # ==============================================================================
 
