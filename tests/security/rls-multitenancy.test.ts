@@ -272,10 +272,10 @@ describe('Automated Multi-Tenant RLS Security Test Suite (Epic 8 / Task 8.2)', (
     it('throws UnauthorizedError in production environment when unauthenticated', async () => {
       const originalEnv = process.env.NODE_ENV;
       try {
-        process.env.NODE_ENV = 'production';
+        (process.env as any).NODE_ENV = 'production';
         await expect(getTenantContext()).rejects.toThrow(UnauthorizedError);
       } finally {
-        process.env.NODE_ENV = originalEnv;
+        (process.env as any).NODE_ENV = originalEnv;
       }
     });
 
