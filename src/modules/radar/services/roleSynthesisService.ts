@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { Database, createAdminClient, createClient } from '@/shared/db';
+import { Database } from '@/shared/db';
+import { ConfigurationError } from '@/shared/errors';
 import { AiEngine } from '@/shared/ai-engine';
 import { logger } from '@/shared/logger';
 import { LicenseType, PaymentRail, RegulatorCode } from '@/shared/types';
@@ -53,23 +54,15 @@ export interface RoleSynthesisResult {
  */
 export class RoleSynthesisService {
   private aiEngine: AiEngine;
-  private dbClient: SupabaseClient<Database> | null = null;
+  private dbClient: SupabaseClient<Database>;
 
-  constructor(options?: { aiEngine?: AiEngine; dbClient?: SupabaseClient<Database> }) {
-    this.aiEngine = options?.aiEngine || new AiEngine();
-    if (options?.dbClient) {
-      this.dbClient = options.dbClient;
-    } else {
-      try {
-        this.dbClient = createAdminClient();
-      } catch {
-        try {
-          this.dbClient = createClient();
-        } catch {
-          this.dbClient = null;
-        }
-      }
+  constructor(options: { dbClient: SupabaseClient<Database>; aiEngine?: AiEngine } | SupabaseClient<Database>) {
+    const client = options && 'dbClient' in options ? options.dbClient : (options as SupabaseClient<Database>);
+    if (!client) {
+      throw new ConfigurationError('RoleSynthesisService requires an RLS-bound SupabaseClient');
     }
+    this.dbClient = client;
+    this.aiEngine = options && 'aiEngine' in options && options.aiEngine ? options.aiEngine : new AiEngine();
   }
 
   /**
@@ -364,5 +357,3 @@ Generate the structured role briefings and action checklist.`;
     }
   }
 }
-
-export const defaultRoleSynthesisService = new RoleSynthesisService();

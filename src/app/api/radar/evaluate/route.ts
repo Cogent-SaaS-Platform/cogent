@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/shared/auth';
-import { defaultApplicabilityEngine } from '@/modules/radar/services/applicabilityEngine';
-import { defaultRoleSynthesisService } from '@/modules/radar/services/roleSynthesisService';
-import { createAdminClient, createClient } from '@/shared/db';
+import { ApplicabilityEngine } from '@/modules/radar/services/applicabilityEngine';
+import { RoleSynthesisService } from '@/modules/radar/services/roleSynthesisService';
 import { logger } from '@/shared/logger';
 import { RegulatorCode } from '@/shared/types';
 import { CircularTargetingContext } from '@/modules/radar/types';
@@ -10,12 +9,13 @@ import { CircularTargetingContext } from '@/modules/radar/types';
 export async function POST(req: NextRequest) {
   try {
     const tenantCtx = await getTenantContext();
+    const db = tenantCtx.dbClient;
     const body = await req.json();
     const {
       circularId,
-      organizationId = tenantCtx.organizationId,
       synthesizeBriefs = true,
     } = body;
+    const organizationId = tenantCtx.organizationId;
 
     if (!circularId) {
       return NextResponse.json(
@@ -24,15 +24,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    let db: any;
-    try {
-      db = createAdminClient();
-    } catch {
-      db = createClient();
-    }
-
     // 1. Fetch circular record from database
-    const { data: circular, error: circularError } = await db
+    const { data: circular, error: circularError } = await (db as any)
       .from('radar_circulars')
       .select('*')
       .eq('id', circularId)
@@ -45,8 +38,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const applicabilityEngine = new ApplicabilityEngine({ dbClient: db });
+    const roleSynthesisService = new RoleSynthesisService({ dbClient: db });
+
     // 2. Fetch tenant profile (licenses & rails)
-    const profile = await defaultApplicabilityEngine.fetchTenantProfile(organizationId);
+    const profile = await applicabilityEngine.fetchTenantProfile(organizationId);
     if (!profile) {
       return NextResponse.json(
         { success: false, error: `Tenant profile not found for organization: ${organizationId}` },
@@ -68,7 +64,7 @@ export async function POST(req: NextRequest) {
       appliesUniversally: circular.applies_universally || false,
     };
 
-    const applicabilityResult = defaultApplicabilityEngine.evaluateApplicability(
+    const applicabilityResult = applicabilityEngine.evaluateApplicability(
       profile,
       circularTargeting
     );
@@ -77,7 +73,7 @@ export async function POST(req: NextRequest) {
 
     // 4. If applicable and synthesis requested, invoke 4-way ExCo synthesis
     if (applicabilityResult.isApplicable && synthesizeBriefs) {
-      synthesisResult = await defaultRoleSynthesisService.synthesizeRoleImpacts({
+      synthesisResult = await roleSynthesisService.synthesizeRoleImpacts({
         circular: {
           id: circular.id,
           circularNumber: circular.circular_number,
@@ -98,7 +94,7 @@ export async function POST(req: NextRequest) {
       });
     } else {
       // Record non-applicable or unsynthesized status in radar_tenant_impacts
-      await db.from('radar_tenant_impacts').upsert(
+      await (db as any).from('radar_tenant_impacts').upsert(
         {
           organization_id: organizationId,
           circular_id: circularId,

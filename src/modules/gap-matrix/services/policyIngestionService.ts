@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { Database, createAdminClient, createClient } from '@/shared/db';
+import { Database } from '@/shared/db';
+import { ConfigurationError } from '@/shared/errors';
 import { AuditService } from '@/modules/audit/auditService';
 import { logger } from '@/shared/logger';
 import {
@@ -11,10 +12,7 @@ import {
   PolicyStructureExtractor,
   defaultPolicyStructureExtractor,
 } from './policyStructureExtractor';
-import {
-  PolicyVectorIndexService,
-  defaultPolicyVectorIndexService,
-} from './policyVectorIndexService';
+import { PolicyVectorIndexService } from './policyVectorIndexService';
 import { inngestGapMatrixDispatcher } from '../inngest/client';
 
 /**
@@ -23,34 +21,32 @@ import { inngestGapMatrixDispatcher } from '../inngest/client';
  * structural heading extraction, 768d clause vector indexing, and immutable audit sealing.
  */
 export class PolicyIngestionService {
-  private dbClient: SupabaseClient<Database> | null = null;
+  private dbClient: SupabaseClient<Database>;
   private auditService: AuditService;
   private structureExtractor: PolicyStructureExtractor;
   private vectorIndexService: PolicyVectorIndexService;
 
-  constructor(options?: {
-    dbClient?: SupabaseClient<Database>;
+  constructor(options: {
+    dbClient: SupabaseClient<Database>;
     auditService?: AuditService;
     structureExtractor?: PolicyStructureExtractor;
     vectorIndexService?: PolicyVectorIndexService;
-  }) {
-    if (options?.dbClient) {
-      this.dbClient = options.dbClient;
-    } else {
-      try {
-        this.dbClient = createAdminClient();
-      } catch {
-        try {
-          this.dbClient = createClient();
-        } catch {
-          this.dbClient = null;
-        }
-      }
+  } | SupabaseClient<Database>) {
+    const client = options && 'dbClient' in options ? options.dbClient : (options as SupabaseClient<Database>);
+    if (!client) {
+      throw new ConfigurationError('PolicyIngestionService requires an RLS-bound SupabaseClient');
     }
+    this.dbClient = client;
 
-    this.auditService = options?.auditService || new AuditService(this.dbClient as any);
-    this.structureExtractor = options?.structureExtractor || defaultPolicyStructureExtractor;
-    this.vectorIndexService = options?.vectorIndexService || defaultPolicyVectorIndexService;
+    this.auditService = (options && 'auditService' in options && options.auditService)
+      ? options.auditService
+      : new AuditService(this.dbClient);
+    this.structureExtractor = (options && 'structureExtractor' in options && options.structureExtractor)
+      ? options.structureExtractor
+      : defaultPolicyStructureExtractor;
+    this.vectorIndexService = (options && 'vectorIndexService' in options && options.vectorIndexService)
+      ? options.vectorIndexService
+      : new PolicyVectorIndexService({ dbClient: this.dbClient });
   }
 
   /**
@@ -263,5 +259,3 @@ export class PolicyIngestionService {
     }
   }
 }
-
-export const defaultPolicyIngestionService = new PolicyIngestionService();

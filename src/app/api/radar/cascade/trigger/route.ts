@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { defaultCascadeTriggerService } from '@/modules/radar/services/cascadeTriggerService';
+import { CascadeTriggerService } from '@/modules/radar/services/cascadeTriggerService';
 import { getTenantContext } from '@/shared/auth';
 import { logger } from '@/shared/logger';
 
@@ -27,10 +27,11 @@ export async function POST(req: NextRequest) {
     }
 
     const tenantCtx = await getTenantContext();
-    const organizationId = parsed.data.organizationId || tenantCtx.organizationId;
-    const userId = parsed.data.userId || tenantCtx.userId;
+    const organizationId = tenantCtx.organizationId;
+    const userId = tenantCtx.userId;
+    const cascadeTriggerService = new CascadeTriggerService({ dbClient: tenantCtx.dbClient });
 
-    const result = await defaultCascadeTriggerService.triggerGapReEvaluation({
+    const result = await cascadeTriggerService.triggerGapReEvaluation({
       circularId: parsed.data.circularId,
       organizationId,
       userId,

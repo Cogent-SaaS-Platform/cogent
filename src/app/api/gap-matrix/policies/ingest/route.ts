@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { defaultPolicyIngestionService } from '@/modules/gap-matrix/services/policyIngestionService';
+import { PolicyIngestionService } from '@/modules/gap-matrix/services/policyIngestionService';
 import { getTenantContext } from '@/shared/auth';
 import { logger } from '@/shared/logger';
 
@@ -7,8 +7,9 @@ export async function POST(req: NextRequest) {
   try {
     const contentType = req.headers.get('content-type') || '';
     const tenantCtx = await getTenantContext();
+    const policyIngestionService = new PolicyIngestionService({ dbClient: tenantCtx.dbClient });
     
-    let organizationId = tenantCtx.organizationId;
+    const organizationId = tenantCtx.organizationId;
     let title = 'Company Compliance Manual';
     let department = 'COMPLIANCE_LEGAL';
     let fileName = 'policy_document.txt';
@@ -20,7 +21,6 @@ export async function POST(req: NextRequest) {
 
     if (contentType.includes('multipart/form-data')) {
       const formData = await req.formData();
-      organizationId = (formData.get('organizationId') as string) || organizationId;
       title = (formData.get('title') as string) || title;
       department = (formData.get('department') as string) || department;
       versionTag = (formData.get('versionTag') as string) || versionTag;
@@ -36,7 +36,6 @@ export async function POST(req: NextRequest) {
       }
     } else {
       const json = await req.json();
-      organizationId = json.organizationId || organizationId;
       title = json.title || title;
       department = json.department || department;
       versionTag = json.versionTag || versionTag;
@@ -52,7 +51,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const document = await defaultPolicyIngestionService.ingestPolicy({
+    const document = await policyIngestionService.ingestPolicy({
       organizationId,
       title,
       department: department as any,

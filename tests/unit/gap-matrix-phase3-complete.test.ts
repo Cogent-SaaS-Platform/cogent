@@ -5,11 +5,9 @@ import {
 } from '@/modules/gap-matrix/services/geminiEmbeddingClient';
 import {
   PolicyChunkerService,
-  defaultPolicyChunkerService,
 } from '@/modules/gap-matrix/services/policyChunkerService';
 import {
   ConcordanceEngine,
-  defaultConcordanceEngine,
 } from '@/modules/gap-matrix/services/concordanceEngine';
 import {
   DossierExportService,
@@ -18,6 +16,14 @@ import {
 import {
   GapEvaluationResult,
 } from '@/modules/gap-matrix/types';
+
+const mockDb: any = {
+  from: () => ({
+    select: () => ({
+      eq: () => Promise.resolve({ data: [] }),
+    }),
+  }),
+};
 
 describe('Pillar 3 Complete Integration & Production Validation', () => {
   describe('Sub-Module 3.2: Gemini Embedding Client & pgvector Vector Calculations', () => {
@@ -44,7 +50,7 @@ describe('Pillar 3 Complete Integration & Production Validation', () => {
 
   describe('Sub-Module 3.2: Policy Chunker Service', () => {
     it('hierarchically parses policies preserving section numbers and headings', async () => {
-      const chunker = new PolicyChunkerService();
+      const chunker = new PolicyChunkerService({ dbClient: mockDb });
       const rawPolicy = `
 # FinTech Credit Risk & AML Operational Manual
 
@@ -78,7 +84,7 @@ All suspicious transactions shall be filed within seventy-two (72) hours to the 
 
   describe('Sub-Module 3.3: 3-Tier Clause Concordance Engine', () => {
     it('classifies compliance into 3 strict statutory tiers', () => {
-      const engine = new ConcordanceEngine();
+      const engine = new ConcordanceEngine({ dbClient: mockDb });
 
       const statClause72h: any = {
         sectionReference: 'Regulation 14(2)',
@@ -122,7 +128,7 @@ All suspicious transactions shall be filed within seventy-two (72) hours to the 
     });
 
     it('classifies PEP approval omission as CRITICAL_GAP when executive sign-off is missing', () => {
-      const engine = new ConcordanceEngine();
+      const engine = new ConcordanceEngine({ dbClient: mockDb });
       const pepStatClause: any = {
         sectionReference: 'Regulation 19(1)(b)',
         sectionHeading: 'Executive Sign-Off on Politically Exposed Persons (PEPs)',

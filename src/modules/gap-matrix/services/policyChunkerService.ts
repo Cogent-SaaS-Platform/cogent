@@ -13,10 +13,10 @@ import {
   GeminiEmbeddingClient,
   defaultGeminiEmbeddingClient,
 } from './geminiEmbeddingClient';
-import {
-  PolicyVectorIndexService,
-  defaultPolicyVectorIndexService,
-} from './policyVectorIndexService';
+import { PolicyVectorIndexService } from './policyVectorIndexService';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { Database } from '@/shared/db';
+import { ConfigurationError } from '@/shared/errors';
 
 export interface AtomicChunkingResult {
   title: string;
@@ -50,16 +50,21 @@ export interface ParseAndIndexPolicyParams {
 export class PolicyChunkerService {
   private extractor: PolicyStructureExtractor;
   private embeddingClient: GeminiEmbeddingClient;
-  private vectorIndexService: PolicyVectorIndexService;
+  private vectorIndexService?: PolicyVectorIndexService;
 
   constructor(options?: {
     extractor?: PolicyStructureExtractor;
     embeddingClient?: GeminiEmbeddingClient;
     vectorIndexService?: PolicyVectorIndexService;
+    dbClient?: SupabaseClient<Database>;
   }) {
     this.extractor = options?.extractor || defaultPolicyStructureExtractor;
     this.embeddingClient = options?.embeddingClient || defaultGeminiEmbeddingClient;
-    this.vectorIndexService = options?.vectorIndexService || defaultPolicyVectorIndexService;
+    if (options?.vectorIndexService) {
+      this.vectorIndexService = options.vectorIndexService;
+    } else if (options?.dbClient) {
+      this.vectorIndexService = new PolicyVectorIndexService({ dbClient: options.dbClient });
+    }
   }
 
   /**
@@ -89,6 +94,10 @@ export class PolicyChunkerService {
 
     const structure = await this.extractor.extractStructure(input);
 
+    if (!this.vectorIndexService) {
+      throw new ConfigurationError('PolicyChunkerService requires an injected PolicyVectorIndexService or dbClient');
+    }
+
     const indexResult = await this.vectorIndexService.indexPolicyClauses({
       organizationId,
       policyId,
@@ -106,5 +115,3 @@ export class PolicyChunkerService {
     };
   }
 }
-
-export const defaultPolicyChunkerService = new PolicyChunkerService();

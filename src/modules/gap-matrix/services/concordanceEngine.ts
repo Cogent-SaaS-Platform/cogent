@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { Database, createAdminClient, createClient } from '@/shared/db';
+import { Database } from '@/shared/db';
+import { ConfigurationError } from '@/shared/errors';
 import { logger } from '@/shared/logger';
 import { ComplianceStatus } from '@/shared/types';
 import {
@@ -7,14 +8,8 @@ import {
   PolicyClauseMatch,
   GapClausePairPromptInput,
 } from '../types';
-import {
-  StatutoryBenchmarkService,
-  defaultStatutoryBenchmarkService,
-} from './statutoryBenchmarkService';
-import {
-  PolicyVectorIndexService,
-  defaultPolicyVectorIndexService,
-} from './policyVectorIndexService';
+import { StatutoryBenchmarkService } from './statutoryBenchmarkService';
+import { PolicyVectorIndexService } from './policyVectorIndexService';
 
 export interface ConcordanceEvaluationInput {
   organizationId: string;
@@ -58,31 +53,27 @@ export interface ConcordanceRunResult {
  * Adheres to docs/PILLAR_3_5W_GAP_MATRIX.md Section 3 & 4.
  */
 export class ConcordanceEngine {
-  private dbClient: SupabaseClient<Database> | null = null;
+  private dbClient: SupabaseClient<Database>;
   private benchmarkService: StatutoryBenchmarkService;
   private vectorIndexService: PolicyVectorIndexService;
 
-  constructor(options?: {
-    dbClient?: SupabaseClient<Database>;
+  constructor(options: {
+    dbClient: SupabaseClient<Database>;
     benchmarkService?: StatutoryBenchmarkService;
     vectorIndexService?: PolicyVectorIndexService;
-  }) {
-    if (options?.dbClient) {
-      this.dbClient = options.dbClient;
-    } else {
-      try {
-        this.dbClient = createAdminClient();
-      } catch {
-        try {
-          this.dbClient = createClient();
-        } catch {
-          this.dbClient = null;
-        }
-      }
+  } | SupabaseClient<Database>) {
+    const client = options && 'dbClient' in options ? options.dbClient : (options as SupabaseClient<Database>);
+    if (!client) {
+      throw new ConfigurationError('ConcordanceEngine requires an RLS-bound SupabaseClient');
     }
+    this.dbClient = client;
 
-    this.benchmarkService = options?.benchmarkService || defaultStatutoryBenchmarkService;
-    this.vectorIndexService = options?.vectorIndexService || defaultPolicyVectorIndexService;
+    this.benchmarkService = (options && 'benchmarkService' in options && options.benchmarkService)
+      ? options.benchmarkService
+      : new StatutoryBenchmarkService({ dbClient: this.dbClient });
+    this.vectorIndexService = (options && 'vectorIndexService' in options && options.vectorIndexService)
+      ? options.vectorIndexService
+      : new PolicyVectorIndexService({ dbClient: this.dbClient });
   }
 
   /**
@@ -297,5 +288,3 @@ export class ConcordanceEngine {
     return 'CRITICAL_GAP';
   }
 }
-
-export const defaultConcordanceEngine = new ConcordanceEngine();

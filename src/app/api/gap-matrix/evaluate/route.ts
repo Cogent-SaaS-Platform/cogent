@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { defaultGapSynthesisService } from '@/modules/gap-matrix/services/gapSynthesisService';
+import { GapSynthesisService } from '@/modules/gap-matrix/services/gapSynthesisService';
 import { getTenantContext } from '@/shared/auth';
 import { logger } from '@/shared/logger';
 
@@ -7,15 +7,16 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const tenantCtx = await getTenantContext();
+    const gapSynthesisService = new GapSynthesisService({ dbClient: tenantCtx.dbClient });
 
     const {
-      organizationId = tenantCtx.organizationId,
       policyId,
       benchmarkDocumentVersionId,
       policyTitle,
       department,
-      userId = tenantCtx.userId,
     } = body;
+    const organizationId = tenantCtx.organizationId;
+    const userId = tenantCtx.userId;
 
     if (!policyId || !benchmarkDocumentVersionId) {
       return NextResponse.json(
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const evaluation = await defaultGapSynthesisService.evaluatePolicyGap({
+    const evaluation = await gapSynthesisService.evaluatePolicyGap({
       organizationId,
       policyId,
       benchmarkDocumentVersionId,

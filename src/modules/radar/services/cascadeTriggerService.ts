@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { Database, createAdminClient, createClient } from '@/shared/db';
+import { Database } from '@/shared/db';
+import { ConfigurationError } from '@/shared/errors';
 import { AuditService } from '@/modules/audit/auditService';
 import { RadarNotificationService } from './radarNotificationService';
 import { logger } from '@/shared/logger';
@@ -58,31 +59,27 @@ export interface ExtractedDomainMetadata {
  * 5. Commits immutable CAMA/BOFIA audit record (`CASCADE_GAP_RE_EVALUATION_TRIGGERED`).
  */
 export class CascadeTriggerService {
-  private dbClient: SupabaseClient<Database> | null = null;
+  private dbClient: SupabaseClient<Database>;
   private auditService: AuditService;
   private notificationService: RadarNotificationService;
 
-  constructor(options?: {
-    dbClient?: SupabaseClient<Database>;
+  constructor(options: {
+    dbClient: SupabaseClient<Database>;
     auditService?: AuditService;
     notificationService?: RadarNotificationService;
-  }) {
-    if (options?.dbClient) {
-      this.dbClient = options.dbClient;
-    } else {
-      try {
-        this.dbClient = createAdminClient();
-      } catch {
-        try {
-          this.dbClient = createClient();
-        } catch {
-          this.dbClient = null;
-        }
-      }
+  } | SupabaseClient<Database>) {
+    const client = options && 'dbClient' in options ? options.dbClient : (options as SupabaseClient<Database>);
+    if (!client) {
+      throw new ConfigurationError('CascadeTriggerService requires an RLS-bound SupabaseClient');
     }
+    this.dbClient = client;
 
-    this.auditService = options?.auditService || new AuditService(this.dbClient as any);
-    this.notificationService = options?.notificationService || new RadarNotificationService(this.dbClient as any);
+    this.auditService = (options && 'auditService' in options && options.auditService)
+      ? options.auditService
+      : new AuditService(this.dbClient);
+    this.notificationService = (options && 'notificationService' in options && options.notificationService)
+      ? options.notificationService
+      : new RadarNotificationService(this.dbClient);
   }
 
   /**
@@ -501,5 +498,3 @@ export class CascadeTriggerService {
     };
   }
 }
-
-export const defaultCascadeTriggerService = new CascadeTriggerService();

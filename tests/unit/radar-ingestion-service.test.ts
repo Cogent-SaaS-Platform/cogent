@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { CircularIngestionService } from '@/modules/radar/services/circularIngestionService';
 import { AuditService } from '@/modules/audit/auditService';
+import { createAdminClient } from '@/shared/db';
 
 describe('Epic 9: Multi-Regulator Circular Ingestion Pipeline', () => {
-  const service = new CircularIngestionService();
+  const service = new CircularIngestionService({ dbClient: createAdminClient() });
 
   const sampleCircularText = `
 CENTRAL BANK OF NIGERIA

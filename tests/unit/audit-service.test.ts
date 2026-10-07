@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { AuditService } from '@/modules/audit/auditService';
 import { CreateAuditLogParams } from '@/shared/types';
+import { createAdminClient } from '@/shared/db';
 
 describe('AuditService (Epic 7 / Task 7.1 - Immutable Audit Ledger)', () => {
   it('computes genuine, deterministic SHA-256 digests for strings and objects', () => {
@@ -26,7 +27,7 @@ describe('AuditService (Epic 7 / Task 7.1 - Immutable Audit Ledger)', () => {
   });
 
   it('records append-only zero-knowledge audit log entry (CAMA/BOFIA 6-year retention)', async () => {
-    const auditService = new AuditService();
+    const auditService = new AuditService(createAdminClient());
     const inputHash = AuditService.computeSha256('Raw campaign input copy');
     const outputHash = AuditService.computeSha256('Verified compliant output rewrite');
     const orgId = '00000000-0000-0000-0000-000000000001';

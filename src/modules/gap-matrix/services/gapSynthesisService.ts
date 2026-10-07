@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { Database, createAdminClient, createClient } from '@/shared/db';
+import { Database } from '@/shared/db';
+import { ConfigurationError } from '@/shared/errors';
 import { AiEngine } from '@/shared/ai-engine';
 import { AuditService } from '@/modules/audit/auditService';
 import { logger } from '@/shared/logger';
@@ -10,14 +11,8 @@ import {
   GapEvaluationOutputSchema,
   GapClausePairPromptInput,
 } from '../types';
-import {
-  StatutoryBenchmarkService,
-  defaultStatutoryBenchmarkService,
-} from './statutoryBenchmarkService';
-import {
-  PolicyVectorIndexService,
-  defaultPolicyVectorIndexService,
-} from './policyVectorIndexService';
+import { StatutoryBenchmarkService } from './statutoryBenchmarkService';
+import { PolicyVectorIndexService } from './policyVectorIndexService';
 import { buildGapMatrixPrompt } from '@/shared/ai-engine/prompts/gapMatrixPrompts';
 
 export interface ExecuteGapEvaluationParams {
@@ -35,37 +30,37 @@ export interface ExecuteGapEvaluationParams {
  * deterministic penalty attachment from statutory_penalties, and immutable audit logging.
  */
 export class GapSynthesisService {
-  private dbClient: SupabaseClient<Database> | null = null;
+  private dbClient: SupabaseClient<Database>;
   private aiEngine: AiEngine;
   private benchmarkService: StatutoryBenchmarkService;
   private vectorIndexService: PolicyVectorIndexService;
   private auditService: AuditService;
 
-  constructor(options?: {
-    dbClient?: SupabaseClient<Database>;
+  constructor(options: {
+    dbClient: SupabaseClient<Database>;
     aiEngine?: AiEngine;
     benchmarkService?: StatutoryBenchmarkService;
     vectorIndexService?: PolicyVectorIndexService;
     auditService?: AuditService;
-  }) {
-    if (options?.dbClient) {
-      this.dbClient = options.dbClient;
-    } else {
-      try {
-        this.dbClient = createAdminClient();
-      } catch {
-        try {
-          this.dbClient = createClient();
-        } catch {
-          this.dbClient = null;
-        }
-      }
+  } | SupabaseClient<Database>) {
+    const client = options && 'dbClient' in options ? options.dbClient : (options as SupabaseClient<Database>);
+    if (!client) {
+      throw new ConfigurationError('GapSynthesisService requires an RLS-bound SupabaseClient');
     }
+    this.dbClient = client;
 
-    this.aiEngine = options?.aiEngine || new AiEngine();
-    this.benchmarkService = options?.benchmarkService || defaultStatutoryBenchmarkService;
-    this.vectorIndexService = options?.vectorIndexService || defaultPolicyVectorIndexService;
-    this.auditService = options?.auditService || new AuditService(this.dbClient as any);
+    this.aiEngine = (options && 'aiEngine' in options && options.aiEngine)
+      ? options.aiEngine
+      : new AiEngine();
+    this.benchmarkService = (options && 'benchmarkService' in options && options.benchmarkService)
+      ? options.benchmarkService
+      : new StatutoryBenchmarkService({ dbClient: this.dbClient });
+    this.vectorIndexService = (options && 'vectorIndexService' in options && options.vectorIndexService)
+      ? options.vectorIndexService
+      : new PolicyVectorIndexService({ dbClient: this.dbClient });
+    this.auditService = (options && 'auditService' in options && options.auditService)
+      ? options.auditService
+      : new AuditService(this.dbClient);
   }
 
   /**
@@ -476,5 +471,3 @@ export class GapSynthesisService {
     };
   }
 }
-
-export const defaultGapSynthesisService = new GapSynthesisService();

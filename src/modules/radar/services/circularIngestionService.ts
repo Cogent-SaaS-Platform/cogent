@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { createAdminClient, createClient, Database } from '@/shared/db';
+import { Database } from '@/shared/db';
+import { ConfigurationError } from '@/shared/errors';
 import { AuditService } from '@/modules/audit/auditService';
 import { logger } from '@/shared/logger';
 import {
@@ -16,7 +17,7 @@ import {
   DeterministicMetadataExtractor,
   defaultDeterministicMetadataExtractor,
 } from './deterministicMetadataExtractor';
-import { defaultLineageService } from './lineageService';
+import { LineageService } from './lineageService';
 import { LineageStatus } from '@/shared/types';
 import { inngestDispatcher } from '../inngest/client';
 
@@ -26,34 +27,37 @@ import { inngestDispatcher } from '../inngest/client';
  * storage uploading, DB persistence, Inngest event dispatching, and audit sealing.
  */
 export class CircularIngestionService {
-  private dbClient: SupabaseClient<Database> | null = null;
+  private dbClient: SupabaseClient<Database>;
   private auditService: AuditService;
   private structureExtractor: PdfStructureExtractor;
   private metadataExtractor: DeterministicMetadataExtractor;
+  private lineageService: LineageService;
 
-  constructor(options?: {
-    dbClient?: SupabaseClient<Database>;
+  constructor(options: {
+    dbClient: SupabaseClient<Database>;
     auditService?: AuditService;
     structureExtractor?: PdfStructureExtractor;
     metadataExtractor?: DeterministicMetadataExtractor;
-  }) {
-    if (options?.dbClient) {
-      this.dbClient = options.dbClient;
-    } else {
-      try {
-        this.dbClient = createAdminClient();
-      } catch (err) {
-        try {
-          this.dbClient = createClient();
-        } catch {
-          this.dbClient = null;
-        }
-      }
+    lineageService?: LineageService;
+  } | SupabaseClient<Database>) {
+    const client = options && 'dbClient' in options ? options.dbClient : (options as SupabaseClient<Database>);
+    if (!client) {
+      throw new ConfigurationError('CircularIngestionService requires an RLS-bound SupabaseClient');
     }
+    this.dbClient = client;
 
-    this.auditService = options?.auditService || new AuditService(this.dbClient as any);
-    this.structureExtractor = options?.structureExtractor || defaultPdfStructureExtractor;
-    this.metadataExtractor = options?.metadataExtractor || defaultDeterministicMetadataExtractor;
+    this.auditService = (options && 'auditService' in options && options.auditService)
+      ? options.auditService
+      : new AuditService(this.dbClient);
+    this.structureExtractor = (options && 'structureExtractor' in options && options.structureExtractor)
+      ? options.structureExtractor
+      : defaultPdfStructureExtractor;
+    this.metadataExtractor = (options && 'metadataExtractor' in options && options.metadataExtractor)
+      ? options.metadataExtractor
+      : defaultDeterministicMetadataExtractor;
+    this.lineageService = (options && 'lineageService' in options && options.lineageService)
+      ? options.lineageService
+      : new LineageService(this.dbClient);
   }
 
   /**
@@ -119,7 +123,7 @@ export class CircularIngestionService {
 
     // Step 7: Resolve Lineage & Supersession Links (Task 2.5)
     try {
-      await defaultLineageService.detectAndLinkLineageFromText(circularId, extractedStructure.rawText);
+      await this.lineageService.detectAndLinkLineageFromText(circularId, extractedStructure.rawText);
     } catch (lineageErr) {
       logger.warn({ lineageErr }, 'Automated circular lineage linking encountered warning');
     }
@@ -324,5 +328,3 @@ export class CircularIngestionService {
     return { circularId, documentVersionId, deduplicated: false, lineageStatus: 'ACTIVE_LAW' };
   }
 }
-
-export const defaultCircularIngestionService = new CircularIngestionService();

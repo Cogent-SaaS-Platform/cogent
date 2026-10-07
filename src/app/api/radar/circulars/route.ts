@@ -1,21 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient, createAdminClient } from '@/shared/db';
+import { getTenantContext } from '@/shared/auth';
 import { logger } from '@/shared/logger';
 import { defaultCountdownCalculator } from '@/modules/radar/services/deadlineCountdownCalculator';
 import { RegulatorCode } from '@/shared/types';
 
 export async function GET(req: NextRequest) {
   try {
+    const tenantCtx = await getTenantContext();
+    const db = tenantCtx.dbClient;
     const { searchParams } = new URL(req.url);
     const regulator = searchParams.get('regulator');
     const priority = searchParams.get('priority');
-
-    let db;
-    try {
-      db = createAdminClient();
-    } catch {
-      db = createClient();
-    }
 
     let query = db
       .from('radar_circulars')

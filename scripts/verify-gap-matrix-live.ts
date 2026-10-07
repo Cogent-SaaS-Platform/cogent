@@ -8,7 +8,7 @@ import { PolicyIngestionService } from '../src/modules/gap-matrix/services/polic
 import { PolicyVectorIndexService } from '../src/modules/gap-matrix/services/policyVectorIndexService';
 import { GapSynthesisService } from '../src/modules/gap-matrix/services/gapSynthesisService';
 import { DossierExportService } from '../src/modules/gap-matrix/services/dossierExportService';
-import { defaultStatutoryBenchmarkService } from '../src/modules/gap-matrix/services/statutoryBenchmarkService';
+import { StatutoryBenchmarkService } from '../src/modules/gap-matrix/services/statutoryBenchmarkService';
 
 // 1. Manually load environment variables from .env.local if present
 const envPath = path.resolve(process.cwd(), '.env.local');
@@ -141,20 +141,20 @@ async function runLiveGapMatrixVerification() {
   console.log('--------------------------------------------------------------------------------');
   console.log('STEP 3: STATUTORY BENCHMARK PAIRING & OBLIGATION RETRIEVAL (Epic 16)');
   console.log('--------------------------------------------------------------------------------');
-  const benchmarkService = defaultStatutoryBenchmarkService;
+  const benchmarkService = new StatutoryBenchmarkService({ dbClient });
   const availableBenchmarks = await benchmarkService.getAvailableBenchmarks('OPERATIONS');
   console.log(`✅ Available Regulatory Benchmarks: ${availableBenchmarks.length}`);
-  availableBenchmarks.forEach((b) => {
+  availableBenchmarks.forEach((b: any) => {
     console.log(`   • [${b.regulatorCode}] ${b.shortName} (${b.referenceCode}) - ${b.clausesCount} clauses`);
   });
 
   // Pick CBN CPF 2019 or CBN AML 2022
-  const chosenBenchmark = availableBenchmarks.find((b) => b.documentVersionId.includes('cbn')) || availableBenchmarks[0];
+  const chosenBenchmark = availableBenchmarks.find((b: any) => b.documentVersionId.includes('cbn')) || availableBenchmarks[0];
   console.log(`\n🎯 Selected Target Benchmark: "${chosenBenchmark.instrumentTitle}"`);
 
   const benchmarkClauses = await benchmarkService.getBenchmarkClausesWithObligations(chosenBenchmark.documentVersionId);
   console.log(`✅ Retrieved ${benchmarkClauses.length} statutory baseline clauses with statutory penalties from DB/Corpus:\n`);
-  benchmarkClauses.slice(0, 3).forEach((bc) => {
+  benchmarkClauses.slice(0, 3).forEach((bc: any) => {
     const ob = bc.obligations[0];
     const pen = ob?.penalties[0];
     console.log(`   [Statutory Ref: ${bc.sectionReference}] "${bc.sectionHeading}"`);

@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { Database, createAdminClient, createClient } from '@/shared/db';
+import { Database } from '@/shared/db';
+import { ConfigurationError } from '@/shared/errors';
 import { AmendmentType, LineageStatus, RegulatorCode } from '@/shared/types';
 import { logger } from '@/shared/logger';
 
@@ -37,22 +38,14 @@ export interface LineageGraphResult {
  * Resolves amendment parentage, supersession trees, and the currently active governing statutory law.
  */
 export class LineageService {
-  private dbClient: SupabaseClient<Database> | null = null;
+  private dbClient: SupabaseClient<Database>;
 
-  constructor(dbClient?: SupabaseClient<Database>) {
-    if (dbClient) {
-      this.dbClient = dbClient;
-    } else {
-      try {
-        this.dbClient = createAdminClient();
-      } catch {
-        try {
-          this.dbClient = createClient();
-        } catch {
-          this.dbClient = null;
-        }
-      }
+  constructor(options: { dbClient: SupabaseClient<Database> } | SupabaseClient<Database>) {
+    const client = options && 'dbClient' in options ? options.dbClient : (options as SupabaseClient<Database>);
+    if (!client) {
+      throw new ConfigurationError('LineageService requires an RLS-bound SupabaseClient');
     }
+    this.dbClient = client;
   }
 
   /**
@@ -359,5 +352,3 @@ export class LineageService {
     return createdEdges;
   }
 }
-
-export const defaultLineageService = new LineageService();

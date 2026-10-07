@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getTenantContext } from '@/shared/auth';
 import { defaultDossierExportService } from '@/modules/gap-matrix/services/dossierExportService';
 import { logger } from '@/shared/logger';
 
 export async function POST(req: NextRequest) {
   try {
+    await getTenantContext();
     const body = await req.json();
     const { evaluationResult, organizationName, ccoName, notes } = body;
 

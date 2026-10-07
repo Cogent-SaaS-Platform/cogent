@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { Database, createAdminClient, createClient } from '@/shared/db';
+import { Database } from '@/shared/db';
+import { ConfigurationError } from '@/shared/errors';
 import { logger } from '@/shared/logger';
 import {
   StatutoryBenchmarkFramework,
@@ -16,22 +17,14 @@ import {
  * Links internal policies to relevant regulatory frameworks and extracts statutory baselines.
  */
 export class StatutoryBenchmarkService {
-  private dbClient: SupabaseClient<Database> | null = null;
+  private dbClient: SupabaseClient<Database>;
 
-  constructor(options?: { dbClient?: SupabaseClient<Database> }) {
-    if (options?.dbClient) {
-      this.dbClient = options.dbClient;
-    } else {
-      try {
-        this.dbClient = createAdminClient();
-      } catch {
-        try {
-          this.dbClient = createClient();
-        } catch {
-          this.dbClient = null;
-        }
-      }
+  constructor(options: { dbClient: SupabaseClient<Database> } | SupabaseClient<Database>) {
+    const client = options && 'dbClient' in options ? options.dbClient : (options as SupabaseClient<Database>);
+    if (!client) {
+      throw new ConfigurationError('StatutoryBenchmarkService requires an RLS-bound SupabaseClient');
     }
+    this.dbClient = client;
   }
 
   /**
@@ -285,5 +278,3 @@ export class StatutoryBenchmarkService {
     }));
   }
 }
-
-export const defaultStatutoryBenchmarkService = new StatutoryBenchmarkService();

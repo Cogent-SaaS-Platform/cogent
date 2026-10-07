@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   GapSynthesisService,
-  defaultGapSynthesisService,
 } from '@/modules/gap-matrix/services/gapSynthesisService';
+import { createAdminClient } from '@/shared/db';
 
 describe('Epic 17: 5-W Operational Synthesis & Deterministic Penalty Engine', () => {
-  const service = new GapSynthesisService();
+  const service = new GapSynthesisService({ dbClient: createAdminClient() });
 
   it('synthesizes complete 5-W framework items with deterministic penalty attachment', async () => {
     const result = await service.evaluatePolicyGap({

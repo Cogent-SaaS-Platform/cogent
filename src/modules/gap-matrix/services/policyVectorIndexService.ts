@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { Database, createAdminClient, createClient } from '@/shared/db';
+import { Database } from '@/shared/db';
+import { ConfigurationError } from '@/shared/errors';
 import { AiEngine } from '@/shared/ai-engine';
 import { logger } from '@/shared/logger';
 import { ExtractedPolicyClause, PolicyClauseMatch } from '../types';
@@ -16,28 +17,19 @@ export interface IndexPolicyClausesParams {
  * and executes tenant-isolated vector searches.
  */
 export class PolicyVectorIndexService {
-  private dbClient: SupabaseClient<Database> | null = null;
+  private dbClient: SupabaseClient<Database>;
   private aiEngine: AiEngine;
 
-  constructor(options?: {
-    dbClient?: SupabaseClient<Database>;
+  constructor(options: {
+    dbClient: SupabaseClient<Database>;
     aiEngine?: AiEngine;
-  }) {
-    if (options?.dbClient) {
-      this.dbClient = options.dbClient;
-    } else {
-      try {
-        this.dbClient = createAdminClient();
-      } catch {
-        try {
-          this.dbClient = createClient();
-        } catch {
-          this.dbClient = null;
-        }
-      }
+  } | SupabaseClient<Database>) {
+    const client = options && 'dbClient' in options ? options.dbClient : (options as SupabaseClient<Database>);
+    if (!client) {
+      throw new ConfigurationError('PolicyVectorIndexService requires an RLS-bound SupabaseClient');
     }
-
-    this.aiEngine = options?.aiEngine || new AiEngine();
+    this.dbClient = client;
+    this.aiEngine = (options && 'aiEngine' in options && options.aiEngine) ? options.aiEngine : new AiEngine();
   }
 
   /**
@@ -196,5 +188,3 @@ export class PolicyVectorIndexService {
     }));
   }
 }
-
-export const defaultPolicyVectorIndexService = new PolicyVectorIndexService();

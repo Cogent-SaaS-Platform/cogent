@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { ExecutiveOverviewService } from '@/modules/executive/services/executiveOverviewService';
 import { PlatformPillar } from '@/shared/types';
+import { createAdminClient } from '@/shared/db';
 
 describe('Epic 19: Unified Executive Dashboard & Overview (Task 19.1)', () => {
-  const service = new ExecutiveOverviewService();
+  const service = new ExecutiveOverviewService({ dbClient: createAdminClient() });
 
   it('generates a complete multi-pillar executive overview data payload', async () => {
     const overview = await service.getExecutiveOverview(

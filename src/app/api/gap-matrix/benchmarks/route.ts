@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { defaultStatutoryBenchmarkService } from '@/modules/gap-matrix/services/statutoryBenchmarkService';
+import { StatutoryBenchmarkService } from '@/modules/gap-matrix/services/statutoryBenchmarkService';
+import { getTenantContext } from '@/shared/auth';
 import { OrgDepartment } from '@/shared/types';
 import { logger } from '@/shared/logger';
 
 export async function GET(req: NextRequest) {
   try {
+    const tenantCtx = await getTenantContext();
+    const benchmarkService = new StatutoryBenchmarkService({ dbClient: tenantCtx.dbClient });
     const { searchParams } = new URL(req.url);
     const department = searchParams.get('department') as OrgDepartment | null;
 
-    const benchmarks = await defaultStatutoryBenchmarkService.getAvailableBenchmarks(
+    const benchmarks = await benchmarkService.getAvailableBenchmarks(
       department || undefined
     );
 

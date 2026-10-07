@@ -8,12 +8,24 @@ describe('Phase 4: The Connected Compliance Cascade Integration Tests', () => {
   const testOrgId = '00000000-0000-0000-0000-000000000001';
   const testCircularId = 'b20fb350-262a-409c-a7bc-9807604da6ec';
 
+  const defaultMockDbClient = {
+    from: vi.fn(() => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      limit: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: null, error: null }),
+      insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+      upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
+    })),
+  } as any;
+
   // ============================================================================
   // 4.1 Upstream Circular -> Trigger Downstream Gap Re-evaluation
   // ============================================================================
   describe('4.1 Upstream Circular -> Trigger Downstream Gap Re-evaluation', () => {
     it('accurately extracts affected regulatory domains and keywords from circular text', () => {
-      const service = new CascadeTriggerService();
+      const service = new CascadeTriggerService({ dbClient: defaultMockDbClient });
 
       // Test AML/CFT circular
       const amlExtraction = service.extractAffectedDomains({
@@ -133,7 +145,7 @@ describe('Phase 4: The Connected Compliance Cascade Integration Tests', () => {
   // ============================================================================
   describe('4.2 Upstream Circular -> Trigger Downstream Marketing Drift Check', () => {
     it('correctly assesses whether an upstream circular impacts marketing copy', () => {
-      const listener = new MarketingCascadeListener();
+      const listener = new MarketingCascadeListener({ dbClient: defaultMockDbClient });
 
       const adCircular = listener.isMarketingImpacted({
         subject: 'ARCON Code of Advertising Practice 2026: Mandatory Commercial Vetting',
@@ -253,7 +265,7 @@ describe('Phase 4: The Connected Compliance Cascade Integration Tests', () => {
     });
 
     it('respects simulationMode without mutating active records', async () => {
-      const listener = new MarketingCascadeListener();
+      const listener = new MarketingCascadeListener({ dbClient: defaultMockDbClient });
       const result = await listener.checkMarketingDrift({
         circularId: testCircularId,
         organizationId: testOrgId,
@@ -270,7 +282,7 @@ describe('Phase 4: The Connected Compliance Cascade Integration Tests', () => {
   // 4.3 Unified Executive Command Center
   // ============================================================================
   describe('4.3 Unified Executive Command Center Telemetry & Export', () => {
-    const executiveService = new ExecutiveOverviewService();
+    const executiveService = new ExecutiveOverviewService({ dbClient: defaultMockDbClient });
 
     it('calculates the composite institutional health score and determines canonical health grade', async () => {
       const overview = await executiveService.getExecutiveOverview(testOrgId);

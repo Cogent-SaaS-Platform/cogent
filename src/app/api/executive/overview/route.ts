@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { defaultExecutiveOverviewService } from '@/modules/executive/services/executiveOverviewService';
+import { ExecutiveOverviewService } from '@/modules/executive/services/executiveOverviewService';
 import { getTenantContext } from '@/shared/auth';
 import { logger } from '@/shared/logger';
 
@@ -7,10 +7,11 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const tenantCtx = await getTenantContext();
-    const organizationId = searchParams.get('organizationId') || tenantCtx.organizationId;
+    const organizationId = tenantCtx.organizationId;
     const organizationName = searchParams.get('organizationName') || 'Apex Paystack FinTech Ltd';
+    const executiveOverviewService = new ExecutiveOverviewService({ dbClient: tenantCtx.dbClient });
 
-    const data = await defaultExecutiveOverviewService.getExecutiveOverview(
+    const data = await executiveOverviewService.getExecutiveOverview(
       organizationId,
       organizationName
     );

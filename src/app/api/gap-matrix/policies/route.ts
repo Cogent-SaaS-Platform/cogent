@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { defaultPolicyIngestionService } from '@/modules/gap-matrix/services/policyIngestionService';
+import { PolicyIngestionService } from '@/modules/gap-matrix/services/policyIngestionService';
 import { getTenantContext } from '@/shared/auth';
-import { createAdminClient, createClient } from '@/shared/db';
 import { logger } from '@/shared/logger';
 
 /**
@@ -12,25 +11,7 @@ export async function GET(req: NextRequest) {
   try {
     const tenantCtx = await getTenantContext();
     const organizationId = tenantCtx.organizationId;
-
-    let dbClient;
-    try {
-      dbClient = createAdminClient();
-    } catch {
-      try {
-        dbClient = createClient();
-      } catch {
-        dbClient = null;
-      }
-    }
-
-    if (!dbClient) {
-      return NextResponse.json({
-        success: true,
-        data: [],
-        message: 'No active database client; returning empty policies list',
-      });
-    }
+    const dbClient = tenantCtx.dbClient;
 
     const { data: policies, error } = await (dbClient as any)
       .from('policy_documents')
@@ -105,8 +86,9 @@ export async function POST(req: NextRequest) {
   try {
     const contentType = req.headers.get('content-type') || '';
     const tenantCtx = await getTenantContext();
+    const policyIngestionService = new PolicyIngestionService({ dbClient: tenantCtx.dbClient });
 
-    let organizationId = tenantCtx.organizationId;
+    const organizationId = tenantCtx.organizationId;
     let title = 'Company Compliance Manual';
     let department = 'COMPLIANCE_LEGAL';
     let fileName = 'policy_document.txt';
@@ -117,7 +99,6 @@ export async function POST(req: NextRequest) {
 
     if (contentType.includes('multipart/form-data')) {
       const formData = await req.formData();
-      organizationId = (formData.get('organizationId') as string) || organizationId;
       title = (formData.get('title') as string) || title;
       department = (formData.get('department') as string) || department;
       versionTag = (formData.get('versionTag') as string) || versionTag;
@@ -133,7 +114,6 @@ export async function POST(req: NextRequest) {
       }
     } else {
       const json = await req.json();
-      organizationId = json.organizationId || organizationId;
       title = json.title || title;
       department = json.department || department;
       versionTag = json.versionTag || versionTag;
@@ -149,7 +129,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const document = await defaultPolicyIngestionService.ingestPolicy({
+    const document = await policyIngestionService.ingestPolicy({
       organizationId,
       title,
       department: department as any,
@@ -163,17 +143,14 @@ export async function POST(req: NextRequest) {
     const isDeduplicated = Boolean((document as any).deduplicated);
     const statusCode = isDeduplicated ? 409 : 201;
 
-    return NextResponse.json(
-      {
-        success: !isDeduplicated,
-        deduplicated: isDeduplicated,
-        message: isDeduplicated
-          ? 'Policy document with matching SHA-256 checksum already exists (deduplicated)'
-          : 'Policy document ingested and indexed successfully',
-        data: document,
-      },
-      { status: statusCode }
-    );
+    return NextResponse.json({
+      success: !isDeduplicated,
+      deduplicated: isDeduplicated,
+      message: isDeduplicated
+        ? 'Policy document with matching SHA-256 checksum already exists (deduplicated)'
+        : 'Policy document ingested and indexed successfully',
+      data: document,
+    }, { status: statusCode });
   } catch (error: any) {
     logger.error({ error: error.message }, 'Failed ingesting internal policy document');
     return NextResponse.json(

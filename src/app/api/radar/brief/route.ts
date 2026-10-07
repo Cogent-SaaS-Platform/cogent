@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getTenantContext } from '@/shared/auth';
 import { AuditService } from '@/modules/audit/auditService';
 
 export async function POST(req: NextRequest) {
   try {
+    await getTenantContext();
     const body = await req.json();
     const {
       circular,

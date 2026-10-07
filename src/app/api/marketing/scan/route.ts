@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 
     // Resolve tenant identity from Clerk session or dev fallback
     const tenantCtx = await getTenantContext();
-    const resolvedOrgId = organizationId || tenantCtx.organizationId;
+    const resolvedOrgId = tenantCtx.organizationId;
     const resolvedUserId = tenantCtx.userId;
 
     logger.info(

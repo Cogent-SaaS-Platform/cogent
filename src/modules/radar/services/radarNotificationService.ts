@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { Database, createAdminClient, createClient } from '@/shared/db';
+import { Database } from '@/shared/db';
+import { ConfigurationError } from '@/shared/errors';
 import { logger } from '@/shared/logger';
 import { RadarPriority, RegulatorCode } from '@/shared/types';
 
@@ -26,22 +27,14 @@ export interface NotificationDispatchResult {
  * Dispatches in-app notifications and email alerts for high & critical regulatory circulars.
  */
 export class RadarNotificationService {
-  private dbClient: SupabaseClient<Database> | null = null;
+  private dbClient: SupabaseClient<Database>;
 
-  constructor(dbClient?: SupabaseClient<Database>) {
-    if (dbClient) {
-      this.dbClient = dbClient;
-    } else {
-      try {
-        this.dbClient = createAdminClient();
-      } catch {
-        try {
-          this.dbClient = createClient();
-        } catch {
-          this.dbClient = null;
-        }
-      }
+  constructor(options: { dbClient: SupabaseClient<Database> } | SupabaseClient<Database>) {
+    const client = options && 'dbClient' in options ? options.dbClient : (options as SupabaseClient<Database>);
+    if (!client) {
+      throw new ConfigurationError('RadarNotificationService requires an RLS-bound SupabaseClient');
     }
+    this.dbClient = client;
   }
 
   /**
@@ -122,5 +115,3 @@ export class RadarNotificationService {
     };
   }
 }
-
-export const defaultRadarNotificationService = new RadarNotificationService();

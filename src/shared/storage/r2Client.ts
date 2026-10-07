@@ -19,11 +19,14 @@ export const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || 'cogent-prod-storage
 /**
  * Computes the S3-compatible Cloudflare R2 endpoint URL
  */
-export function getR2Endpoint(accountId: string = R2_ACCOUNT_ID): string {
+export function getR2Endpoint(accountId?: string): string {
+  if (accountId && accountId.trim()) {
+    return `https://${accountId.trim()}.r2.cloudflarestorage.com`;
+  }
   if (process.env.R2_ENDPOINT) {
     return process.env.R2_ENDPOINT;
   }
-  const cleanId = accountId.trim();
+  const cleanId = (accountId ?? R2_ACCOUNT_ID).trim();
   return cleanId ? `https://${cleanId}.r2.cloudflarestorage.com` : 'https://r2.cloudflarestorage.com';
 }
 

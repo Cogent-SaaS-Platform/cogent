@@ -151,5 +151,5 @@ describe('Live Gemini AI Engine Integration', () => {
     expect(result.telemetry.rawPromptHash).toHaveLength(64);
     expect(result.telemetry.rawOutputHash).toHaveLength(64);
     expect(result.telemetry.latencyMs).toBeGreaterThan(0);
-  }, 45000);
+  }, 90000);
 });

@@ -3,6 +3,22 @@ import { createAdminClient, createClient } from '@/shared/db';
 import { SupabaseClient } from '@supabase/supabase-js';
 import fs from 'fs';
 import path from 'path';
+import { getTenantContext, requireRole } from '@/shared/auth/tenantContext';
+import { UnauthorizedError, ForbiddenError, ConfigurationError } from '@/shared/errors';
+import { ApplicabilityEngine } from '@/modules/radar/services/applicabilityEngine';
+import { CircularIngestionService } from '@/modules/radar/services/circularIngestionService';
+import { LineageService } from '@/modules/radar/services/lineageService';
+import { RadarNotificationService } from '@/modules/radar/services/radarNotificationService';
+import { RoleSynthesisService } from '@/modules/radar/services/roleSynthesisService';
+import { CascadeTriggerService } from '@/modules/radar/services/cascadeTriggerService';
+import { MarketingCascadeListener } from '@/modules/marketing-shield/services/marketingCascadeListener';
+import { StatutoryBenchmarkService } from '@/modules/gap-matrix/services/statutoryBenchmarkService';
+import { PolicyVectorIndexService } from '@/modules/gap-matrix/services/policyVectorIndexService';
+import { PolicyIngestionService } from '@/modules/gap-matrix/services/policyIngestionService';
+import { GapSynthesisService } from '@/modules/gap-matrix/services/gapSynthesisService';
+import { ConcordanceEngine } from '@/modules/gap-matrix/services/concordanceEngine';
+import { ExecutiveOverviewService } from '@/modules/executive/services/executiveOverviewService';
+import { AuditService } from '@/modules/audit/auditService';
 
 function loadEnvLocal(): Record<string, string> {
   const envPath = path.resolve(import.meta.dirname, '../../.env.local');
@@ -249,6 +265,86 @@ describe('Automated Multi-Tenant RLS Security Test Suite (Epic 8 / Task 8.2)', (
     it('verifies standard application client factory creates non-admin client', () => {
       expect(anonClient).toBeDefined();
       expect(typeof anonClient.from).toBe('function');
+    });
+  });
+
+  describe('4. Phase A2: Core Identity, RBAC & Hardened Tenant Isolation', () => {
+    it('throws UnauthorizedError in production environment when unauthenticated', async () => {
+      const originalEnv = process.env.NODE_ENV;
+      try {
+        process.env.NODE_ENV = 'production';
+        await expect(getTenantContext()).rejects.toThrow(UnauthorizedError);
+      } finally {
+        process.env.NODE_ENV = originalEnv;
+      }
+    });
+
+    it('enforces RBAC requireRole: allows permitted roles and blocks forbidden roles', async () => {
+      const adminCtx = {
+        organizationId: TENANT_A_ORG_ID,
+        userId: TEST_USER_ID,
+        userOrgRole: 'org:admin' as const,
+        dbClient: anonClient,
+        isDevFallback: false,
+      };
+
+      const viewerCtx = {
+        organizationId: TENANT_A_ORG_ID,
+        userId: TEST_USER_ID,
+        userOrgRole: 'org:viewer' as const,
+        dbClient: anonClient,
+        isDevFallback: false,
+      };
+
+      const noRoleCtx = {
+        organizationId: TENANT_A_ORG_ID,
+        userId: TEST_USER_ID,
+        dbClient: anonClient,
+        isDevFallback: false,
+      };
+
+      // Admin role allowed for org:admin and org:compliance_officer
+      await expect(requireRole(adminCtx, ['org:admin', 'org:compliance_officer'])).resolves.toBeUndefined();
+
+      // Viewer role blocked for org:admin actions
+      await expect(requireRole(viewerCtx, ['org:admin', 'org:compliance_officer'])).rejects.toThrow(ForbiddenError);
+
+      // No role blocked
+      await expect(requireRole(noRoleCtx, ['org:admin'])).rejects.toThrow(ForbiddenError);
+    });
+
+    it('verifies Next.js 16 Edge Gateway proxy.ts exists and middleware.ts is eradicated', () => {
+      const proxyPath = path.resolve(import.meta.dirname, '../../src/proxy.ts');
+      const middlewarePath = path.resolve(import.meta.dirname, '../../src/middleware.ts');
+
+      expect(fs.existsSync(proxyPath)).toBe(true);
+      expect(fs.existsSync(middlewarePath)).toBe(false);
+    });
+
+    it('eradicates default admin bypasses: all 14 service classes strictly reject unconfigured clients', () => {
+      const services = [
+        { name: 'ApplicabilityEngine', cls: ApplicabilityEngine },
+        { name: 'CircularIngestionService', cls: CircularIngestionService },
+        { name: 'LineageService', cls: LineageService },
+        { name: 'RadarNotificationService', cls: RadarNotificationService },
+        { name: 'RoleSynthesisService', cls: RoleSynthesisService },
+        { name: 'CascadeTriggerService', cls: CascadeTriggerService },
+        { name: 'MarketingCascadeListener', cls: MarketingCascadeListener },
+        { name: 'StatutoryBenchmarkService', cls: StatutoryBenchmarkService },
+        { name: 'PolicyVectorIndexService', cls: PolicyVectorIndexService },
+        { name: 'PolicyIngestionService', cls: PolicyIngestionService },
+        { name: 'GapSynthesisService', cls: GapSynthesisService },
+        { name: 'ConcordanceEngine', cls: ConcordanceEngine },
+        { name: 'ExecutiveOverviewService', cls: ExecutiveOverviewService },
+        { name: 'AuditService', cls: AuditService },
+      ];
+
+      for (const { name, cls } of services) {
+        expect(
+          () => new (cls as any)(),
+          `${name} should throw ConfigurationError when instantiated without dbClient`
+        ).toThrow(ConfigurationError);
+      }
     });
   });
 });

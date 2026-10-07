@@ -2,10 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { RoleSynthesisService } from '@/modules/radar/services/roleSynthesisService';
 import { RadarNotificationService } from '@/modules/radar/services/radarNotificationService';
 import { RadarRoleImpactOutputSchema } from '@/modules/radar/types/schema';
+import { createAdminClient } from '@/shared/db';
 
 describe('Epic 12: Multi-Role Impact Synthesis & Notification Engine (Tasks 12.1 & 12.3)', () => {
-  const synthesisService = new RoleSynthesisService();
-  const notificationService = new RadarNotificationService();
+  const dbClient = createAdminClient();
+  const synthesisService = new RoleSynthesisService({ dbClient });
+  const notificationService = new RadarNotificationService({ dbClient });
 
   const mockInput = {
     circular: {
@@ -99,7 +101,7 @@ describe('Epic 12: Multi-Role Impact Synthesis & Notification Engine (Tasks 12.1
       expect(result.telemetry.outputHash).toHaveLength(64);
       expect(result.telemetry.latencyMs).toBeGreaterThanOrEqual(0);
     },
-    45000
+    90000
   );
 
   it('dispatches urgent notification for critical regulatory directives (Task 12.3)', async () => {

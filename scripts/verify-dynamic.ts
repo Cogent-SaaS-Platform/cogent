@@ -1,5 +1,5 @@
 import { defaultDeterministicMetadataExtractor } from '../src/modules/radar/services/deterministicMetadataExtractor';
-import { defaultApplicabilityEngine } from '../src/modules/radar/services/applicabilityEngine';
+import { ApplicabilityEngine } from '../src/modules/radar/services/applicabilityEngine';
 import { defaultCountdownCalculator } from '../src/modules/radar/services/deadlineCountdownCalculator';
 import { MarketingShieldService } from '../src/modules/marketing-shield';
 import { AiEngine } from '../src/shared/ai-engine';
@@ -123,7 +123,8 @@ Compliance with the provisions of this circular is mandatory within 21 days from
     ],
   };
 
-  const applicability = defaultApplicabilityEngine.evaluateApplicability(
+  const applicabilityEngine = new ApplicabilityEngine({ dbClient });
+  const applicability = applicabilityEngine.evaluateApplicability(
     tenantProfile,
     {
       regulator: extracted.regulatorCode,

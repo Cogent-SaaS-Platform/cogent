@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { Database, createAdminClient, createClient } from '@/shared/db';
+import { Database } from '@/shared/db';
+import { ConfigurationError } from '@/shared/errors';
 import { AuditService } from '@/modules/audit/auditService';
 import { logger } from '@/shared/logger';
 import { RegulatorCode } from '@/shared/types';
@@ -91,28 +92,22 @@ const STATUTORY_MARKETING_PENALTY_RATES: Record<string, { base: number; max: num
  * Cross-matches against active tenant approved campaigns and tenant claims ledger.
  */
 export class MarketingCascadeListener {
-  private dbClient: SupabaseClient<Database> | null = null;
+  private dbClient: SupabaseClient<Database>;
   private auditService: AuditService;
 
-  constructor(options?: {
-    dbClient?: SupabaseClient<Database>;
+  constructor(options: {
+    dbClient: SupabaseClient<Database>;
     auditService?: AuditService;
-  }) {
-    if (options?.dbClient) {
-      this.dbClient = options.dbClient;
-    } else {
-      try {
-        this.dbClient = createAdminClient();
-      } catch {
-        try {
-          this.dbClient = createClient();
-        } catch {
-          this.dbClient = null;
-        }
-      }
+  } | SupabaseClient<Database>) {
+    const client = options && 'dbClient' in options ? options.dbClient : (options as SupabaseClient<Database>);
+    if (!client) {
+      throw new ConfigurationError('MarketingCascadeListener requires an RLS-bound SupabaseClient');
     }
+    this.dbClient = client;
 
-    this.auditService = options?.auditService || new AuditService(this.dbClient as any);
+    this.auditService = (options && 'auditService' in options && options.auditService)
+      ? options.auditService
+      : new AuditService(this.dbClient);
   }
 
   /**
@@ -532,5 +527,3 @@ export class MarketingCascadeListener {
     };
   }
 }
-
-export const defaultMarketingCascadeListener = new MarketingCascadeListener();

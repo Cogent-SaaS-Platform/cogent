@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { createClient, createAdminClient } from '@/shared/db';
+import { ConfigurationError } from '@/shared/errors';
 import { logger } from '@/shared/logger';
 import { AuditLogEntry, CreateAuditLogParams } from '@/shared/types';
 
@@ -10,22 +10,14 @@ import { AuditLogEntry, CreateAuditLogParams } from '@/shared/types';
  * Adheres strictly to docs/SECURITY.md Section 5.2 and docs/DATA_MODEL.md Section 9
  */
 export class AuditService {
-  private dbClient: SupabaseClient | null = null;
+  private dbClient: SupabaseClient;
 
-  constructor(dbClient?: SupabaseClient) {
-    if (dbClient) {
-      this.dbClient = dbClient;
-    } else {
-      try {
-        this.dbClient = createAdminClient();
-      } catch {
-        try {
-          this.dbClient = createClient();
-        } catch {
-          this.dbClient = null;
-        }
-      }
+  constructor(options: { dbClient: SupabaseClient } | SupabaseClient) {
+    const client = options && 'dbClient' in options ? options.dbClient : (options as SupabaseClient);
+    if (!client) {
+      throw new ConfigurationError('AuditService requires an RLS-bound SupabaseClient');
     }
+    this.dbClient = client;
   }
 
   /**

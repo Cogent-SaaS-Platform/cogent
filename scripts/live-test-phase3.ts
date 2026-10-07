@@ -43,10 +43,14 @@ loadEnvLocal();
 async function runLiveTestPhase3() {
   // Dynamically import application modules so environment variables are loaded
   const { createAdminClient } = await import('../src/shared/db');
-  const { defaultConcordanceEngine } = await import('../src/modules/gap-matrix/services/concordanceEngine');
-  const { defaultStatutoryBenchmarkService } = await import('../src/modules/gap-matrix/services/statutoryBenchmarkService');
+  const { ConcordanceEngine } = await import('../src/modules/gap-matrix/services/concordanceEngine');
+  const { StatutoryBenchmarkService } = await import('../src/modules/gap-matrix/services/statutoryBenchmarkService');
   const { defaultDossierExportService } = await import('../src/modules/gap-matrix/services/dossierExportService');
   const { AiEngine } = await import('../src/shared/ai-engine');
+
+  const adminDb = createAdminClient();
+  const concordanceEngine = new ConcordanceEngine({ dbClient: adminDb });
+  const statutoryBenchmarkService = new StatutoryBenchmarkService({ dbClient: adminDb });
 
   const BASE_URL = 'http://localhost:3000';
   console.log('================================================================================');
@@ -262,13 +266,13 @@ async function runLiveTestPhase3() {
     console.log('\n[STEP 3] Testing 3-Tier Concordance Engine against Statutory Baselines...');
 
     // Discover available benchmarks
-    const benchmarks = await defaultStatutoryBenchmarkService.getAvailableBenchmarks('COMPLIANCE_LEGAL');
+    const benchmarks = await statutoryBenchmarkService.getAvailableBenchmarks('COMPLIANCE_LEGAL');
     console.log(`  ✓ Discovered ${benchmarks.length} active statutory benchmarks`);
-    const targetBenchmark = benchmarks.find((b) => b.regulatorCode === 'CBN' || b.referenceCode.includes('CBN')) || benchmarks[0];
+    const targetBenchmark = benchmarks.find((b: any) => b.regulatorCode === 'CBN' || b.referenceCode.includes('CBN')) || benchmarks[0];
     console.log(`    - Target Benchmark: [${targetBenchmark.regulatorCode}] "${targetBenchmark.instrumentTitle}" (${targetBenchmark.referenceCode})`);
 
     // Execute Concordance Engine evaluation directly
-    const concordanceResult = await defaultConcordanceEngine.evaluateConcordance({
+    const concordanceResult = await concordanceEngine.evaluateConcordance({
       organizationId: TENANT_A_ID,
       policyId,
       benchmarkDocumentVersionId: targetBenchmark.documentVersionId,
@@ -297,7 +301,7 @@ async function runLiveTestPhase3() {
       clauseText: 'All confirmed STRs shall be filed within seven (7) business days.',
       similarity: 0.65,
     };
-    const strVerdict = defaultConcordanceEngine.classifyComplianceTier(mockStatSTR, mockInternal7Days);
+    const strVerdict = concordanceEngine.classifyComplianceTier(mockStatSTR, mockInternal7Days);
     if (strVerdict !== 'PARTIALLY_MET') {
       throw new Error(`Expected PARTIALLY_MET for 7-day STR reporting, got ${strVerdict}`);
     }
@@ -315,7 +319,7 @@ async function runLiveTestPhase3() {
       clauseText: 'Standard onboarding of PEP accounts may be authorized by the Branch Manager.',
       similarity: 0.50,
     };
-    const pepVerdict = defaultConcordanceEngine.classifyComplianceTier(mockStatPEP, mockInternalBranchManager);
+    const pepVerdict = concordanceEngine.classifyComplianceTier(mockStatPEP, mockInternalBranchManager);
     if (pepVerdict !== 'CRITICAL_GAP') {
       throw new Error(`Expected CRITICAL_GAP for missing PEP executive approval, got ${pepVerdict}`);
     }
@@ -333,7 +337,7 @@ async function runLiveTestPhase3() {
       clauseText: 'All records shall be retained for a minimum duration of five (5) years.',
       similarity: 0.85,
     };
-    const retentionVerdict = defaultConcordanceEngine.classifyComplianceTier(mockStatRetention, mockInternalRetention);
+    const retentionVerdict = concordanceEngine.classifyComplianceTier(mockStatRetention, mockInternalRetention);
     if (retentionVerdict !== 'ADEQUATELY_MET') {
       throw new Error(`Expected ADEQUATELY_MET for 5-year retention, got ${retentionVerdict}`);
     }

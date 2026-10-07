@@ -4,7 +4,16 @@ import { DeadlineCountdownCalculator } from '@/modules/radar/services/deadlineCo
 
 describe('Phase 2: Circular Lineage & Supersession Graph Resolver (Task 2.5)', () => {
   it('instantiates LineageService and handles local fallback when DB is disconnected', async () => {
-    const lineageService = new LineageService();
+    const mockDisconnectedDb: any = {
+      from: vi.fn(() => ({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: null, error: new Error('DB disconnected') }),
+          }),
+        }),
+      })),
+    };
+    const lineageService = new LineageService({ dbClient: mockDisconnectedDb });
     const result = await lineageService.resolveLineageGraph('test-circular-uuid');
 
     expect(result).toBeDefined();

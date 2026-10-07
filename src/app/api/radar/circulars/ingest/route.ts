@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { defaultCircularIngestionService } from '@/modules/radar/services/circularIngestionService';
+import { getTenantContext } from '@/shared/auth';
+import { CircularIngestionService } from '@/modules/radar/services/circularIngestionService';
 import { logger } from '@/shared/logger';
 import { RegulatorCode } from '@/shared/types';
 
 export async function POST(req: NextRequest) {
   try {
+    const tenantCtx = await getTenantContext();
+    const circularIngestionService = new CircularIngestionService({ dbClient: tenantCtx.dbClient });
     const contentType = req.headers.get('content-type') || '';
 
     let fileBuffer: Buffer;
@@ -60,7 +63,7 @@ export async function POST(req: NextRequest) {
       manualReferenceCode = body.referenceCode;
     }
 
-    const result = await defaultCircularIngestionService.ingestCircular({
+    const result = await circularIngestionService.ingestCircular({
       fileBuffer,
       fileName,
       mimeType,

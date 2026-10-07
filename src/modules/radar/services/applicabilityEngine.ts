@@ -1,5 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { Database, createAdminClient, createClient } from '@/shared/db';
+import { Database } from '@/shared/db';
+import { ConfigurationError } from '@/shared/errors';
 import { LicenseType, PaymentRail, RegulatorCode } from '@/shared/types';
 import { logger } from '@/shared/logger';
 import {
@@ -33,28 +34,20 @@ export interface RichTenantProfileContext extends TenantProfileContext {
  * Matches circular targeting against tenant licenses & payment rails with zero hallucinations.
  */
 export class ApplicabilityEngine {
-  private dbClient: SupabaseClient<Database> | null = null;
+  private dbClient: SupabaseClient<Database>;
 
-  constructor(dbClient?: SupabaseClient<Database>) {
-    if (dbClient) {
-      this.dbClient = dbClient;
-    } else {
-      try {
-        this.dbClient = createAdminClient();
-      } catch {
-        try {
-          this.dbClient = createClient();
-        } catch {
-          this.dbClient = null;
-        }
-      }
+  constructor(options: { dbClient: SupabaseClient<Database> } | SupabaseClient<Database>) {
+    const client = options && 'dbClient' in options ? options.dbClient : (options as SupabaseClient<Database>);
+    if (!client) {
+      throw new ConfigurationError('ApplicabilityEngine requires an RLS-bound SupabaseClient');
     }
+    this.dbClient = client;
   }
 
   /**
    * Pure deterministic matching of circular against tenant licenses & rails (Task 11.1 & 11.2)
    */
-  public evaluateApplicability(
+  public static evaluatePure(
     tenant: TenantProfileContext | RichTenantProfileContext,
     circular: CircularTargetingContext
   ): ApplicabilityResult {
@@ -83,7 +76,7 @@ export class ApplicabilityEngine {
 
     // 4. Generate Plain-English Explanation with exact references (Task 11.2)
     const richTenant = tenant as RichTenantProfileContext;
-    const reason = this.buildExplanationReason(
+    const reason = ApplicabilityEngine.buildExplanationReason(
       isApplicable,
       matchedLicenses,
       matchedRails,
@@ -99,10 +92,17 @@ export class ApplicabilityEngine {
     };
   }
 
+  public evaluateApplicability(
+    tenant: TenantProfileContext | RichTenantProfileContext,
+    circular: CircularTargetingContext
+  ): ApplicabilityResult {
+    return ApplicabilityEngine.evaluatePure(tenant, circular);
+  }
+
   /**
    * Builds high-clarity human-readable explanation referencing exact licenses & rails
    */
-  private buildExplanationReason(
+  private static buildExplanationReason(
     isApplicable: boolean,
     matchedLicenses: LicenseType[],
     matchedRails: PaymentRail[],
@@ -235,11 +235,9 @@ export class ApplicabilityEngine {
   }
 }
 
-export const defaultApplicabilityEngine = new ApplicabilityEngine();
-
 export function evaluateCircularApplicability(
   tenant: TenantProfileContext | RichTenantProfileContext,
   circular: CircularTargetingContext
 ): ApplicabilityResult {
-  return defaultApplicabilityEngine.evaluateApplicability(tenant, circular);
+  return ApplicabilityEngine.evaluatePure(tenant, circular);
 }

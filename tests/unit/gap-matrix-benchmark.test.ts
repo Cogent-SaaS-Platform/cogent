@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   StatutoryBenchmarkService,
-  defaultStatutoryBenchmarkService,
 } from '@/modules/gap-matrix/services/statutoryBenchmarkService';
+import { createClient } from '@/shared/db';
 
 describe('Epic 16: Statutory Benchmark Pairing Engine (Task 16.1)', () => {
-  const service = new StatutoryBenchmarkService();
+  const service = new StatutoryBenchmarkService({ dbClient: createClient() });
 
   it('retrieves available statutory benchmark frameworks across Nigerian regulators', async () => {
     const benchmarks = await service.getAvailableBenchmarks();

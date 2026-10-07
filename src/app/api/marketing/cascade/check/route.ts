@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { defaultMarketingCascadeListener } from '@/modules/marketing-shield/services/marketingCascadeListener';
+import { MarketingCascadeListener } from '@/modules/marketing-shield/services/marketingCascadeListener';
 import { getTenantContext } from '@/shared/auth';
 import { logger } from '@/shared/logger';
 
@@ -27,10 +27,11 @@ export async function POST(req: NextRequest) {
     }
 
     const tenantCtx = await getTenantContext();
-    const organizationId = parsed.data.organizationId || tenantCtx.organizationId;
-    const userId = parsed.data.userId || tenantCtx.userId;
+    const organizationId = tenantCtx.organizationId;
+    const userId = tenantCtx.userId;
+    const marketingCascadeListener = new MarketingCascadeListener({ dbClient: tenantCtx.dbClient });
 
-    const result = await defaultMarketingCascadeListener.checkMarketingDrift({
+    const result = await marketingCascadeListener.checkMarketingDrift({
       circularId: parsed.data.circularId,
       organizationId,
       userId,

@@ -7,6 +7,7 @@ export type ErrorCode =
   | 'BAD_REQUEST'
   | 'UNAUTHORIZED'
   | 'FORBIDDEN'
+  | 'CONFIGURATION_ERROR'
   | 'NOT_FOUND'
   | 'CONFLICT'
   | 'VALIDATION_ERROR'
@@ -100,12 +101,34 @@ export class AuthenticationError extends AppError {
   }
 }
 
+export class UnauthorizedError extends AuthenticationError {
+  constructor(message = 'Authentication session required') {
+    super(message);
+  }
+}
+
 export class AuthorizationError extends AppError {
   constructor(message = 'Access denied: insufficient organization permissions') {
     super({
       message,
       code: 'FORBIDDEN',
       statusCode: 403,
+    });
+  }
+}
+
+export class ForbiddenError extends AuthorizationError {
+  constructor(message = 'Access forbidden: insufficient organization permissions') {
+    super(message);
+  }
+}
+
+export class ConfigurationError extends AppError {
+  constructor(message = 'Invalid system or service configuration') {
+    super({
+      message,
+      code: 'CONFIGURATION_ERROR',
+      statusCode: 500,
     });
   }
 }

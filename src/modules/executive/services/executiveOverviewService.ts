@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { Database, createAdminClient, createClient } from '@/shared/db';
+import { Database } from '@/shared/db';
+import { ConfigurationError } from '@/shared/errors';
 import { AuditService } from '@/modules/audit/auditService';
 import { logger } from '@/shared/logger';
 import {
@@ -16,25 +17,18 @@ import {
 } from '../types';
 
 export class ExecutiveOverviewService {
-  private dbClient: SupabaseClient<Database> | null = null;
+  private dbClient: SupabaseClient<Database>;
   private auditService: AuditService;
 
-  constructor(options?: { dbClient?: SupabaseClient<Database>; auditService?: AuditService }) {
-    if (options?.dbClient) {
-      this.dbClient = options.dbClient;
-    } else {
-      try {
-        this.dbClient = createAdminClient();
-      } catch {
-        try {
-          this.dbClient = createClient();
-        } catch {
-          this.dbClient = null;
-        }
-      }
+  constructor(options: { dbClient: SupabaseClient<Database>; auditService?: AuditService } | SupabaseClient<Database>) {
+    const client = options && 'dbClient' in options ? options.dbClient : (options as SupabaseClient<Database>);
+    if (!client) {
+      throw new ConfigurationError('ExecutiveOverviewService requires an RLS-bound SupabaseClient');
     }
-
-    this.auditService = options?.auditService || new AuditService(this.dbClient as any);
+    this.dbClient = client;
+    this.auditService = (options && 'auditService' in options && options.auditService)
+      ? options.auditService
+      : new AuditService(this.dbClient);
   }
 
   /**
@@ -730,5 +724,3 @@ ${overview.urgentGates.map((g) => `- **[${g.regulatorCode}] ${g.title}:** Deadli
     };
   }
 }
-
-export const defaultExecutiveOverviewService = new ExecutiveOverviewService();

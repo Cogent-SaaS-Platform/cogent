@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { defaultLineageService } from '@/modules/radar/services/lineageService';
+import { getTenantContext } from '@/shared/auth';
+import { LineageService } from '@/modules/radar/services/lineageService';
 import { logger } from '@/shared/logger';
 import { AmendmentType } from '@/shared/types';
 
 export async function GET(req: NextRequest) {
   try {
+    const tenantCtx = await getTenantContext();
+    const lineageService = new LineageService({ dbClient: tenantCtx.dbClient });
     const { searchParams } = new URL(req.url);
     const circularId = searchParams.get('circularId');
 
@@ -15,7 +18,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const lineageGraph = await defaultLineageService.resolveLineageGraph(circularId);
+    const lineageGraph = await lineageService.resolveLineageGraph(circularId);
 
     return NextResponse.json({
       success: true,
@@ -32,6 +35,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    const tenantCtx = await getTenantContext();
+    const lineageService = new LineageService({ dbClient: tenantCtx.dbClient });
     const body = await req.json();
     const { parentCircularId, childCircularId, amendmentType, affectedClauseReferences } = body;
 
@@ -64,7 +69,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const edge = await defaultLineageService.createSupersessionLink({
+    const edge = await lineageService.createSupersessionLink({
       parentCircularId,
       childCircularId,
       amendmentType,
