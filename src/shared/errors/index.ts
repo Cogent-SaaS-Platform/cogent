@@ -123,6 +123,23 @@ export class ForbiddenError extends AuthorizationError {
   }
 }
 
+export class SubscriptionRequiredError extends AuthorizationError {
+  constructor(
+    message = 'SUBSCRIPTION_REQUIRED: Active subscription or trial required to perform this action',
+    details?: Record<string, unknown>
+  ) {
+    super(message);
+    // Explicitly set code and details for subscription gate responses
+    (this as any).code = 'FORBIDDEN';
+    (this as any).statusCode = 403;
+    (this as any).details = {
+      gate: 'SUBSCRIPTION_REQUIRED',
+      ...details,
+    };
+  }
+}
+
+
 export class ConfigurationError extends AppError {
   constructor(message = 'Invalid system or service configuration') {
     super({

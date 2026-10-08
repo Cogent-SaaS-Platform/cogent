@@ -1,9 +1,10 @@
 /**
  * Cogent Enterprise Tenant Context Resolver
  * 
- * Central gateway for resolving tenant identity and providing an RLS-bound
- * Supabase client across all API Route Handlers and Server Actions.
- * Adheres strictly to docs/launch/PHASE_A2_IDENTITY_SECURITY.md & docs/SECURITY.md
+ * Central gateway for resolving tenant identity, providing an RLS-bound
+ * Supabase client across all API Route Handlers and Server Actions, and
+ * evaluating subscription lifecycle status and feature entitlements.
+ * Adheres strictly to docs/launch/PHASE_A2_IDENTITY_SECURITY.md and PHASE_A4_BILLING_SUBSCRIPTIONS.md
  */
 
 import { auth, currentUser, clerkClient } from '@clerk/nextjs/server';
@@ -12,6 +13,8 @@ import { createServerClient, createAdminClient, createClient, Database } from '@
 import { TenantSyncService } from './tenantSyncService';
 import { logger } from '@/shared/logger';
 import { UnauthorizedError, ForbiddenError, ConfigurationError } from '@/shared/errors';
+import { TenantSubscriptionSummary, SubscriptionTier } from '@/shared/types';
+import { EntitlementEngine } from '@/shared/billing';
 
 export type UserOrgRole = 'org:admin' | 'org:compliance_officer' | 'org:viewer' | string;
 
@@ -23,6 +26,8 @@ export interface TenantContext {
   userOrgRole?: UserOrgRole;
   dbClient: SupabaseClient<Database>;
   isDevFallback: boolean;
+  subscription: TenantSubscriptionSummary;
+  isSubscriptionActive: boolean; // Convenience flag: true when active, trialing, or in grace period
 }
 
 export interface TenantContextOptions {
@@ -45,6 +50,59 @@ export async function requireRole(
     throw new ForbiddenError(
       `User role '${userRole || 'unassigned'}' is not authorized. Required: ${allowedRoles.join(', ')}`
     );
+  }
+}
+
+/**
+ * Resolves subscription summary for a given organization.
+ */
+async function resolveOrganizationSubscription(
+  client: SupabaseClient<Database>,
+  organizationId: string
+): Promise<TenantSubscriptionSummary> {
+  try {
+    const { data: subData, error: subError } = await client
+      .from('tenant_subscriptions')
+      .select('*')
+      .eq('organization_id', organizationId)
+      .maybeSingle();
+
+    if (subError) {
+      logger.warn(
+        { error: subError.message, organizationId },
+        'Database query error fetching tenant subscription, defaulting to trial'
+      );
+    }
+
+    if (subData) {
+      return EntitlementEngine.computeSummary({
+        tier: subData.tier as SubscriptionTier,
+        status: subData.status,
+        trialEndsAt: subData.trial_ends_at,
+        gracePeriodEndsAt: subData.grace_period_ends_at,
+        currentPeriodEnd: subData.current_period_end,
+        marketingScanQuota: subData.marketing_scan_quota,
+        policyDocumentQuota: subData.policy_document_quota,
+        paystackSubscriptionCode: subData.paystack_subscription_code,
+        paystackPlanCode: subData.paystack_plan_code,
+      });
+    }
+
+    return EntitlementEngine.computeSummary({
+      tier: 'STARTER',
+      status: 'trialing',
+      trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    logger.warn(
+      { error: error.message, organizationId },
+      'Unexpected error resolving tenant subscription, returning default trial'
+    );
+    return EntitlementEngine.computeSummary({
+      tier: 'STARTER',
+      status: 'trialing',
+    });
   }
 }
 
@@ -123,6 +181,9 @@ export async function getTenantContext(options?: TenantContextOptions): Promise<
       // Instantiate Supabase client carrying the Clerk JWT
       const dbClient = token ? createServerClient(token) : createAdminClient();
 
+      // Resolve subscription summary
+      const subscription = await resolveOrganizationSubscription(dbClient, syncResult.organizationId);
+
       const context: TenantContext = {
         organizationId: syncResult.organizationId,
         userId: syncResult.userId,
@@ -131,6 +192,8 @@ export async function getTenantContext(options?: TenantContextOptions): Promise<
         userOrgRole: orgRole || undefined,
         dbClient,
         isDevFallback: false,
+        subscription,
+        isSubscriptionActive: subscription.isActive,
       };
 
       if (options?.requiredRole) {
@@ -138,14 +201,15 @@ export async function getTenantContext(options?: TenantContextOptions): Promise<
       }
 
       return context;
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err instanceof UnauthorizedError || err instanceof ForbiddenError || err instanceof ConfigurationError) {
         throw err;
       }
+      const error = err instanceof Error ? err : new Error(String(err));
       if (process.env.NODE_ENV === 'production' || options?.allowDevFallback === false) {
-        throw new UnauthorizedError(`UNAUTHORIZED: Authentication failed (${err.message || 'No active session'})`);
+        throw new UnauthorizedError(`UNAUTHORIZED: Authentication failed (${error.message || 'No active session'})`);
       }
-      logger.warn({ err: err.message }, 'Clerk auth resolution failed, falling back to local tenant');
+      logger.warn({ err: error.message }, 'Clerk auth resolution failed, falling back to local tenant');
     }
   }
 
@@ -174,9 +238,17 @@ export async function getTenantContext(options?: TenantContextOptions): Promise<
     try {
       fallbackDbClient = createClient();
     } catch {
-      fallbackDbClient = null as any;
+      fallbackDbClient = null as unknown as SupabaseClient<Database>;
     }
   }
+
+  // In development and test fallback, configure active PRO subscription with full capabilities
+  const devSubscription: TenantSubscriptionSummary = EntitlementEngine.computeSummary({
+    tier: 'PRO',
+    status: 'active',
+    marketingScanQuota: -1,
+    policyDocumentQuota: -1,
+  });
 
   const context: TenantContext = {
     organizationId: DEFAULT_DEV_ORG_ID,
@@ -186,6 +258,8 @@ export async function getTenantContext(options?: TenantContextOptions): Promise<
     userOrgRole: 'org:admin',
     dbClient: fallbackDbClient,
     isDevFallback: true,
+    subscription: devSubscription,
+    isSubscriptionActive: devSubscription.isActive,
   };
 
   if (options?.requiredRole) {

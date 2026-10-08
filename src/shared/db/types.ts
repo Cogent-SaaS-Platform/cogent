@@ -22,6 +22,8 @@ import {
   DriftStatus,
   LineageStatus,
   AmendmentType,
+  SubscriptionTier,
+  SubscriptionStatus,
 } from '@/shared/types';
 
 export type Json =
@@ -839,6 +841,64 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['radar_action_items']['Insert']>;
+      };
+      tenant_subscriptions: {
+        Row: {
+          id: string;
+          organization_id: string;
+          paystack_customer_code: string | null;
+          paystack_subscription_code: string | null;
+          paystack_plan_code: string | null;
+          tier: SubscriptionTier;
+          status: SubscriptionStatus;
+          trial_ends_at: string | null;
+          grace_period_ends_at: string | null;
+          current_period_start: string;
+          current_period_end: string;
+          cancel_at_period_end: boolean;
+          marketing_scan_quota: number;
+          policy_document_quota: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          paystack_customer_code?: string | null;
+          paystack_subscription_code?: string | null;
+          paystack_plan_code?: string | null;
+          tier?: SubscriptionTier;
+          status?: SubscriptionStatus;
+          trial_ends_at?: string | null;
+          grace_period_ends_at?: string | null;
+          current_period_start?: string;
+          current_period_end?: string;
+          cancel_at_period_end?: boolean;
+          marketing_scan_quota?: number;
+          policy_document_quota?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['tenant_subscriptions']['Insert']>;
+      };
+      billing_events: {
+        Row: {
+          id: string;
+          event_id: string;
+          event_type: string;
+          organization_id: string | null;
+          payload: Json;
+          processed_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          event_type: string;
+          organization_id?: string | null;
+          payload: Json;
+          processed_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['billing_events']['Insert']>;
       };
     };
     Functions: {

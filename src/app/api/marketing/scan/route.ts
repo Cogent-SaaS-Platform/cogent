@@ -4,6 +4,8 @@ import { MarketingShieldService } from '@/modules/marketing-shield';
 import { MarketingChannel, ProductCategoryCode, PRODUCT_CATEGORY_CODES } from '@/shared/types';
 import { getTenantContext } from '@/shared/auth';
 import { checkRateLimit, createRateLimitResponse } from '@/shared/security';
+import { EntitlementEngine } from '@/shared/billing';
+import { AppError } from '@/shared/errors';
 import { logger } from '@/shared/logger';
 
 const ScanRequestSchema = z.object({
@@ -41,10 +43,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { campaignName, channel, productCategory, rawCopy, targetAudience, organizationId } =
+    const { campaignName, channel, productCategory, rawCopy, targetAudience } =
       validationResult.data;
 
-    // Resolve tenant identity from Clerk session or dev fallback
+    // Resolve tenant identity and active subscription state
     const tenantCtx = await getTenantContext();
     const resolvedOrgId = tenantCtx.organizationId;
     const resolvedUserId = tenantCtx.userId;
@@ -59,6 +61,23 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Task A4.4 / A4.5: Feature Entitlement Gate
+    // 1. Check current monthly usage if tier has a finite quota
+    let currentMonthScanCount = 0;
+    if (tenantCtx.subscription.marketingScanQuota !== -1 && !tenantCtx.isDevFallback) {
+      const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+      const { count } = await tenantCtx.dbClient
+        .from('marketing_scans')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_id', resolvedOrgId)
+        .gte('created_at', startOfMonth);
+
+      currentMonthScanCount = count || 0;
+    }
+
+    // 2. Enforce active subscription and quota bounds (throws SubscriptionRequiredError on failure)
+    EntitlementEngine.assertCanScan(tenantCtx.subscription, currentMonthScanCount);
+
     logger.info(
       {
         campaignName,
@@ -68,6 +87,8 @@ export async function POST(req: NextRequest) {
         organizationId: resolvedOrgId,
         userId: resolvedUserId,
         isDevFallback: tenantCtx.isDevFallback,
+        tier: tenantCtx.subscription.tier,
+        status: tenantCtx.subscription.status,
       },
       'Received marketing pre-vetting scan request'
     );
@@ -91,13 +112,22 @@ export async function POST(req: NextRequest) {
       data: viewModel,
       elapsedMs,
     });
-  } catch (error: any) {
-    logger.error({ error: error.message, stack: error.stack }, 'Marketing Shield scan API failed');
+  } catch (error: unknown) {
+    if (error instanceof AppError) {
+      logger.warn(
+        { errorCode: error.code, statusCode: error.statusCode, message: error.message },
+        'Marketing scan halted by application security or entitlement gate'
+      );
+      return NextResponse.json(error.toJSON(), { status: error.statusCode });
+    }
+
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ error: err.message, stack: err.stack }, 'Marketing Shield scan API failed');
 
     return NextResponse.json(
       {
         success: false,
-        error: error.message || 'Internal server error processing marketing copy scan',
+        error: err.message || 'Internal server error processing marketing copy scan',
       },
       { status: 500 }
     );

@@ -178,7 +178,7 @@
    - TXT (DKIM record)
    - TXT (SPF record: `v=spf1 include:amazonses.com ~all`)
    - MX (Inbound feedback record)
-4. Add these DNS records into your **Cloudflare DNS dashboard** (configured in Phase A7).
+4. Add these DNS records into your **DNS dashboard** (configured in Phase A7).
 5. Generate an API Key under **API Keys** with **Sending Access**.
    - Copy `RESEND_API_KEY`.
 

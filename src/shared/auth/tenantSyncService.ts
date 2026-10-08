@@ -192,8 +192,22 @@ export class TenantSyncService {
           is_active: true,
         },
       ]);
+
+      // Baseline 14-day free trial subscription
+      await this.adminClient.from('tenant_subscriptions').insert([
+        {
+          organization_id: organizationId,
+          tier: 'STARTER',
+          status: 'trialing',
+          trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+          current_period_start: new Date().toISOString(),
+          current_period_end: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+          marketing_scan_quota: 50,
+          policy_document_quota: 3,
+        },
+      ]);
     } catch (err) {
-      logger.warn({ err, organizationId }, 'Failed to bootstrap tenant default licenses/rails');
+      logger.warn({ err, organizationId }, 'Failed to bootstrap tenant default licenses/rails/subscriptions');
     }
   }
 }
