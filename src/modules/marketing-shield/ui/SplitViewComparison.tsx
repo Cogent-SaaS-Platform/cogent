@@ -9,7 +9,6 @@ import {
   AlertCircle,
   Sparkles,
   ArrowRightLeft,
-  Info,
   ShieldCheck,
 } from 'lucide-react';
 
@@ -43,16 +42,14 @@ export const SplitViewComparison: React.FC<SplitViewComparisonProps> = ({
   const renderHighlightedOriginal = () => {
     if (!originalCopy) return null;
     if (!findings || findings.length === 0) {
-      return <span className="text-slate-200">{originalCopy}</span>;
+      return <span className="text-[#0B0F1A]">{originalCopy}</span>;
     }
 
-    // Collect distinct flagged excerpts
     // Sort longer excerpts first to prevent partial substring collision
     const sortedFindings = [...findings].sort(
       (a, b) => (b.flaggedExcerpt?.length || 0) - (a.flaggedExcerpt?.length || 0)
     );
 
-    // Build segments
     type Segment = {
       text: string;
       finding?: FindingPresentationCard;
@@ -93,7 +90,7 @@ export const SplitViewComparison: React.FC<SplitViewComparisonProps> = ({
 
     return segments.map((seg, i) => {
       if (!seg.finding) {
-        return <span key={i} className="text-slate-200">{seg.text}</span>;
+        return <span key={i} className="text-[#0B0F1A]">{seg.text}</span>;
       }
 
       const finding = seg.finding;
@@ -101,10 +98,10 @@ export const SplitViewComparison: React.FC<SplitViewComparisonProps> = ({
 
       const badgeColor =
         finding.severity === 'CRITICAL'
-          ? 'bg-red-500/20 text-red-300 border-red-500/50 hover:bg-red-500/30'
+          ? 'bg-red-100 text-red-900 border-red-300 hover:bg-red-200'
           : finding.severity === 'HIGH'
-          ? 'bg-orange-500/20 text-orange-300 border-orange-500/50 hover:bg-orange-500/30'
-          : 'bg-amber-500/20 text-amber-300 border-amber-500/50 hover:bg-amber-500/30';
+          ? 'bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200'
+          : 'bg-yellow-100 text-yellow-900 border-yellow-300 hover:bg-yellow-200';
 
       return (
         <mark
@@ -112,9 +109,9 @@ export const SplitViewComparison: React.FC<SplitViewComparisonProps> = ({
           onClick={() => onSelectFinding?.(finding.id)}
           onMouseEnter={() => setActiveHighlightId(finding.id)}
           onMouseLeave={() => setActiveHighlightId(null)}
-          title={`Click to view: ${finding.ruleCode} (${finding.severity})`}
-          className={`cursor-pointer rounded border px-1 py-0.5 font-medium transition-all ${badgeColor} ${
-            isSelected ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900' : ''
+          title={`Click to inspect statutory rule: ${finding.ruleCode} (${finding.severity})`}
+          className={`cursor-pointer rounded border px-1.5 py-0.5 font-semibold transition-all ${badgeColor} ${
+            isSelected ? 'ring-2 ring-[#2A4BFF] ring-offset-2 ring-offset-white' : ''
           }`}
         >
           {seg.text}
@@ -133,39 +130,36 @@ export const SplitViewComparison: React.FC<SplitViewComparisonProps> = ({
   const smsSegments = Math.ceil(rewriteChars / 160) || 1;
 
   return (
-    <div
-      id="marketing-shield-split-view"
-      className="space-y-4"
-    >
+    <div id="marketing-shield-split-view" className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <ArrowRightLeft className="h-4 w-4 text-indigo-400" />
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-300">
+          <ArrowRightLeft className="h-4 w-4 text-[#2A4BFF]" />
+          <h3 className="text-sm font-bold uppercase tracking-wider text-[#0B0F1A]">
             Split-View Copy Audit & Compliant Rewrite
           </h3>
         </div>
 
-        <div className="flex items-center gap-2 text-xs text-slate-400">
+        <div className="flex items-center gap-2 text-xs text-[#4B5565]">
           <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-red-400" /> Flagged Violation Spans
+            <span className="h-2 w-2 rounded-full bg-red-500" /> Flagged Violation Spans
           </span>
-          <span className="text-slate-600">•</span>
+          <span className="text-[#8D99AE]">•</span>
           <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-emerald-400" /> Verified Compliant Copy
+            <span className="h-2 w-2 rounded-full bg-emerald-500" /> Pre-Cleared Compliant Alternative
           </span>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Left Pane: Original Copy with Flagged Spans */}
-        <div className="flex flex-col rounded-2xl border border-slate-800 bg-slate-900/70 backdrop-blur-xl shadow-lg overflow-hidden">
+        <div className="flex flex-col rounded-2xl border border-[#DDE3EE] bg-white shadow-xs overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-slate-800 px-5 py-3.5 bg-slate-950/50">
+          <div className="flex items-center justify-between border-b border-[#DDE3EE] px-5 py-3.5 bg-[#F9FAFC]">
             <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-red-400" />
-              <span className="text-xs font-semibold text-slate-300">Original Marketing Copy</span>
+              <span className="h-2 w-2 rounded-full bg-red-500" />
+              <span className="text-xs font-bold text-[#0B0F1A]">Original Marketing Copy</span>
             </div>
-            <div className="flex items-center gap-3 text-xs text-slate-400 font-mono">
+            <div className="flex items-center gap-3 text-xs text-[#4B5565] font-mono">
               <span>{originalChars} chars</span>
               <span>•</span>
               <span>{originalWords} words</span>
@@ -178,39 +172,39 @@ export const SplitViewComparison: React.FC<SplitViewComparisonProps> = ({
           </div>
 
           {/* Footer Warning / Findings Tally */}
-          <div className="border-t border-slate-800/80 bg-slate-950/40 px-5 py-2.5 text-xs text-slate-400 flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-red-400">
-              <AlertCircle className="h-3.5 w-3.5" />
-              {findings.length} statutory {findings.length === 1 ? 'violation' : 'violations'} identified
+          <div className="border-t border-[#DDE3EE] bg-[#F9FAFC] px-5 py-2.5 text-xs text-[#4B5565] flex items-center justify-between">
+            <span className="flex items-center gap-1.5 text-red-700 font-semibold">
+              <AlertCircle className="h-3.5 w-3.5 text-red-600" />
+              {findings.length} statutory {findings.length === 1 ? 'infraction' : 'infractions'} identified
             </span>
-            <span className="text-[11px] text-slate-500">
-              Hover/Click flagged text to inspect rule
+            <span className="text-[11px] text-[#8D99AE]">
+              Click flagged text to inspect rule in side-sheet
             </span>
           </div>
         </div>
 
         {/* Right Pane: Compliant Rewrite */}
-        <div className="flex flex-col rounded-2xl border border-emerald-500/20 bg-emerald-950/10 backdrop-blur-xl shadow-lg overflow-hidden">
+        <div className="flex flex-col rounded-2xl border border-emerald-200 bg-emerald-50/20 shadow-xs overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-emerald-500/20 px-5 py-3.5 bg-emerald-950/30">
+          <div className="flex items-center justify-between border-b border-emerald-200 px-5 py-3.5 bg-emerald-50/60">
             <div className="flex items-center gap-2">
-              <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
-              <span className="text-xs font-semibold text-emerald-300">
-                Verified Compliant Rewrite
+              <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+              <span className="text-xs font-bold text-emerald-900">
+                Verified Compliant Rewrite (ARCON / FCCPC)
               </span>
             </div>
             <button
               onClick={handleCopy}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/30 px-3 py-1 text-xs font-medium text-emerald-300 hover:bg-emerald-500/30 transition-all"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-white border border-emerald-300 px-3 py-1 text-xs font-bold text-emerald-800 hover:bg-emerald-50 transition-all shadow-xs"
             >
               {copied ? (
                 <>
-                  <Check className="h-3.5 w-3.5" />
+                  <Check className="h-3.5 w-3.5 text-emerald-600" />
                   <span>Copied!</span>
                 </>
               ) : (
                 <>
-                  <Copy className="h-3.5 w-3.5" />
+                  <Copy className="h-3.5 w-3.5 text-emerald-600" />
                   <span>Copy Rewrite</span>
                 </>
               )}
@@ -218,26 +212,26 @@ export const SplitViewComparison: React.FC<SplitViewComparisonProps> = ({
           </div>
 
           {/* Rewrite Body */}
-          <div className="flex-1 p-5 min-h-[160px] text-sm leading-relaxed text-slate-100 whitespace-pre-wrap">
+          <div className="flex-1 p-5 min-h-[160px] text-sm leading-relaxed text-[#0B0F1A] whitespace-pre-wrap font-medium">
             {compliantRewrite || (
-              <span className="italic text-slate-500">
+              <span className="italic text-[#8D99AE]">
                 Compliant rewrite will generate upon execution...
               </span>
             )}
           </div>
 
           {/* Footer Metrics */}
-          <div className="border-t border-emerald-500/20 bg-emerald-950/20 px-5 py-2.5 text-xs text-emerald-400/90 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              <span>Includes required statutory disclosures & APR framing</span>
+          <div className="border-t border-emerald-200 bg-emerald-50/50 px-5 py-2.5 text-xs text-emerald-900 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 font-medium">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+              <span>Includes required statutory APR and license disclosures</span>
             </div>
-            <div className="flex items-center gap-3 font-mono text-slate-400">
+            <div className="flex items-center gap-3 font-mono text-[#4B5565]">
               <span>{rewriteChars} chars</span>
               <span>•</span>
               <span>{rewriteWords} words</span>
               {isSms && (
-                <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-cyan-300">
+                <span className="rounded bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 text-[10px] text-emerald-800 font-bold">
                   {smsSegments} SMS {smsSegments === 1 ? 'part' : 'parts'}
                 </span>
               )}
@@ -248,3 +242,4 @@ export const SplitViewComparison: React.FC<SplitViewComparisonProps> = ({
     </div>
   );
 };
+

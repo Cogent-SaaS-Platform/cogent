@@ -21,9 +21,17 @@ export async function POST(req: NextRequest) {
     const parsed = ExportExecutiveBriefSchema.safeParse(body);
     const tenantCtx = await getTenantContext();
     const organizationId = tenantCtx.organizationId;
-    const organizationName = parsed.success && parsed.data.organizationName
-      ? parsed.data.organizationName
-      : 'Apex Paystack FinTech Ltd';
+    let organizationName: string =
+      parsed.success && parsed.data.organizationName ? parsed.data.organizationName.trim() : '';
+    if (!organizationName) {
+      const response = await tenantCtx.dbClient
+        .from('organizations')
+        .select('name')
+        .eq('id', organizationId)
+        .single();
+      const org = response.data as { name: string } | null;
+      organizationName = org?.name || 'Authorized Tenant';
+    }
 
     const executiveOverviewService = new ExecutiveOverviewService({ dbClient: tenantCtx.dbClient });
     const exportResult = await executiveOverviewService.generateExecutiveComplianceExport(

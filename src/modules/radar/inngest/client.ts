@@ -1,69 +1,39 @@
+import { inngest, CircularIngestedPayload, TenantEvaluatedPayload } from '@/shared/inngest';
 import { logger } from '@/shared/logger';
 
 export interface InngestRadarEventMap {
   'radar/circular.ingested': {
-    data: {
-      circularId: string;
-      circularNumber: string;
-      storagePath: string;
-      sourceFileHash: string;
-      regulator: string;
-      organizationId?: string;
-      deduplicated?: boolean;
-    };
+    data: CircularIngestedPayload;
   };
   'radar/tenant.evaluated': {
-    data: {
-      circularId: string;
-      organizationId: string;
-      isApplicable: boolean;
-      priority: string;
-    };
+    data: TenantEvaluatedPayload;
   };
 }
 
+export interface InngestDispatchResult {
+  status: 'DISPATCHED';
+  eventId: string;
+}
+
 /**
- * Serverless Inngest Event Dispatcher for Cogent (ADR-006)
- * Supports durable execution, local dev emulator, and test mocks
+ * Production Inngest Event Dispatcher for Radar Module (Task A3.2)
+ * Dispatches durable workflow events through official Inngest SDK
  */
 export class InngestEventDispatcher {
-  private inngestEventKey: string;
-  private inngestBaseUrl: string;
-
-  constructor() {
-    this.inngestEventKey = process.env.INNGEST_EVENT_KEY || 'local-dev-key';
-    this.inngestBaseUrl =
-      process.env.INNGEST_BASE_URL ||
-      process.env.INNGEST_DEV_SERVER_URL ||
-      'http://127.0.0.1:8288';
-  }
-
   /**
    * Dispatches an event to Inngest for asynchronous durable processing
    */
   public async send<T extends keyof InngestRadarEventMap>(event: {
     name: T;
     data: InngestRadarEventMap[T]['data'];
-  }): Promise<{ status: 'DISPATCHED' | 'LOCAL_HANDLED'; eventId: string }> {
-    const eventId = `evt_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
-
+  }): Promise<InngestDispatchResult> {
     try {
-      // In production or when local Inngest server is running:
-      if (process.env.NODE_ENV === 'production' || process.env.INNGEST_EVENT_KEY) {
-        const url = `${this.inngestBaseUrl}/e/${this.inngestEventKey}`;
-        await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: event.name,
-            data: event.data,
-            id: eventId,
-            ts: Date.now(),
-          }),
-        }).catch((err) => {
-          logger.warn({ err }, 'Inngest server dispatch unavailable, falling back to local processing');
-        });
-      }
+      const sendResult = await inngest.send({
+        name: event.name,
+        data: event.data,
+      });
+
+      const eventId = sendResult?.ids?.[0] || `evt_${Date.now()}`;
 
       logger.info(
         {
@@ -71,15 +41,23 @@ export class InngestEventDispatcher {
           eventId,
           data: event.data,
         },
-        'Inngest event dispatched'
+        'Inngest radar event dispatched via official SDK'
       );
 
       return { status: 'DISPATCHED', eventId };
-    } catch (err) {
-      logger.warn({ err }, 'Failed to dispatch Inngest event; running in-process');
-      return { status: 'LOCAL_HANDLED', eventId };
+    } catch (error: unknown) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error(
+        {
+          name: event.name,
+          error: err.message,
+          stack: err.stack,
+        },
+        'Failed to dispatch Inngest radar event'
+      );
+      throw err;
     }
   }
 }
 
-export const inngestDispatcher = new InngestEventDispatcher();
+export const inngestDispatcher: InngestEventDispatcher = new InngestEventDispatcher();

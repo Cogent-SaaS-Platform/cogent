@@ -1,5 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { checkRateLimit, createRateLimitResponse } from '@/shared/security';
 
 /**
  * Next.js 16 Edge Gateway Proxy (ADR-005 & Phase A2)
@@ -59,9 +60,20 @@ const handler = isClerkConfigured
           const signInUrl = new URL('/sign-in', req.url);
           return NextResponse.redirect(signInUrl);
         }
+
+        // Task A3.1: Upstash Rate Limiting Enforcement on API Routes
+        if (isApiRoute && process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+          const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || '127.0.0.1';
+          const rateLimitIdentifier = orgId || clientIp;
+          const isAiScan = req.nextUrl.pathname.includes('/scan') || req.nextUrl.pathname.includes('/evaluate');
+          const limitResult = await checkRateLimit(rateLimitIdentifier, isAiScan ? 'aiHeavy' : 'standard');
+          if (!limitResult.success) {
+            return createRateLimitResponse(limitResult);
+          }
+        }
       }
     })
-  : (req: any) => {
+  : (req: NextRequest): NextResponse => {
       if (process.env.NODE_ENV === 'production' && !isPublicRoute(req)) {
         if (req.nextUrl.pathname.startsWith('/api/')) {
           return NextResponse.json(

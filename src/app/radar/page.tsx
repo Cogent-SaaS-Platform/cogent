@@ -1,13 +1,13 @@
-import React from 'react';
-import { RadarCockpit } from '@/modules/radar';
-import type { Metadata } from 'next';
+'use client';
 
-export const metadata: Metadata = {
-  title: 'Regulatory Radar & Circular Impact Tracer | Cogent',
-  description:
-    'Continuous multi-regulator circular monitoring, relational license/rail impact evaluation, and multi-role executive action tracking.',
-};
+import React from 'react';
+import { AppShell } from '@/shared/ui/AppShell';
+import { RadarCockpit } from '@/modules/radar';
 
 export default function RadarPage() {
-  return <RadarCockpit />;
+  return (
+    <AppShell activePillarOverride="insight">
+      <RadarCockpit />
+    </AppShell>
+  );
 }

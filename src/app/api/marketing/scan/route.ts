@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { MarketingShieldService } from '@/modules/marketing-shield';
 import { MarketingChannel, ProductCategoryCode, PRODUCT_CATEGORY_CODES } from '@/shared/types';
 import { getTenantContext } from '@/shared/auth';
+import { checkRateLimit, createRateLimitResponse } from '@/shared/security';
 import { logger } from '@/shared/logger';
 
 const ScanRequestSchema = z.object({
@@ -47,6 +48,16 @@ export async function POST(req: NextRequest) {
     const tenantCtx = await getTenantContext();
     const resolvedOrgId = tenantCtx.organizationId;
     const resolvedUserId = tenantCtx.userId;
+
+    // Upstash Rate Limiting Enforcement (Task A3.1)
+    if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+      const rateLimitId =
+        resolvedOrgId || req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'anonymous';
+      const limitResult = await checkRateLimit(rateLimitId, 'standard');
+      if (!limitResult.success) {
+        return createRateLimitResponse(limitResult);
+      }
+    }
 
     logger.info(
       {

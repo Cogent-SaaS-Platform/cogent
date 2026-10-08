@@ -1,4 +1,5 @@
 import { S3Client } from '@aws-sdk/client-s3';
+import { ConfigurationError } from '@/shared/errors';
 
 /**
  * Cloudflare R2 Client Configuration
@@ -11,10 +12,10 @@ import { S3Client } from '@aws-sdk/client-s3';
  * - Nightly encrypted database backups
  */
 
-export const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID || '';
-export const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID || '';
-export const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY || '';
-export const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || 'cogent-prod-storage';
+export const R2_ACCOUNT_ID: string = process.env.R2_ACCOUNT_ID || '';
+export const R2_ACCESS_KEY_ID: string = process.env.R2_ACCESS_KEY_ID || '';
+export const R2_SECRET_ACCESS_KEY: string = process.env.R2_SECRET_ACCESS_KEY || '';
+export const R2_BUCKET_NAME: string = process.env.R2_BUCKET_NAME || 'cogent-prod-storage';
 
 /**
  * Computes the S3-compatible Cloudflare R2 endpoint URL
@@ -45,12 +46,16 @@ export function createR2Client(options?: {
   const accessKeyId = options?.accessKeyId ?? R2_ACCESS_KEY_ID;
   const secretAccessKey = options?.secretAccessKey ?? R2_SECRET_ACCESS_KEY;
 
+  if (process.env.NODE_ENV === 'production' && (!accessKeyId || !secretAccessKey)) {
+    throw new ConfigurationError('R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY are required in production');
+  }
+
   return new S3Client({
     region: 'auto',
     endpoint,
     credentials: {
-      accessKeyId: accessKeyId || 'mock-r2-access-key',
-      secretAccessKey: secretAccessKey || 'mock-r2-secret-key',
+      accessKeyId: accessKeyId || 'cogent-test-access-key',
+      secretAccessKey: secretAccessKey || 'cogent-test-secret-key',
     },
   });
 }
@@ -58,4 +63,4 @@ export function createR2Client(options?: {
 /**
  * Singleton R2 S3 client for production usage
  */
-export const r2Client = createR2Client();
+export const r2Client: S3Client = createR2Client();

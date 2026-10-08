@@ -340,20 +340,20 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
   return (
     <div
       id="marketing-shield-cco-governance"
-      className="rounded-2xl border border-slate-800 bg-slate-900/80 p-6 backdrop-blur-xl shadow-xl transition-all"
+      className="rounded-2xl border border-[#DDE3EE] bg-white p-6 shadow-xs transition-all"
     >
       <div className="space-y-5">
         {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#DDE3EE] pb-4">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#2A4BFF]/10 border border-[#2A4BFF]/20 text-[#2A4BFF]">
               <UserCheck className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-white">
+              <h3 className="text-sm font-bold text-[#0B0F1A]">
                 Human Legal Governance & CCO Attestation
               </h3>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-[#4B5565]">
                 Level 6 Progressive Disclosure: Designated Signatory Authority & Audit Ledger Sealing
               </p>
             </div>
@@ -361,12 +361,12 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
 
           {/* Current State Pill */}
           <div
-            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold ${
               isApproved
-                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                 : status === 'REJECTED'
-                ? 'bg-red-500/10 text-red-400 border-red-500/30'
-                : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                ? 'bg-red-50 text-red-700 border-red-200'
+                : 'bg-amber-50 text-amber-800 border-amber-200'
             }`}
           >
             {isApproved ? (
@@ -382,17 +382,17 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
 
         {/* If Already Approved and Not in Edit Mode: Display Immutable Official Seal */}
         {isApproved && signedDetails && !isEditing ? (
-          <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-5 space-y-4">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/30 p-5 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-300">
+                <div className="h-10 w-10 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center text-emerald-800">
                   <Stamp className="h-5 w-5" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-emerald-300">
+                  <h4 className="text-sm font-bold text-emerald-900">
                     Formally Approved & Attested by CCO
                   </h4>
-                  <p className="text-xs text-slate-300">
+                  <p className="text-xs text-[#4B5565]">
                     Certified compliant with Nigerian advertising standards (ARCON 2022) and consumer regulations.
                   </p>
                 </div>
@@ -402,50 +402,50 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
               <button
                 type="button"
                 onClick={() => setIsEditing(true)}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/90 px-3 py-1.5 text-xs font-medium text-slate-300 hover:border-slate-600 hover:text-white transition-all shadow-sm"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[#DDE3EE] bg-white px-3 py-1.5 text-xs font-semibold text-[#0B0F1A] hover:bg-[#F9FAFC] transition-all shadow-xs"
               >
-                <Edit3 className="h-3.5 w-3.5 text-cyan-400" />
+                <Edit3 className="h-3.5 w-3.5 text-[#2A4BFF]" />
                 <span>Change Signatory / Edit</span>
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-slate-950/60 rounded-xl p-3.5 border border-emerald-500/20">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-white rounded-xl p-3.5 border border-emerald-200">
               <div>
-                <span className="text-slate-400 block font-medium">Attested By:</span>
-                <span className="text-white font-semibold">{signedDetails.reviewedBy}</span>
+                <span className="text-[#4B5565] block font-semibold">Attested By:</span>
+                <span className="text-[#0B0F1A] font-bold">{signedDetails.reviewedBy}</span>
               </div>
               <div>
-                <span className="text-slate-400 block font-medium">Sign-off Timestamp:</span>
-                <span className="text-white font-mono">
+                <span className="text-[#4B5565] block font-semibold">Sign-off Timestamp:</span>
+                <span className="text-[#0B0F1A] font-mono">
                   {new Date(signedDetails.reviewedAt).toLocaleString()} WAT
                 </span>
               </div>
               {signedDetails.reviewerRegulatoryId && (
                 <div>
-                  <span className="text-slate-400 block font-medium">Accreditation / Bar ID:</span>
-                  <span className="text-slate-200 font-mono text-[11px]">
+                  <span className="text-[#4B5565] block font-semibold">Accreditation / Bar ID:</span>
+                  <span className="text-[#0B0F1A] font-mono text-[11px]">
                     {signedDetails.reviewerRegulatoryId}
                   </span>
                 </div>
               )}
               {signedDetails.attestationNotes && (
                 <div className="sm:col-span-2">
-                  <span className="text-slate-400 block font-medium">Legal Attestation Notes:</span>
-                  <span className="text-slate-300 italic">{signedDetails.attestationNotes}</span>
+                  <span className="text-[#4B5565] block font-semibold">Legal Attestation Notes:</span>
+                  <span className="text-[#0B0F1A] italic">{signedDetails.attestationNotes}</span>
                 </div>
               )}
-              <div className="sm:col-span-2 pt-1 border-t border-slate-800/60">
-                <span className="text-slate-400 block font-medium">Cryptographic Attestation Hash:</span>
-                <span className="text-cyan-300 font-mono text-[11px] break-all">
+              <div className="sm:col-span-2 pt-1 border-t border-[#DDE3EE]">
+                <span className="text-[#4B5565] block font-semibold">Cryptographic Attestation Hash:</span>
+                <span className="text-[#2A4BFF] font-mono text-[11px] break-all">
                   {signedDetails.attestationHash}
                 </span>
               </div>
               {(signedDetails.savedClaimId || ledgerSavedConfirmation) && (
-                <div className="sm:col-span-2 flex items-center gap-2.5 text-xs bg-purple-950/40 border border-purple-500/30 rounded-xl p-3 text-purple-200">
-                  <BookOpen className="h-4 w-4 text-purple-400 shrink-0" />
+                <div className="sm:col-span-2 flex items-center gap-2.5 text-xs bg-purple-50 border border-purple-200 rounded-xl p-3 text-purple-900">
+                  <BookOpen className="h-4 w-4 text-purple-600 shrink-0" />
                   <div>
-                    <span className="font-semibold text-white">Indexed in Institutional Claims Ledger</span>
-                    <span className="block text-[11px] text-purple-300">
+                    <span className="font-bold text-purple-950">Indexed in Institutional Claims Ledger</span>
+                    <span className="block text-[11px] text-purple-800">
                       Approved phrasing saved under <strong>{productCategory}</strong>. Subsequent campaign pre-vetting will automatically recognize and offer this compliant phrasing.
                     </span>
                   </div>
@@ -455,9 +455,9 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
 
             {/* Export Dossier Options */}
             {onExportDossier && (
-              <div className="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-emerald-500/20">
-                <span className="text-xs text-slate-400 flex items-center gap-1.5">
-                  <ShieldCheck className="h-4 w-4 text-emerald-400" />
+              <div className="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-[#DDE3EE]">
+                <span className="text-xs text-[#4B5565] flex items-center gap-1.5">
+                  <ShieldCheck className="h-4 w-4 text-emerald-600" />
                   <span>Statutory ARCON ASP Form ARCON-PV1 Clearance Pack</span>
                 </span>
 
@@ -466,7 +466,7 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
                     type="button"
                     disabled={isExporting}
                     onClick={() => onExportDossier('pdf')}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-red-600/90 hover:bg-red-500 text-white px-3.5 py-2 text-xs font-semibold shadow-lg shadow-red-950/40 transition-all disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white px-3.5 py-2 text-xs font-semibold shadow-xs transition-all disabled:opacity-50"
                     title="Open official vector Form ARCON-PV1 with direct print / Save as PDF"
                   >
                     <Printer className="h-3.5 w-3.5" />
@@ -477,10 +477,10 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
                     type="button"
                     disabled={isExporting}
                     onClick={() => onExportDossier('markdown')}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 px-3.5 py-2 text-xs font-semibold transition-all disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-[#DDE3EE] bg-white hover:bg-[#F9FAFC] text-[#0B0F1A] px-3.5 py-2 text-xs font-semibold transition-all shadow-xs disabled:opacity-50"
                     title="Download developer & auditor markdown dossier"
                   >
-                    <FileText className="h-3.5 w-3.5" />
+                    <FileText className="h-3.5 w-3.5 text-[#2A4BFF]" />
                     <span>Export Markdown (.md)</span>
                   </button>
                 </div>
@@ -491,17 +491,17 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
           /* Form for Signing Off or Changing Signatory */
           <div className="space-y-4">
             {/* Top Signatory Selector & Reset Bar */}
-            <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-3 space-y-2">
+            <div className="rounded-xl border border-[#DDE3EE] bg-[#F9FAFC] p-3 space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-                  <UserPlus className="h-3.5 w-3.5 text-purple-400" />
+                <label className="text-xs font-semibold text-[#0B0F1A] flex items-center gap-1.5">
+                  <UserPlus className="h-3.5 w-3.5 text-[#2A4BFF]" />
                   <span>Select Signatory / Officer for this Campaign:</span>
                 </label>
 
                 <button
                   type="button"
                   onClick={handleClearFields}
-                  className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-400 hover:text-amber-300 hover:underline transition-all"
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 hover:text-amber-800 hover:underline transition-all"
                   title="Wipe form fields to write new signatory from scratch"
                 >
                   <RotateCcw className="h-3 w-3" />
@@ -512,7 +512,7 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
               <select
                 value={selectedOption}
                 onChange={(e) => handleSignatorySelect(e.target.value)}
-                className="w-full rounded-xl bg-slate-900 border border-slate-700 px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-purple-500 font-medium cursor-pointer"
+                className="w-full rounded-xl bg-white border border-[#DDE3EE] px-3 py-2 text-xs text-[#0B0F1A] focus:outline-none focus:ring-2 focus:ring-[#2A4BFF] font-medium cursor-pointer shadow-xs"
               >
                 {lastSignatory && (
                   <option value="__LAST__">
@@ -533,7 +533,7 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
             {/* Editable Signatory Fields */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">
+                <label className="block text-xs font-medium text-[#4B5565] mb-1">
                   CCO / Legal Counsel Full Name *
                 </label>
                 <input
@@ -541,13 +541,13 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
                   value={reviewerName}
                   onChange={(e) => setReviewerName(e.target.value)}
                   placeholder="e.g. Olumide Adebayo, Esq."
-                  className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  className="w-full rounded-xl bg-white border border-[#DDE3EE] px-3 py-2 text-xs text-[#0B0F1A] focus:outline-none focus:ring-2 focus:ring-[#2A4BFF] shadow-xs"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">
+                <label className="block text-xs font-medium text-[#4B5565] mb-1">
                   Designation / Statutory Role *
                 </label>
                 <input
@@ -555,14 +555,14 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
                   value={reviewerTitle}
                   onChange={(e) => setReviewerTitle(e.target.value)}
                   placeholder="e.g. Chief Compliance Officer / General Counsel"
-                  className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  className="w-full rounded-xl bg-white border border-[#DDE3EE] px-3 py-2 text-xs text-[#0B0F1A] focus:outline-none focus:ring-2 focus:ring-[#2A4BFF] shadow-xs"
                   required
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">
+              <label className="block text-xs font-medium text-[#4B5565] mb-1">
                 Accreditation / Bar ID (Optional)
               </label>
               <input
@@ -570,12 +570,12 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
                 value={reviewerRegulatoryId}
                 onChange={(e) => setReviewerRegulatoryId(e.target.value)}
                 placeholder="e.g. NBA/BL: 48291 • CCO-FINTECH-09"
-                className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
+                className="w-full rounded-xl bg-white border border-[#DDE3EE] px-3 py-2 text-xs text-[#0B0F1A] focus:outline-none focus:ring-2 focus:ring-[#2A4BFF] shadow-xs"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1">
+              <label className="block text-xs font-medium text-[#4B5565] mb-1">
                 Statutory Attestation & Sign-Off Opinion
               </label>
               <textarea
@@ -583,42 +583,42 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
                 value={attestationNotes}
                 onChange={(e) => setAttestationNotes(e.target.value)}
                 placeholder="Enter regulatory attestation notes..."
-                className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
+                className="w-full rounded-xl bg-white border border-[#DDE3EE] px-3 py-2 text-xs text-[#0B0F1A] focus:outline-none focus:ring-2 focus:ring-[#2A4BFF] shadow-xs"
               />
             </div>
 
             {/* Save to Institutional Claims Ledger Card (Task 1.2 & 1.6) */}
-            <div className="rounded-xl border border-purple-500/30 bg-purple-950/20 p-4 space-y-3">
+            <div className="rounded-xl border border-purple-200 bg-purple-50/40 p-4 space-y-3">
               <div className="flex items-start gap-3">
                 <input
                   type="checkbox"
                   id="chk-save-to-claims-ledger"
                   checked={saveToLedger}
                   onChange={(e) => setSaveToLedger(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-slate-700 bg-slate-900 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                  className="mt-0.5 h-4 w-4 rounded border-[#DDE3EE] bg-white text-[#2A4BFF] focus:ring-[#2A4BFF] cursor-pointer"
                 />
                 <label htmlFor="chk-save-to-claims-ledger" className="cursor-pointer">
-                  <div className="text-xs font-semibold text-purple-200 flex items-center gap-1.5">
-                    <BookOpen className="h-3.5 w-3.5 text-purple-400" />
+                  <div className="text-xs font-semibold text-purple-900 flex items-center gap-1.5">
+                    <BookOpen className="h-3.5 w-3.5 text-purple-600" />
                     <span>Save to Institutional Claims Ledger (Institutional Memory Engine)</span>
                   </div>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
+                  <p className="text-[11px] text-[#4B5565] mt-0.5">
                     Index this CCO-approved wording so future scans within this product category automatically suggest this phrasing.
                   </p>
                 </label>
               </div>
 
               {saveToLedger && (
-                <div className="pt-2 border-t border-purple-500/20 space-y-3 pl-7">
+                <div className="pt-2 border-t border-purple-200 space-y-3 pl-7">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                      <label className="block text-[11px] font-medium text-[#4B5565] mb-1">
                         Product Category
                       </label>
                       <select
                         value={ledgerCategory}
                         onChange={(e) => setLedgerCategory(e.target.value as ProductCategoryCode)}
-                        className="w-full rounded-lg bg-slate-900 border border-slate-700 px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                        className="w-full rounded-lg bg-white border border-[#DDE3EE] px-2.5 py-1.5 text-xs text-[#0B0F1A] focus:outline-none focus:ring-2 focus:ring-[#2A4BFF]"
                       >
                         <option value="SAVINGS_DEPOSIT">SAVINGS_DEPOSIT (CBN / NDIC)</option>
                         <option value="DIGITAL_NANO_LOAN">DIGITAL_NANO_LOAN (FCCPC / CBN)</option>
@@ -629,13 +629,13 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                      <label className="block text-[11px] font-medium text-[#4B5565] mb-1">
                         Governing Regulator
                       </label>
                       <select
                         value={ledgerRegulator}
                         onChange={(e) => setLedgerRegulator(e.target.value as RegulatorCode)}
-                        className="w-full rounded-lg bg-slate-900 border border-slate-700 px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                        className="w-full rounded-lg bg-white border border-[#DDE3EE] px-2.5 py-1.5 text-xs text-[#0B0F1A] focus:outline-none focus:ring-2 focus:ring-[#2A4BFF]"
                       >
                         <option value="CBN">CBN</option>
                         <option value="ARCON">ARCON</option>
@@ -647,7 +647,7 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                    <label className="block text-[11px] font-medium text-[#4B5565] mb-1">
                       Approved Substitute Copy *
                     </label>
                     <textarea
@@ -655,14 +655,14 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
                       value={ledgerApprovedText}
                       onChange={(e) => setLedgerApprovedText(e.target.value)}
                       placeholder="Approved compliant text to suggest in future scans..."
-                      className="w-full rounded-lg bg-slate-900 border border-slate-700 p-2 text-xs text-white focus:outline-none focus:border-purple-500"
+                      className="w-full rounded-lg bg-white border border-[#DDE3EE] p-2 text-xs text-[#0B0F1A] focus:outline-none focus:ring-2 focus:ring-[#2A4BFF]"
                       required
                     />
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                      <label className="block text-[11px] font-medium text-[#4B5565] mb-1">
                         Prohibited Counterpart (Phrase being replaced)
                       </label>
                       <input
@@ -670,12 +670,12 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
                         value={ledgerProhibitedText}
                         onChange={(e) => setLedgerProhibitedText(e.target.value)}
                         placeholder="e.g. Zero interest, Guaranteed returns"
-                        className="w-full rounded-lg bg-slate-900 border border-slate-700 px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                        className="w-full rounded-lg bg-white border border-[#DDE3EE] px-2.5 py-1.5 text-xs text-[#0B0F1A] focus:outline-none focus:ring-2 focus:ring-[#2A4BFF]"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                      <label className="block text-[11px] font-medium text-[#4B5565] mb-1">
                         Statutory Citation
                       </label>
                       <input
@@ -683,13 +683,13 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
                         value={ledgerCitation}
                         onChange={(e) => setLedgerCitation(e.target.value)}
                         placeholder="e.g. ARCON Code 2022 Art. 24"
-                        className="w-full rounded-lg bg-slate-900 border border-slate-700 px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                        className="w-full rounded-lg bg-white border border-[#DDE3EE] px-2.5 py-1.5 text-xs text-[#0B0F1A] focus:outline-none focus:ring-2 focus:ring-[#2A4BFF]"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-medium text-slate-400 mb-1">
+                    <label className="block text-[11px] font-medium text-[#4B5565] mb-1">
                       CCO Legal Rationale *
                     </label>
                     <input
@@ -697,7 +697,7 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
                       value={ledgerRationale}
                       onChange={(e) => setLedgerRationale(e.target.value)}
                       placeholder="Why this wording cures the regulatory risk..."
-                      className="w-full rounded-lg bg-slate-900 border border-slate-700 px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-purple-500"
+                      className="w-full rounded-lg bg-white border border-[#DDE3EE] px-2.5 py-1.5 text-xs text-[#0B0F1A] focus:outline-none focus:ring-2 focus:ring-[#2A4BFF]"
                       required
                     />
                   </div>
@@ -706,8 +706,8 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-              <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
-                <Lock className="h-3 w-3 text-slate-400" />
+              <div className="text-[11px] text-[#4B5565] flex items-center gap-1.5">
+                <Lock className="h-3.5 w-3.5 text-[#4B5565]" />
                 <span>Attestation seals scan state into tamper-evident audit ledger</span>
               </div>
 
@@ -716,7 +716,7 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
                   <button
                     type="button"
                     onClick={() => setIsEditing(false)}
-                    className="rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2 text-xs font-medium text-slate-400 hover:text-white"
+                    className="rounded-xl border border-[#DDE3EE] bg-white px-3.5 py-2 text-xs font-semibold text-[#4B5565] hover:text-[#0B0F1A] hover:bg-[#F9FAFC] transition-all"
                   >
                     Cancel Edit
                   </button>
@@ -726,7 +726,7 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
                   type="button"
                   disabled={isSubmitting}
                   onClick={() => handleSignoff('REJECTED')}
-                  className="rounded-xl border border-red-500/30 bg-red-950/20 px-4 py-2 text-xs font-semibold text-red-400 hover:bg-red-950/40 transition-all disabled:opacity-50"
+                  className="rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 px-4 py-2 text-xs font-semibold text-red-700 transition-all disabled:opacity-50"
                 >
                   Reject & Return for Revision
                 </button>
@@ -735,7 +735,7 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
                   type="button"
                   disabled={isSubmitting}
                   onClick={() => handleSignoff('APPROVED_BY_CCO')}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 text-xs font-semibold shadow-lg shadow-emerald-950/40 transition-all disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 text-xs font-semibold shadow-xs transition-all disabled:opacity-50"
                 >
                   <ShieldCheck className="h-4 w-4" />
                   <span>

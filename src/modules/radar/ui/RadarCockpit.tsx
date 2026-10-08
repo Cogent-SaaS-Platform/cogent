@@ -1,26 +1,19 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
-  Radar,
   Radio,
   Clock,
   ShieldCheck,
   ShieldAlert,
-  AlertTriangle,
   FileText,
   Download,
   Printer,
   ChevronRight,
+  ChevronLeft,
+  ChevronDown,
   Filter,
   Plus,
-  Building,
-  CheckCircle,
-  ExternalLink,
-  ChevronDown,
-  Layers,
-  Sparkles,
-  ArrowRight,
   RefreshCw,
   Scale,
   Shield,
@@ -30,18 +23,38 @@ import {
   Calendar,
   Briefcase,
   Coins,
-  Server,
-  Zap,
+  Sparkles,
+  ExternalLink,
+  Search,
+  BookOpen,
+  ArrowRight,
+  LayoutGrid,
+  Table as TableIcon,
+  CheckCircle2,
 } from 'lucide-react';
-import { PlatformPillar, CrossPillarLinkContext, LicenseType, RegulatorCode, LineageStatus } from '@/shared/types';
-import { RadarCircularPresentationCard } from '../types';
+import {
+  PlatformPillar,
+  CrossPillarLinkContext,
+  LicenseType,
+  RegulatorCode,
+  LineageStatus,
+} from '@/shared/types';
+import { RadarCircularPresentationCard, RadarActionItemPresentation } from '../types';
 import { CircularCard } from './CircularCard';
 import { RoleBriefViewer } from './RoleBriefViewer';
 import { ActionItemTracker } from './ActionItemTracker';
 import { CircularUploadDrawer } from './CircularUploadDrawer';
 import { defaultCountdownCalculator } from '../services/deadlineCountdownCalculator';
+import { DenseDataTable, TableColumn } from '@/shared/ui/inspector/DenseDataTable';
+import { MultiPaneContainer } from '@/shared/ui/inspector/MultiPaneContainer';
+import { useInspectorStore } from '@/shared/ui/inspector/inspectorStore';
+import {
+  circularToInspectorItem,
+  obligationToInspectorItem,
+} from '@/shared/ui/inspector/adapters';
+import { InspectorItemData, StatutoryReferenceData } from '@/shared/ui/inspector/types';
 
-// Preset Canonical Circular Data with Lineage Graphs & Penalty Escalations
+// Preset Canonical Circular Data with Lineage Graphs & Penalty Escalations covering all 7 Regulators
 const PRESET_CIRCULARS: RadarCircularPresentationCard[] = [
   {
     id: 'circ_1',
@@ -358,6 +371,118 @@ const PRESET_CIRCULARS: RadarCircularPresentationCard[] = [
       },
     ],
   },
+  {
+    id: 'circ_6',
+    circularNumber: 'ARCON/DIR/ADV/2026/004',
+    regulator: 'ARCON',
+    subject: 'Mandatory Pre-Vetting for Digital Financial Promotions & Investment Claims',
+    summary:
+      'Advertising Regulatory Council of Nigeria mandates statutory vetting clearance for all digital marketing copy, billboard creatives, and social media campaigns promising financial yield or credit facilities.',
+    publicationDate: '2026-02-20',
+    effectiveDate: '2026-02-20',
+    statutoryDeadline: '2026-03-12',
+    daysRemaining: 8,
+    businessDaysRemaining: 6,
+    countdownTier: 'HIGH',
+    urgencyWindow: 'URGENT_ACTION',
+    priority: 'HIGH',
+    enforcementRiskLevel: 'HIGH',
+    lineageStatus: 'ACTIVE_LAW',
+    targetedLicenses: ['PAYMENT_SOLUTION_SERVICES_PSSP', 'COMMERCIAL_BANK', 'FINANCE_COMPANY'],
+    affectedRails: ['CARD_ACQUIRING_MASTERCARD_VISA', 'NIBSS_NIP'],
+    appliesUniversally: true,
+    penaltyEscalationProjection: {
+      baselineFineNaira: 3_000_000,
+      dailyFineNaira: 500_000,
+      accruedDailyFineNaira: 0,
+      totalProjectedExposureNaira: 3_000_000,
+      statutoryCitation: 'ARCON Act 2022 Section 24 & Nigerian Code of Advertising Practice',
+      carriesPersonalCriminalLiability: false,
+      carriesLicenseSuspensionRisk: false,
+    },
+    applicability: {
+      isApplicable: true,
+      reason:
+        'Universal statutory mandate: All financial entities running public digital marketing or merchant onboarding ads must possess verified ARCON vetting certificates.',
+      matchedLicenses: ['PAYMENT_SOLUTION_SERVICES_PSSP'],
+      matchedRails: ['CARD_ACQUIRING_MASTERCARD_VISA', 'NIBSS_NIP'],
+    },
+    executiveBriefCco:
+      'ARCON enforces compulsory ASP vetting approval before running financial advertisements. Unvetted digital campaigns are subject to immediate takedown notices and ₦3,000,000 fines.',
+    actionBriefCoo:
+      'Coordinate with Growth and Product Marketing teams to freeze unvetted marketing copy across Facebook, LinkedIn, Google Ads, and in-app banners.',
+    technicalBriefProductEng:
+      'Integrate marketing CMS approval workflow with Cogent Marketing Shield API to block unapproved creative deployments.',
+    technicalBriefCto: 'Ensure CDN edge caching respects campaign expiration and takedown directives.',
+    financialBriefCfo: 'Provision budget for statutory ARCON vetting filing fees (₦50,000 per creative batch).',
+    governanceBriefCeoCro: 'Board marketing governance oversight under ARCON Act 2022.',
+    actionItems: [
+      {
+        id: 'act_arcon_1',
+        targetDepartment: 'COMPLIANCE_LEGAL',
+        actionTitle: 'Audit Active Digital Ads for ARCON Certificate Numbers',
+        actionDescription: 'Review all active campaign creatives in Marketing Shield to verify statutory pre-vetting codes.',
+        suggestedDeadline: '2026-03-10',
+        isCompleted: false,
+      },
+    ],
+  },
+  {
+    id: 'circ_7',
+    circularNumber: 'NDPC/DIR/DPO/2026/002',
+    regulator: 'NDPC',
+    subject: 'Nigeria Data Protection Act: Cross-Border Cloud Hosting & Audit Filing',
+    summary:
+      'Nigeria Data Protection Commission directive establishing mandatory statutory data protection compliance audit filings (CAR) and binding requirements for cross-border cloud database hosting.',
+    publicationDate: '2026-01-15',
+    effectiveDate: '2026-01-15',
+    statutoryDeadline: '2026-03-31',
+    daysRemaining: 27,
+    businessDaysRemaining: 20,
+    countdownTier: 'MEDIUM',
+    urgencyWindow: 'STANDARD_WINDOW',
+    priority: 'MEDIUM',
+    enforcementRiskLevel: 'HIGH',
+    lineageStatus: 'ACTIVE_LAW',
+    targetedLicenses: ['PAYMENT_SOLUTION_SERVICES_PSSP', 'COMMERCIAL_BANK', 'SWITCHING_AND_PROCESSING'],
+    affectedRails: ['NIBSS_NIP', 'CARD_ACQUIRING_MASTERCARD_VISA'],
+    appliesUniversally: true,
+    penaltyEscalationProjection: {
+      baselineFineNaira: 10_000_000,
+      dailyFineNaira: 200_000,
+      accruedDailyFineNaira: 0,
+      totalProjectedExposureNaira: 10_000_000,
+      statutoryCitation: 'NDPA 2023 Section 48 & General Application and Implementation Directive',
+      carriesPersonalCriminalLiability: true,
+      carriesLicenseSuspensionRisk: false,
+    },
+    applicability: {
+      isApplicable: true,
+      reason:
+        'Universal mandate for Data Controllers of Major Importance: All fintechs processing transaction records of >10,000 data subjects must file the statutory NDPC CAR.',
+      matchedLicenses: ['PAYMENT_SOLUTION_SERVICES_PSSP'],
+      matchedRails: ['NIBSS_NIP'],
+    },
+    executiveBriefCco:
+      'Mandatory annual Data Protection Compliance Audit filing due March 31, 2026. Failure triggers statutory sanctions up to 2% of annual gross revenue or ₦10,000,000 under NDPA 2023.',
+    actionBriefCoo:
+      'Appoint licensed DPCO (Data Protection Compliance Organization) to perform external data privacy verification.',
+    technicalBriefProductEng:
+      'Verify customer PII encryption in transit and at rest across PostgreSQL databases and AWS/Cloudflare storage buckets.',
+    technicalBriefCto: 'Execute Data Protection Impact Assessment (DPIA) on payment gateway core token vaults.',
+    financialBriefCfo: 'Audit legal penalty reserves against statutory fine thresholds.',
+    governanceBriefCeoCro: 'Executive board signoff on the 2026 Annual Statutory Data Protection Attestation.',
+    actionItems: [
+      {
+        id: 'act_ndpc_1',
+        targetDepartment: 'COMPLIANCE_LEGAL',
+        actionTitle: 'File 2026 Statutory Compliance Audit Report with NDPC',
+        actionDescription: 'Submit certified DPCO audit dossier to the National Commissioner of the NDPC.',
+        suggestedDeadline: '2026-03-25',
+        isCompleted: false,
+      },
+    ],
+  },
 ];
 
 export interface RadarCockpitProps {
@@ -368,18 +493,25 @@ export interface RadarCockpitProps {
 export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitProps) {
   const [circulars, setCirculars] = useState<RadarCircularPresentationCard[]>(PRESET_CIRCULARS);
   const [selectedCircularId, setSelectedCircularId] = useState<string>(PRESET_CIRCULARS[0].id);
+  const [viewMode, setViewMode] = useState<'table' | 'dossier' | 'cards'>('table');
+  const [activeTab, setActiveTab] = useState<'overview' | 'obligations' | 'briefs' | 'lineage'>('overview');
+
+  // Filter States
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterRegulator, setFilterRegulator] = useState<string>('ALL');
   const [filterUrgency, setFilterUrgency] = useState<string>('ALL');
   const [filterLicense, setFilterLicense] = useState<string>('ALL');
   const [filterLineage, setFilterLineage] = useState<string>('ALL');
-  const [showLineageExplorer, setShowLineageExplorer] = useState<boolean>(true);
+  const [relevantOnly, setRelevantOnly] = useState<boolean>(false);
+
+  // Overlay & Sync States
   const [isUploadDrawerOpen, setIsUploadDrawerOpen] = useState<boolean>(false);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [showExportMenu, setShowExportMenu] = useState<boolean>(false);
   const [isLoadingLive, setIsLoadingLive] = useState<boolean>(false);
 
   // Live Database Fetcher
-  const fetchLiveCirculars = React.useCallback(async () => {
+  const fetchLiveCirculars = useCallback(async () => {
     try {
       setIsLoadingLive(true);
       const res = await fetch('/api/radar/circulars');
@@ -458,20 +590,24 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
     }
   }, []);
 
-  React.useEffect(() => {
+  useEffect(() => {
     fetchLiveCirculars();
   }, [fetchLiveCirculars]);
 
-  // Cross-Pillar deep linking context consumption (Task 19.2)
-  React.useEffect(() => {
+  // Deep linking initial context consumption
+  useEffect(() => {
     if (initialContext) {
       if (initialContext.regulatorCode) {
         setFilterRegulator(initialContext.regulatorCode);
       }
       if (initialContext.circularNumber) {
         const found = circulars.find((c) => c.circularNumber.includes(initialContext.circularNumber!));
-        if (found) setSelectedCircularId(found.id);
+        if (found) {
+          setSelectedCircularId(found.id);
+          setViewMode('dossier');
+        }
       } else if (initialContext.searchTerm) {
+        setSearchQuery(initialContext.searchTerm);
         const term = initialContext.searchTerm.toLowerCase();
         const found = circulars.find(
           (c) =>
@@ -479,32 +615,106 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
             c.circularNumber.toLowerCase().includes(term) ||
             c.regulator.toLowerCase().includes(term)
         );
-        if (found) setSelectedCircularId(found.id);
+        if (found) {
+          setSelectedCircularId(found.id);
+          setViewMode('dossier');
+        }
       }
     }
   }, [initialContext, circulars]);
 
-  const selectedCircular =
-    circulars.find((c) => c.id === selectedCircularId) || circulars[0];
+  // Filtered dataset
+  const displayedCirculars = useMemo(() => {
+    return circulars.filter((c) => {
+      if (relevantOnly && !c.applicability.isApplicable) return false;
+      if (filterRegulator !== 'ALL' && c.regulator !== filterRegulator) return false;
+      if (filterUrgency !== 'ALL') {
+        if (filterUrgency === 'CRITICAL_EMERGENCY' && c.priority !== 'CRITICAL_EMERGENCY' && c.urgencyWindow !== 'CRITICAL_EMERGENCY') return false;
+        if (filterUrgency === 'URGENT_ACTION' && c.priority !== 'HIGH' && c.urgencyWindow !== 'URGENT_ACTION') return false;
+        if (filterUrgency === 'STANDARD_WINDOW' && c.priority !== 'MEDIUM' && c.priority !== 'LOW' && c.urgencyWindow !== 'STANDARD_WINDOW') return false;
+      }
+      if (filterLicense !== 'ALL' && !c.targetedLicenses.includes(filterLicense as LicenseType) && !c.appliesUniversally) {
+        return false;
+      }
+      if (filterLineage !== 'ALL' && (c.lineageStatus || 'ACTIVE_LAW') !== filterLineage) {
+        return false;
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchesSubject = c.subject.toLowerCase().includes(q);
+        const matchesNumber = c.circularNumber.toLowerCase().includes(q);
+        const matchesSummary = c.summary.toLowerCase().includes(q);
+        const matchesRegulator = c.regulator.toLowerCase().includes(q);
+        if (!matchesSubject && !matchesNumber && !matchesSummary && !matchesRegulator) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [circulars, filterRegulator, filterUrgency, filterLicense, filterLineage, relevantOnly, searchQuery]);
 
-  // Dynamic filter pipeline
-  const displayedCirculars = circulars.filter((c) => {
-    if (filterRegulator !== 'ALL' && c.regulator !== filterRegulator) return false;
-    if (filterUrgency !== 'ALL') {
-      if (filterUrgency === 'CRITICAL_EMERGENCY' && c.priority !== 'CRITICAL_EMERGENCY' && c.urgencyWindow !== 'CRITICAL_EMERGENCY') return false;
-      if (filterUrgency === 'URGENT_ACTION' && c.priority !== 'HIGH' && c.urgencyWindow !== 'URGENT_ACTION') return false;
-      if (filterUrgency === 'STANDARD_WINDOW' && c.priority !== 'MEDIUM' && c.priority !== 'LOW' && c.urgencyWindow !== 'STANDARD_WINDOW') return false;
-    }
-    if (filterLicense !== 'ALL' && !c.targetedLicenses.includes(filterLicense as LicenseType) && !c.appliesUniversally) {
-      return false;
-    }
-    if (filterLineage !== 'ALL' && (c.lineageStatus || 'ACTIVE_LAW') !== filterLineage) {
-      return false;
-    }
-    return true;
-  });
+  const selectedCircular = useMemo(() => {
+    return circulars.find((c) => c.id === selectedCircularId) || circulars[0] || PRESET_CIRCULARS[0];
+  }, [circulars, selectedCircularId]);
 
-  // High-level summary metrics
+  // Multi-Pane Inspector Engine Wiring (Level 4 & Level 5)
+  const inspectableIds = useMemo(() => {
+    const ids: string[] = displayedCirculars.map((c) => c.id);
+    if (selectedCircular.actionItems) {
+      selectedCircular.actionItems.forEach((act) => ids.push(act.id));
+    }
+    return ids;
+  }, [displayedCirculars, selectedCircular]);
+
+  const inspector = useInspectorStore(inspectableIds);
+
+  // Resolve current active item data for the inspector
+  const activeInspectorItem: InspectorItemData | null = useMemo(() => {
+    if (!inspector.inspectId) return null;
+
+    // Check if inspecting a circular
+    const circ = circulars.find((c) => c.id === inspector.inspectId);
+    if (circ) {
+      return circularToInspectorItem(circ);
+    }
+
+    // Check if inspecting an action item / obligation
+    for (const c of circulars) {
+      const act = c.actionItems?.find((a) => a.id === inspector.inspectId);
+      if (act) {
+        return obligationToInspectorItem(act, c);
+      }
+    }
+
+    return null;
+  }, [inspector.inspectId, circulars]);
+
+  // Resolve active statutory reference
+  const activeReference: StatutoryReferenceData | null = useMemo(() => {
+    if (!inspector.refId) return null;
+    if (activeInspectorItem?.statutoryReference?.id === inspector.refId) {
+      return activeInspectorItem.statutoryReference;
+    }
+    const matchedCirc = circulars.find(
+      (c) => c.id === inspector.refId || `ref-${c.id}` === inspector.refId
+    );
+    if (matchedCirc) {
+      return {
+        id: `ref-${matchedCirc.id}`,
+        statutoryInstrumentTitle: `${matchedCirc.regulator} Directive ${matchedCirc.circularNumber}`,
+        citationClause: matchedCirc.circularNumber,
+        regulatorCode: matchedCirc.regulator,
+        verbatimLegalText: `${matchedCirc.subject}\n\n${matchedCirc.summary}`,
+        statutoryPenaltyNaira: matchedCirc.penaltyEscalationProjection?.totalProjectedExposureNaira,
+        dailyFineNaira: matchedCirc.penaltyEscalationProjection?.dailyFineNaira,
+        effectiveDate: matchedCirc.effectiveDate,
+        highlightedPhrase: matchedCirc.subject,
+      };
+    }
+    return activeInspectorItem?.statutoryReference || null;
+  }, [inspector.refId, activeInspectorItem, circulars]);
+
+  // Pulse metrics
   const totalMonitored = circulars.length;
   const applicableCount = circulars.filter((c) => c.applicability.isApplicable).length;
   const urgentCount = circulars.filter(
@@ -566,9 +776,10 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
 
     setCirculars([newCard, ...circulars]);
     setSelectedCircularId(newCard.id);
+    setViewMode('dossier');
   };
 
-  const handleExportBrief = async (format: 'markdown' | 'pdf' | 'html' = 'markdown') => {
+  const handleExportBrief = async (format: 'markdown' | 'pdf' = 'markdown') => {
     setIsExporting(true);
     try {
       const fetchFormat = format === 'pdf' ? 'html' : format;
@@ -634,219 +845,496 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
     carriesLicenseSuspensionRisk: true,
   };
 
-  return (
-    <div className="flex min-h-screen flex-col bg-[#090D16] text-slate-100 font-sans selection:bg-cyan-500/30">
-      {/* ──────────────────────────────────────────────────────────────────────────
-          COMMAND BAR & BREADCRUMB
-          ────────────────────────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-40 border-b border-slate-800/80 bg-[#090D16]/90 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-xs">
-              <span className="font-extrabold tracking-wider text-cyan-400 uppercase">Cogent</span>
-              <ChevronRight className="h-3.5 w-3.5 text-slate-600" />
-              <span className="text-slate-400 font-medium">Pillar 2: Regulatory Radar</span>
-              <ChevronRight className="h-3.5 w-3.5 text-slate-600" />
-              <span className="font-semibold text-slate-200 truncate max-w-[180px] sm:max-w-xs">
-                {selectedCircular.circularNumber}
-              </span>
-            </div>
-
-            {onSwitchPillar && (
-              <div className="hidden sm:flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900/60 p-1 text-xs">
-                <button
-                  onClick={() => onSwitchPillar('executive')}
-                  className="rounded-lg px-2.5 py-1 text-slate-400 hover:text-white transition-colors"
-                >
-                  Unified Executive
-                </button>
-                <button
-                  onClick={() => onSwitchPillar('marketing')}
-                  className="rounded-lg px-2.5 py-1 text-slate-400 hover:text-white transition-colors"
-                >
-                  Pillar 1: Marketing Shield
-                </button>
-                <button
-                  className="rounded-lg bg-cyan-500/20 text-cyan-300 font-bold px-2.5 py-1 shadow-sm"
-                >
-                  Pillar 2: Regulatory Radar
-                </button>
-                <button
-                  onClick={() => onSwitchPillar('gap-matrix')}
-                  className="rounded-lg px-2.5 py-1 text-slate-400 hover:text-white transition-colors"
-                >
-                  Pillar 3: 5-W Gap Matrix
-                </button>
-              </div>
-            )}
+  // Dense Table Columns for Level 1 Horizon Scanning (Zango Dense View)
+  const columns: TableColumn<RadarCircularPresentationCard>[] = [
+    {
+      key: 'regulator',
+      header: 'Regulator',
+      width: '100px',
+      sortable: true,
+      render: (row) => {
+        const colors: Record<string, string> = {
+          CBN: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+          SEC: 'bg-blue-50 text-blue-800 border-blue-200',
+          ARCON: 'bg-purple-50 text-purple-800 border-purple-200',
+          NDPC: 'bg-teal-50 text-teal-800 border-teal-200',
+          FCCPC: 'bg-amber-50 text-amber-800 border-amber-200',
+          NFIU: 'bg-rose-50 text-rose-800 border-rose-200',
+          NDIC: 'bg-cyan-50 text-cyan-800 border-cyan-200',
+        };
+        const badgeClass = colors[row.regulator] || 'bg-slate-100 text-slate-800 border-slate-200';
+        return (
+          <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-extrabold uppercase border ${badgeClass}`}>
+            {row.regulator}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'circularNumber',
+      header: 'Directive Ref',
+      width: '180px',
+      sortable: true,
+      render: (row) => (
+        <span className="font-mono text-xs font-bold text-[#0B0F1A] hover:text-[#2A4BFF] transition-colors">
+          {row.circularNumber}
+        </span>
+      ),
+    },
+    {
+      key: 'subject',
+      header: 'Directive Title & AI Synthesis',
+      sortable: true,
+      render: (row) => (
+        <div className="space-y-0.5 max-w-xl">
+          <div className="text-xs font-semibold text-[#0B0F1A] line-clamp-1">
+            {row.subject}
           </div>
+          <div className="text-[11px] text-[#4B5565] line-clamp-1">
+            {row.summary}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'publicationDate',
+      header: 'Issued',
+      width: '110px',
+      sortable: true,
+      render: (row) => (
+        <span className="text-xs text-[#4B5565]">
+          {row.publicationDate}
+        </span>
+      ),
+    },
+    {
+      key: 'daysRemaining',
+      header: 'Statutory SLA',
+      width: '140px',
+      sortable: true,
+      render: (row) => {
+        const isCritical = row.countdownTier === 'CRITICAL_EMERGENCY';
+        const isHigh = row.countdownTier === 'HIGH';
+        return (
+          <span
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+              isCritical
+                ? 'bg-red-50 text-red-700 border-red-200 animate-pulse'
+                : isHigh
+                ? 'bg-amber-50 text-amber-800 border-amber-200'
+                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+            }`}
+          >
+            <Clock className="w-3 h-3" />
+            {row.daysRemaining !== null
+              ? row.daysRemaining < 0
+                ? `Expired (${Math.abs(row.daysRemaining)}d)`
+                : `${row.daysRemaining}d left`
+              : 'Active'}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'exposure',
+      header: 'Sanction Exposure',
+      width: '130px',
+      render: (row) => {
+        const exp = row.penaltyEscalationProjection?.totalProjectedExposureNaira;
+        return (
+          <span className="text-xs font-bold text-[#0B0F1A]">
+            {exp ? `₦${(exp / 1_000_000).toFixed(1)}M` : 'Statutory'}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'lineageStatus',
+      header: 'Lineage',
+      width: '120px',
+      render: (row) => {
+        const st = row.lineageStatus || 'ACTIVE_LAW';
+        if (st === 'SUPERSEDED') {
+          return (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+              Superseded
+            </span>
+          );
+        }
+        if (st === 'AMENDED') {
+          return (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              Amended
+            </span>
+          );
+        }
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            Active Law
+          </span>
+        );
+      },
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      width: '160px',
+      render: (row) => (
+        <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={() => {
+              setSelectedCircularId(row.id);
+              setViewMode('dossier');
+            }}
+            className="px-2.5 py-1 text-[11px] font-semibold text-[#2A4BFF] bg-[#2A4BFF]/5 hover:bg-[#2A4BFF]/10 rounded-md border border-[#2A4BFF]/20 transition-all"
+          >
+            Open Dossier
+          </button>
+          <button
+            onClick={() => inspector.openInspector(row.id)}
+            className="p-1 text-[#4B5565] hover:text-[#2A4BFF] hover:bg-[#F5F6FA] rounded border border-[#DDE3EE] transition-all"
+            title="Inspect with Multi-Pane Side-Sheet"
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ),
+    },
+  ];
 
-          <div className="flex items-center gap-3">
-            <div className="hidden lg:flex items-center gap-2 rounded-full border border-slate-800 bg-slate-900/60 px-3 py-1 text-[11px] text-slate-400">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Multi-Regulator Radar: CBN • SEC • NDIC • FCCPC • NFIU • ARCON</span>
-            </div>
-
-            <div className="relative">
-              <div className="inline-flex rounded-xl shadow-sm">
+  return (
+    <MultiPaneContainer
+      inspector={inspector}
+      activeItem={activeInspectorItem}
+      activeReference={activeReference}
+    >
+      <div className="min-h-screen bg-[#F5F6FA] text-[#0B0F1A] font-sans pb-16">
+        {/* ──────────────────────────────────────────────────────────────────────────
+            TOP HEADER & COMMAND BAR
+            ────────────────────────────────────────────────────────────────────────── */}
+        <header className="sticky top-0 z-30 border-b border-[#DDE3EE] bg-white/95 backdrop-blur-md">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
+            <div className="flex items-center gap-3">
+              {/* Breadcrumb Navigation */}
+              <div className="flex items-center gap-2 text-xs">
+                <span className="font-extrabold tracking-wider text-[#2A4BFF] uppercase">Cogent</span>
+                <ChevronRight className="h-3.5 w-3.5 text-[#8D99AE]" />
                 <button
-                  disabled={isExporting}
-                  onClick={() => handleExportBrief('markdown')}
-                  className="inline-flex items-center gap-1.5 rounded-l-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20 transition-all shadow-sm disabled:opacity-50"
-                  title="Export official Executive Board Brief (Markdown)"
+                  onClick={() => setViewMode('table')}
+                  className="text-[#4B5565] hover:text-[#0B0F1A] font-medium transition-colors"
                 >
-                  <Download className="h-3.5 w-3.5" />
-                  <span>{isExporting ? 'Generating...' : 'Export Board Brief'}</span>
+                  Pillar 1: Insight
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setShowExportMenu(!showExportMenu)}
-                  className="inline-flex items-center rounded-r-xl border border-l-0 border-cyan-500/30 bg-cyan-500/10 px-2 py-1.5 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/20 transition-all"
-                  title="Export formats (PDF / Markdown)"
-                >
-                  <ChevronDown className="h-3.5 w-3.5" />
-                </button>
+                <ChevronRight className="h-3.5 w-3.5 text-[#8D99AE]" />
+                {viewMode === 'dossier' ? (
+                  <>
+                    <span className="text-[#4B5565]">{selectedCircular.regulator}</span>
+                    <ChevronRight className="h-3.5 w-3.5 text-[#8D99AE]" />
+                    <span className="font-semibold text-[#0B0F1A] truncate max-w-[180px] sm:max-w-xs">
+                      {selectedCircular.circularNumber}
+                    </span>
+                  </>
+                ) : (
+                  <span className="font-semibold text-[#0B0F1A]">Horizon Scanning Feed</span>
+                )}
               </div>
 
-              {showExportMenu && (
-                <div className="absolute right-0 mt-2 w-64 rounded-xl border border-slate-700 bg-slate-900/95 p-1.5 shadow-2xl backdrop-blur-xl z-50">
-                  <div className="px-2.5 py-1 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-                    Statutory Board Briefs
-                  </div>
+              {/* Cross-Pillar Quick Switcher */}
+              {onSwitchPillar && (
+                <div className="hidden xl:flex items-center gap-1 rounded-xl border border-[#DDE3EE] bg-[#F5F6FA] p-1 text-xs">
                   <button
-                    onClick={() => handleExportBrief('pdf')}
-                    className="w-full text-left flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-xs hover:bg-slate-800 transition-colors group"
+                    onClick={() => onSwitchPillar('executive')}
+                    className="rounded-lg px-2.5 py-1 text-[#4B5565] hover:text-[#0B0F1A] hover:bg-white transition-colors"
                   >
-                    <Printer className="h-4 w-4 text-rose-400 mt-0.5" />
-                    <div>
-                      <div className="font-semibold text-white group-hover:text-cyan-300">
-                        Print / Save as PDF
-                      </div>
-                      <div className="text-[11px] text-slate-400">
-                        Executive format with CCO Attestation & SHA-256 seal
-                      </div>
-                    </div>
+                    Unified Executive
                   </button>
                   <button
-                    onClick={() => handleExportBrief('markdown')}
-                    className="w-full text-left flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-xs hover:bg-slate-800 transition-colors group"
+                    className="rounded-lg bg-white text-[#2A4BFF] font-bold px-2.5 py-1 shadow-xs border border-[#DDE3EE]"
                   >
-                    <FileText className="h-4 w-4 text-cyan-400 mt-0.5" />
-                    <div>
-                      <div className="font-semibold text-white group-hover:text-cyan-300">
-                        Download Markdown Dossier
-                      </div>
-                      <div className="text-[11px] text-slate-400">
-                        Board pack with statutory schedules (.md)
-                      </div>
-                    </div>
+                    Pillar 1: Insight
+                  </button>
+                  <button
+                    onClick={() => onSwitchPillar('marketing')}
+                    className="rounded-lg px-2.5 py-1 text-[#4B5565] hover:text-[#0B0F1A] hover:bg-white transition-colors"
+                  >
+                    Pillar 2: Marketing Shield
+                  </button>
+                  <button
+                    onClick={() => onSwitchPillar('gap-matrix')}
+                    className="rounded-lg px-2.5 py-1 text-[#4B5565] hover:text-[#0B0F1A] hover:bg-white transition-colors"
+                  >
+                    Pillar 3: Gap Matrix
                   </button>
                 </div>
               )}
             </div>
 
-            <button
-              onClick={() => fetchLiveCirculars()}
-              disabled={isLoadingLive}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 hover:text-white transition-all disabled:opacity-50"
-              title="Refresh circulars from live database"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${isLoadingLive ? 'animate-spin text-cyan-400' : ''}`} />
-              <span className="hidden sm:inline">{isLoadingLive ? 'Syncing...' : 'Sync Radar'}</span>
-            </button>
+            {/* Actions Bar */}
+            <div className="flex items-center gap-2.5">
+              {/* Regulator Badge List */}
+              <div className="hidden lg:flex items-center gap-2 rounded-full border border-[#DDE3EE] bg-[#F9FAFC] px-3 py-1 text-[11px] text-[#4B5565]">
+                <span className="h-2 w-2 rounded-full bg-[#10B981] animate-pulse" />
+                <span>CBN • SEC • NDIC • FCCPC • NFIU • ARCON • NDPC</span>
+              </div>
 
-            <button
-              onClick={() => setIsUploadDrawerOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-md shadow-cyan-900/30 hover:from-cyan-500 hover:to-blue-500 transition-all"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              <span>Ingest Circular</span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* ──────────────────────────────────────────────────────────────────────────
-          MAIN RADAR COCKPIT
-          ────────────────────────────────────────────────────────────────────────── */}
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6">
-        {/* Metric Pulse Banner */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-6">
-          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 backdrop-blur-md">
-            <div className="flex items-center gap-2 text-slate-400 text-xs mb-1">
-              <Radio className="h-3.5 w-3.5 text-cyan-400" />
-              <span>Monitored Directives</span>
-            </div>
-            <div className="text-2xl font-black text-white">{totalMonitored}</div>
-            <div className="text-[10px] text-slate-500">Across 6 Nigerian Regulators</div>
-          </div>
-
-          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 backdrop-blur-md">
-            <div className="flex items-center gap-2 text-emerald-400 text-xs mb-1">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              <span>Applicable Directives</span>
-            </div>
-            <div className="text-2xl font-black text-emerald-300">{applicableCount}</div>
-            <div className="text-[10px] text-slate-500">Zero-Noise Relational Matches</div>
-          </div>
-
-          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 backdrop-blur-md">
-            <div className="flex items-center gap-2 text-amber-400 text-xs mb-1">
-              <Clock className="h-3.5 w-3.5" />
-              <span>Active Compliance Windows</span>
-            </div>
-            <div className="text-2xl font-black text-amber-300">{urgentCount}</div>
-            <div className="text-[10px] text-slate-500">Statutory countdown gates</div>
-          </div>
-
-          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4 backdrop-blur-md">
-            <div className="flex items-center gap-2 text-rose-400 text-xs mb-1">
-              <ShieldAlert className="h-3.5 w-3.5" />
-              <span>Sanction Fine Avoided</span>
-            </div>
-            <div className="text-2xl font-black text-rose-300">₦450M+</div>
-            <div className="text-[10px] text-slate-500">BOFIA & ISA statutory exposure</div>
-          </div>
-        </div>
-
-        {/* Master-Detail Split Grid */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-          {/* ────────────────────────────────────────────────────────────────────
-              LEFT PANE: CIRCULAR FEED & MULTI-FILTER BAR (4 Cols)
-              ──────────────────────────────────────────────────────────────────── */}
-          <div className="lg:col-span-4 space-y-4">
-            {/* Filter Cockpit Bar */}
-            <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3 space-y-2.5 text-xs">
-              <div className="flex items-center justify-between pb-1 border-b border-slate-800/60 text-slate-400">
-                <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-[10px]">
-                  <Filter className="h-3 w-3 text-cyan-400" />
-                  Horizon Filters
-                </span>
+              {/* View Switcher Pills */}
+              <div className="inline-flex rounded-lg border border-[#DDE3EE] bg-[#F5F6FA] p-0.5">
                 <button
-                  onClick={() => {
-                    setFilterRegulator('ALL');
-                    setFilterUrgency('ALL');
-                    setFilterLicense('ALL');
-                    setFilterLineage('ALL');
-                  }}
-                  className="text-[10px] text-cyan-400 hover:underline"
+                  onClick={() => setViewMode('table')}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                    viewMode === 'table'
+                      ? 'bg-white text-[#2A4BFF] shadow-xs'
+                      : 'text-[#4B5565] hover:text-[#0B0F1A]'
+                  }`}
+                  title="Dense Table View"
                 >
-                  Reset
+                  <TableIcon className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Table</span>
+                </button>
+                <button
+                  onClick={() => setViewMode('dossier')}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                    viewMode === 'dossier'
+                      ? 'bg-white text-[#2A4BFF] shadow-xs'
+                      : 'text-[#4B5565] hover:text-[#0B0F1A]'
+                  }`}
+                  title="Dossier Workspace"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Dossier</span>
+                </button>
+                <button
+                  onClick={() => setViewMode('cards')}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                    viewMode === 'cards'
+                      ? 'bg-white text-[#2A4BFF] shadow-xs'
+                      : 'text-[#4B5565] hover:text-[#0B0F1A]'
+                  }`}
+                  title="Card Grid"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Cards</span>
                 </button>
               </div>
 
-              {/* Regulator Pills */}
-              <div>
-                <label className="text-[10px] text-slate-400 mb-1 block">Regulator:</label>
-                <div className="flex flex-wrap items-center gap-1">
-                  {['ALL', 'CBN', 'SEC', 'NDIC', 'FCCPC', 'NFIU', 'ARCON'].map((reg) => (
+              {/* Export Button & Dropdown */}
+              <div className="relative">
+                <div className="inline-flex rounded-lg shadow-xs">
+                  <button
+                    disabled={isExporting}
+                    onClick={() => handleExportBrief('markdown')}
+                    className="inline-flex items-center gap-1.5 rounded-l-lg border border-[#DDE3EE] bg-white px-3 py-1.5 text-xs font-semibold text-[#0B0F1A] hover:bg-[#F9FAFC] transition-all disabled:opacity-50"
+                  >
+                    <Download className="h-3.5 w-3.5 text-[#2A4BFF]" />
+                    <span>{isExporting ? 'Exporting...' : 'Export'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowExportMenu(!showExportMenu)}
+                    className="inline-flex items-center rounded-r-lg border border-l-0 border-[#DDE3EE] bg-white px-2 py-1.5 text-xs font-semibold text-[#4B5565] hover:bg-[#F9FAFC] transition-all"
+                  >
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                {showExportMenu && (
+                  <div className="absolute right-0 mt-2 w-64 rounded-xl border border-[#DDE3EE] bg-white p-1.5 shadow-xl z-50">
+                    <div className="px-2.5 py-1 text-[10px] font-bold text-[#8D99AE] uppercase tracking-wider">
+                      Statutory Board Briefs
+                    </div>
+                    <button
+                      onClick={() => handleExportBrief('pdf')}
+                      className="w-full text-left flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-xs hover:bg-[#F5F6FA] transition-colors"
+                    >
+                      <Printer className="h-4 w-4 text-[#EF4444] mt-0.5" />
+                      <div>
+                        <div className="font-semibold text-[#0B0F1A]">Print / Save as PDF</div>
+                        <div className="text-[11px] text-[#4B5565]">
+                          Board pack with CCO Attestation & SHA-256 seal
+                        </div>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => handleExportBrief('markdown')}
+                      className="w-full text-left flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-xs hover:bg-[#F5F6FA] transition-colors"
+                    >
+                      <FileText className="h-4 w-4 text-[#2A4BFF] mt-0.5" />
+                      <div>
+                        <div className="font-semibold text-[#0B0F1A]">Download Markdown (.md)</div>
+                        <div className="text-[11px] text-[#4B5565]">
+                          Statutory schedules and compliance obligations
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Sync Live Button */}
+              <button
+                onClick={() => fetchLiveCirculars()}
+                disabled={isLoadingLive}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[#DDE3EE] bg-white px-3 py-1.5 text-xs font-semibold text-[#4B5565] hover:text-[#0B0F1A] hover:bg-[#F9FAFC] transition-all disabled:opacity-50"
+                title="Sync directives from live database"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isLoadingLive ? 'animate-spin text-[#2A4BFF]' : ''}`} />
+                <span className="hidden sm:inline">{isLoadingLive ? 'Syncing...' : 'Sync'}</span>
+              </button>
+
+              {/* Ingest Circular CTA */}
+              <button
+                onClick={() => setIsUploadDrawerOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-[#2A4BFF] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-[#203ECC] transition-all"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Ingest Circular</span>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* ──────────────────────────────────────────────────────────────────────────
+            MAIN CONTENT AREA
+            ────────────────────────────────────────────────────────────────────────── */}
+        <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 space-y-6">
+          {/* 1. Metric Pulse Strip (4 elevated cards) */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-xl border border-[#DDE3EE] bg-white p-4 shadow-xs">
+              <div className="flex items-center gap-2 text-[#4B5565] text-xs mb-1">
+                <Radio className="h-3.5 w-3.5 text-[#2A4BFF]" />
+                <span className="font-medium">Monitored Directives</span>
+              </div>
+              <div className="text-2xl font-black text-[#0B0F1A]">{totalMonitored}</div>
+              <div className="text-[10px] text-[#4B5565]">Across 7 Nigerian Regulators</div>
+            </div>
+
+            <div className="rounded-xl border border-[#DDE3EE] bg-white p-4 shadow-xs">
+              <div className="flex items-center gap-2 text-emerald-700 text-xs mb-1">
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                <span className="font-medium">Applicable Directives</span>
+              </div>
+              <div className="text-2xl font-black text-emerald-700">{applicableCount}</div>
+              <div className="text-[10px] text-[#4B5565]">Zero-Noise Relational Matches</div>
+            </div>
+
+            <div className="rounded-xl border border-[#DDE3EE] bg-white p-4 shadow-xs">
+              <div className="flex items-center gap-2 text-amber-800 text-xs mb-1">
+                <Clock className="h-3.5 w-3.5 text-amber-600" />
+                <span className="font-medium">Active Compliance Gates</span>
+              </div>
+              <div className="text-2xl font-black text-amber-800">{urgentCount}</div>
+              <div className="text-[10px] text-[#4B5565]">Statutory countdown deadlines</div>
+            </div>
+
+            <div className="rounded-xl border border-[#DDE3EE] bg-white p-4 shadow-xs">
+              <div className="flex items-center gap-2 text-red-700 text-xs mb-1">
+                <ShieldAlert className="h-3.5 w-3.5 text-red-600" />
+                <span className="font-medium">Sanction Fine Avoided</span>
+              </div>
+              <div className="text-2xl font-black text-red-700">₦450M+</div>
+              <div className="text-[10px] text-[#4B5565]">BOFIA, ISA & NDPA exposure</div>
+            </div>
+          </div>
+
+          {/* ──────────────────────────────────────────────────────────────────────────
+              VIEW MODE: LEVEL 1 HORIZON SCANNING (Dense Table / Cards)
+              ────────────────────────────────────────────────────────────────────────── */}
+          {viewMode === 'table' && (
+            <div className="space-y-4">
+              {/* Horizon Filter Cockpit */}
+              <div className="rounded-xl border border-[#DDE3EE] bg-white p-4 shadow-xs space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  {/* Search Bar */}
+                  <div className="relative flex-1 min-w-[240px]">
+                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-[#8D99AE]" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search by directive code, subject, or regulatory mandate..."
+                      className="w-full pl-9 pr-4 py-1.5 rounded-lg border border-[#DDE3EE] bg-[#F9FAFC] text-xs text-[#0B0F1A] placeholder-[#8D99AE] focus:bg-white focus:border-[#2A4BFF] outline-hidden transition-all"
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-3 top-2.5 text-xs text-[#8D99AE] hover:text-[#0B0F1A]"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Filter Controls */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Urgency Window */}
+                    <select
+                      value={filterUrgency}
+                      onChange={(e) => setFilterUrgency(e.target.value)}
+                      className="rounded-lg border border-[#DDE3EE] bg-white px-2.5 py-1.5 text-xs text-[#0B0F1A] outline-hidden focus:border-[#2A4BFF]"
+                    >
+                      <option value="ALL">All Urgency Windows</option>
+                      <option value="CRITICAL_EMERGENCY">Critical Emergency (&lt; 7d)</option>
+                      <option value="URGENT_ACTION">Urgent Action (&lt; 14d)</option>
+                      <option value="STANDARD_WINDOW">Standard Window (&gt; 14d)</option>
+                    </select>
+
+                    {/* Lineage Status */}
+                    <select
+                      value={filterLineage}
+                      onChange={(e) => setFilterLineage(e.target.value)}
+                      className="rounded-lg border border-[#DDE3EE] bg-white px-2.5 py-1.5 text-xs text-[#0B0F1A] outline-hidden focus:border-[#2A4BFF]"
+                    >
+                      <option value="ALL">All Lineage States</option>
+                      <option value="ACTIVE_LAW">🟢 Active Law</option>
+                      <option value="AMENDED">🟡 Amended</option>
+                      <option value="SUPERSEDED">🔴 Superseded</option>
+                    </select>
+
+                    {/* Relevant Only Toggle */}
+                    <button
+                      onClick={() => setRelevantOnly(!relevantOnly)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                        relevantOnly
+                          ? 'bg-[#2A4BFF] text-white border-[#2A4BFF]'
+                          : 'bg-white text-[#4B5565] border-[#DDE3EE] hover:bg-[#F9FAFC]'
+                      }`}
+                    >
+                      {relevantOnly ? '✓ Applicable Only' : 'Show All'}
+                    </button>
+
+                    {/* Reset Button */}
+                    <button
+                      onClick={() => {
+                        setFilterRegulator('ALL');
+                        setFilterUrgency('ALL');
+                        setFilterLicense('ALL');
+                        setFilterLineage('ALL');
+                        setSearchQuery('');
+                        setRelevantOnly(false);
+                      }}
+                      className="text-xs text-[#2A4BFF] hover:underline px-1 font-medium"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                </div>
+
+                {/* Regulator Filter Pills */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-[#DDE3EE]">
+                  <span className="text-[11px] font-bold text-[#8D99AE] uppercase tracking-wider mr-1">
+                    Regulator:
+                  </span>
+                  {['ALL', 'CBN', 'SEC', 'NDIC', 'FCCPC', 'NFIU', 'ARCON', 'NDPC'].map((reg) => (
                     <button
                       key={reg}
                       onClick={() => setFilterRegulator(reg)}
-                      className={`rounded-md px-2 py-0.5 text-[10px] font-bold transition-all ${
+                      className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
                         filterRegulator === reg
-                          ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                          : 'bg-slate-800/40 text-slate-400 hover:text-slate-200'
+                          ? 'bg-[#2A4BFF] text-white shadow-xs'
+                          : 'bg-[#F5F6FA] text-[#4B5565] hover:bg-[#E8EDF5] hover:text-[#0B0F1A]'
                       }`}
                     >
                       {reg}
@@ -855,400 +1343,512 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
                 </div>
               </div>
 
-              {/* Urgency Window */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] text-slate-400 mb-1 block">Urgency Window:</label>
-                  <select
-                    value={filterUrgency}
-                    onChange={(e) => setFilterUrgency(e.target.value)}
-                    className="w-full rounded-lg border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-200 focus:border-cyan-500 outline-none"
-                  >
-                    <option value="ALL">All Windows</option>
-                    <option value="CRITICAL_EMERGENCY">Critical Emergency</option>
-                    <option value="URGENT_ACTION">Urgent Action</option>
-                    <option value="STANDARD_WINDOW">Standard Window</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-[10px] text-slate-400 mb-1 block">Lineage Status:</label>
-                  <select
-                    value={filterLineage}
-                    onChange={(e) => setFilterLineage(e.target.value)}
-                    className="w-full rounded-lg border border-slate-800 bg-slate-950 px-2 py-1 text-[11px] text-slate-200 focus:border-cyan-500 outline-none"
-                  >
-                    <option value="ALL">All Lineage</option>
-                    <option value="ACTIVE_LAW">🟢 Active Law</option>
-                    <option value="AMENDED">🟡 Amended</option>
-                    <option value="SUPERSEDED">🔴 Superseded</option>
-                  </select>
-                </div>
+              {/* Dense Data Table (Zango AI Reference) */}
+              <div className="rounded-xl border border-[#DDE3EE] bg-white shadow-xs overflow-hidden">
+                <DenseDataTable
+                  columns={columns}
+                  data={displayedCirculars}
+                  selectedId={selectedCircularId}
+                  onRowClick={(row) => {
+                    setSelectedCircularId(row.id);
+                    setViewMode('dossier');
+                  }}
+                  searchPlaceholder="Filter circulars in table..."
+                  emptyMessage="No regulatory directives match the selected horizon criteria."
+                  totalRecordsCount={displayedCirculars.length}
+                />
               </div>
             </div>
+          )}
 
-            {/* Circular Feed */}
-            <div className="space-y-3">
-              {displayedCirculars.length === 0 ? (
-                <div className="rounded-xl border border-slate-800 bg-slate-900/30 p-8 text-center text-slate-500">
-                  <p className="text-xs">No regulatory directives match current filter criteria.</p>
-                </div>
-              ) : (
-                displayedCirculars.map((card) => (
+          {/* ──────────────────────────────────────────────────────────────────────────
+              VIEW MODE: CARD GRID
+              ────────────────────────────────────────────────────────────────────────── */}
+          {viewMode === 'cards' && (
+            <div className="space-y-4">
+              {/* Regulator Filter Pills */}
+              <div className="flex flex-wrap items-center gap-1.5 p-3 rounded-xl border border-[#DDE3EE] bg-white">
+                <span className="text-[11px] font-bold text-[#8D99AE] uppercase tracking-wider mr-1">
+                  Regulator:
+                </span>
+                {['ALL', 'CBN', 'SEC', 'NDIC', 'FCCPC', 'NFIU', 'ARCON', 'NDPC'].map((reg) => (
+                  <button
+                    key={reg}
+                    onClick={() => setFilterRegulator(reg)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${
+                      filterRegulator === reg
+                        ? 'bg-[#2A4BFF] text-white shadow-xs'
+                        : 'bg-[#F5F6FA] text-[#4B5565] hover:bg-[#E8EDF5] hover:text-[#0B0F1A]'
+                    }`}
+                  >
+                    {reg}
+                  </button>
+                ))}
+              </div>
+
+              {/* Cards Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {displayedCirculars.map((card) => (
                   <CircularCard
                     key={card.id}
                     card={card}
                     isSelected={card.id === selectedCircularId}
-                    onSelect={() => setSelectedCircularId(card.id)}
+                    onSelect={() => {
+                      setSelectedCircularId(card.id);
+                      setViewMode('dossier');
+                    }}
+                    onInspect={() => inspector.openInspector(card.id)}
                   />
-                ))
-              )}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* ────────────────────────────────────────────────────────────────────
-              RIGHT PANE: EXECUTIVE COCKPIT DETAIL (8 Cols)
-              ──────────────────────────────────────────────────────────────────── */}
-          <div className="lg:col-span-8 space-y-5">
-            {/* 1. Header Banner & Countdown Timer */}
-            <div className="rounded-2xl border border-slate-800 bg-[#0B111E]/90 p-6 shadow-xl backdrop-blur-xl">
-              <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
-                <div>
-                  <div className="flex items-center gap-2 mb-2 flex-wrap">
-                    <span className="rounded-md border border-cyan-500/30 bg-cyan-950/60 px-2.5 py-0.5 text-xs font-mono font-bold text-cyan-300">
-                      {selectedCircular.circularNumber}
-                    </span>
-                    <span className="text-xs text-slate-400">
-                      Issued: {selectedCircular.publicationDate}
-                    </span>
+          {/* ──────────────────────────────────────────────────────────────────────────
+              VIEW MODE: LEVEL 2 CIRCULAR DOSSIER WORKSPACE
+              ────────────────────────────────────────────────────────────────────────── */}
+          {viewMode === 'dossier' && (
+            <div className="space-y-5">
+              {/* Back Navigation Bar */}
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setViewMode('table')}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-[#4B5565] hover:text-[#2A4BFF] transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  <span>Back to Horizon Scanning Table</span>
+                </button>
 
-                    {/* Lineage Status Badge */}
-                    {currentLineageStatus === 'SUPERSEDED' ? (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-red-500/80 bg-red-950/80 px-2.5 py-0.5 text-[10px] font-extrabold text-red-300">
-                        <span className="h-1.5 w-1.5 rounded-full bg-red-400" />
-                        SUPERSEDED / OBSOLETE
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => inspector.openInspector(selectedCircular.id)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#DDE3EE] bg-white text-xs font-semibold text-[#0B0F1A] hover:bg-[#F9FAFC] transition-all shadow-xs"
+                  >
+                    <BookOpen className="w-3.5 h-3.5 text-[#2A4BFF]" />
+                    <span>Inspect Directive</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      inspector.openInspector(selectedCircular.id);
+                      inspector.openReference(`ref-${selectedCircular.id}`);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#DDE3EE] bg-white text-xs font-semibold text-[#0B0F1A] hover:bg-[#F9FAFC] transition-all shadow-xs"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-[#10B981]" />
+                    <span>View Gazette Text</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Dossier Header Card */}
+              <div className="rounded-2xl border border-[#DDE3EE] bg-white p-6 shadow-sm">
+                <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="rounded-md border border-[#2A4BFF]/30 bg-[#2A4BFF]/5 px-2.5 py-0.5 text-xs font-mono font-bold text-[#2A4BFF]">
+                        {selectedCircular.circularNumber}
                       </span>
-                    ) : currentLineageStatus === 'AMENDED' ? (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/80 bg-amber-950/80 px-2.5 py-0.5 text-[10px] font-extrabold text-amber-300">
-                        <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-                        AMENDED DIRECTIVE
+                      <span className="text-xs text-[#4B5565]">
+                        Issued: {selectedCircular.publicationDate}
                       </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/80 bg-emerald-950/80 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-300">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                        ACTIVE GOVERNING LAW
+                      <span className="text-xs text-[#4B5565]">
+                        • Effective: {selectedCircular.effectiveDate}
                       </span>
-                    )}
+
+                      {/* Lineage Badge */}
+                      {currentLineageStatus === 'SUPERSEDED' ? (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-[10px] font-extrabold text-red-700">
+                          <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                          SUPERSEDED / OBSOLETE
+                        </span>
+                      ) : currentLineageStatus === 'AMENDED' ? (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[10px] font-extrabold text-amber-800">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                          AMENDED DIRECTIVE
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-extrabold text-emerald-700">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                          ACTIVE GOVERNING LAW
+                        </span>
+                      )}
+                    </div>
+
+                    <h1 className="text-xl font-black text-[#0B0F1A] leading-snug">
+                      {selectedCircular.subject}
+                    </h1>
                   </div>
-                  <h1 className="text-lg font-black text-white leading-snug">
-                    {selectedCircular.subject}
-                  </h1>
+
+                  {/* Urgency Badge */}
+                  <div className="text-right">
+                    <div
+                      className={`inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-1.5 text-xs font-bold ${
+                        selectedCircular.countdownTier === 'CRITICAL_EMERGENCY'
+                          ? 'border-red-200 bg-red-50 text-red-700 animate-pulse'
+                          : selectedCircular.countdownTier === 'HIGH'
+                          ? 'border-amber-200 bg-amber-50 text-amber-800'
+                          : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                      }`}
+                    >
+                      <Clock className="h-4 w-4" />
+                      <span>
+                        {selectedCircular.daysRemaining !== null
+                          ? selectedCircular.daysRemaining < 0
+                            ? `OVERDUE (${Math.abs(selectedCircular.daysRemaining)} DAYS)`
+                            : `${selectedCircular.daysRemaining} DAYS TO COMPLIANCE`
+                          : 'ACTIVE DIRECTIVE'}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-[#4B5565] mt-1 font-medium">
+                      Statutory Deadline: {selectedCircular.statutoryDeadline || 'None specified'}
+                    </div>
+                  </div>
                 </div>
 
-                {/* Urgency Badge */}
-                <div className="text-right">
-                  <div
-                    className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1 text-xs font-bold ${
-                      selectedCircular.countdownTier === 'CRITICAL_EMERGENCY'
-                        ? 'border-red-500/80 bg-red-950/80 text-red-200 animate-pulse shadow-lg shadow-red-950/50'
-                        : selectedCircular.countdownTier === 'HIGH'
-                        ? 'border-amber-500/80 bg-amber-950/80 text-amber-200'
-                        : 'border-emerald-600/70 bg-emerald-950/60 text-emerald-300'
-                    }`}
-                  >
-                    <Clock className="h-4 w-4" />
-                    <span>
-                      {selectedCircular.daysRemaining !== null
-                        ? selectedCircular.daysRemaining < 0
-                          ? `OVERDUE (${Math.abs(selectedCircular.daysRemaining)} DAYS)`
-                          : `${selectedCircular.daysRemaining} DAYS TO COMPLIANCE`
-                        : 'ACTIVE DIRECTIVE'}
-                    </span>
+                {/* Supersession Warning Banner */}
+                {currentLineageStatus === 'SUPERSEDED' && (
+                  <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-xs text-red-800">
+                    <div className="flex items-start gap-3">
+                      <AlertOctagon className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <div className="font-bold text-red-900 uppercase tracking-wide">
+                          Institutional Alert: Superseded Directive
+                        </div>
+                        <p className="leading-relaxed">
+                          This circular has been formally superseded by Circular{' '}
+                          <span className="font-mono font-bold text-[#0B0F1A]">
+                            {selectedCircular.supersededBy || 'PSM/DIR/CON/CWS/08/014'}
+                          </span>
+                          . Operating in reliance on this obsolete document creates severe statutory audit liability under CBN & BOFIA standards.
+                        </p>
+                        {selectedCircular.supersededBy && (
+                          <button
+                            onClick={() => {
+                              const repl = circulars.find(
+                                (c) => c.circularNumber === selectedCircular.supersededBy
+                              );
+                              if (repl) setSelectedCircularId(repl.id);
+                            }}
+                            className="mt-1 inline-flex items-center gap-1 font-bold text-[#2A4BFF] hover:underline"
+                          >
+                            <span>Switch to Active Replacement Directive</span>
+                            <ChevronRight className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-[10px] text-slate-500 mt-1">
-                    Statutory Deadline: {selectedCircular.statutoryDeadline || 'None specified'}
+                )}
+
+                {/* 4 Statutory SLA Countdown Chips (Zango & uio.mp4 summary strip) */}
+                <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  <div className="rounded-xl border border-[#DDE3EE] bg-[#F9FAFC] p-3">
+                    <div className="text-[10px] text-[#4B5565] mb-0.5 flex items-center gap-1 font-medium">
+                      <Calendar className="h-3 w-3 text-[#2A4BFF]" />
+                      <span>Calendar Window</span>
+                    </div>
+                    <div className="text-sm font-bold text-[#0B0F1A]">
+                      {selectedCircular.daysRemaining !== null
+                        ? `${selectedCircular.daysRemaining} Days`
+                        : 'Ongoing'}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-[#DDE3EE] bg-[#F9FAFC] p-3">
+                    <div className="text-[10px] text-[#4B5565] mb-0.5 flex items-center gap-1 font-medium">
+                      <Briefcase className="h-3 w-3 text-emerald-600" />
+                      <span>Business Days</span>
+                    </div>
+                    <div className="text-sm font-bold text-emerald-700">
+                      {selectedCircular.businessDaysRemaining !== undefined && selectedCircular.businessDaysRemaining !== null
+                        ? `${selectedCircular.businessDaysRemaining} Work Days`
+                        : 'N/A'}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-[#DDE3EE] bg-[#F9FAFC] p-3">
+                    <div className="text-[10px] text-[#4B5565] mb-0.5 flex items-center gap-1 font-medium">
+                      <Coins className="h-3 w-3 text-amber-600" />
+                      <span>Fine Escalation</span>
+                    </div>
+                    <div className="text-sm font-bold text-amber-800 truncate">
+                      ₦{(penalty.totalProjectedExposureNaira / 1_000_000).toFixed(1)}M Base
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-[#DDE3EE] bg-[#F9FAFC] p-3">
+                    <div className="text-[10px] text-[#4B5565] mb-0.5 flex items-center gap-1 font-medium">
+                      <ShieldAlert className="h-3 w-3 text-red-600" />
+                      <span>SLA Escalation</span>
+                    </div>
+                    <div className="text-xs font-bold text-red-700 truncate">
+                      {selectedCircular.countdownTier === 'CRITICAL_EMERGENCY'
+                        ? 'CEO & Board Alert'
+                        : selectedCircular.countdownTier === 'HIGH'
+                        ? 'CCO & COO Action'
+                        : 'Task Lead Gate'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Progress Countdown Bar */}
+                {selectedCircular.statutoryDeadline && (
+                  <div className="mb-4 rounded-xl border border-[#DDE3EE] bg-[#F9FAFC] p-3">
+                    <div className="flex justify-between text-[11px] text-[#4B5565] mb-1.5">
+                      <span className="font-medium text-[#0B0F1A]">
+                        Statutory Enforcement Countdown Window
+                      </span>
+                      <span className="font-mono text-[#2A4BFF] font-bold">
+                        {selectedCircular.daysRemaining} Days Remaining
+                      </span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-[#E8EDF5] overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          selectedCircular.countdownTier === 'CRITICAL_EMERGENCY'
+                            ? 'bg-gradient-to-r from-red-600 to-rose-400 animate-pulse'
+                            : selectedCircular.countdownTier === 'HIGH'
+                            ? 'bg-gradient-to-r from-amber-500 to-yellow-400'
+                            : 'bg-gradient-to-r from-emerald-500 to-teal-400'
+                        }`}
+                        style={{
+                          width: `${Math.max(
+                            10,
+                            Math.min(100, (selectedCircular.daysRemaining || 14) * 5)
+                          )}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Institutional Applicability Card */}
+                <div
+                  className={`rounded-xl border p-4 ${
+                    selectedCircular.applicability.isApplicable
+                      ? 'border-emerald-200 bg-emerald-50/60 text-emerald-900'
+                      : 'border-[#DDE3EE] bg-[#F9FAFC] text-[#4B5565]'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    {selectedCircular.applicability.isApplicable ? (
+                      <Sparkles className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+                    ) : (
+                      <ShieldCheck className="h-5 w-5 text-[#8D99AE] shrink-0 mt-0.5" />
+                    )}
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-bold uppercase tracking-wider">
+                          {selectedCircular.applicability.isApplicable
+                            ? 'Institutional Applicability: Direct Mandate'
+                            : 'Institutional Applicability: Noise Filtered'}
+                        </span>
+                      </div>
+                      <p className="text-xs leading-relaxed">
+                        {selectedCircular.applicability.reason}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Supersession Warning Banner if Stale */}
-              {currentLineageStatus === 'SUPERSEDED' && (
-                <div className="mb-4 rounded-xl border border-red-500/60 bg-red-950/40 p-4 text-xs text-red-200">
-                  <div className="flex items-start gap-3">
-                    <AlertOctagon className="h-5 w-5 text-red-400 shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <div className="font-bold text-red-100 uppercase tracking-wide">
-                        Institutional Alert: Superseded Directive
-                      </div>
-                      <p className="leading-relaxed">
-                        This circular has been formally superseded by Circular{' '}
-                        <span className="font-mono font-bold text-white">
-                          {selectedCircular.supersededBy || 'PSM/DIR/CON/CWS/08/014'}
-                        </span>
-                        . Operating in reliance on this obsolete document creates severe statutory audit liability under CBN & BOFIA standards.
+              {/* Level 3 Local Workspace Tabs */}
+              <div className="space-y-4">
+                <div className="flex border-b border-[#DDE3EE] gap-6 text-xs font-semibold">
+                  <button
+                    onClick={() => setActiveTab('overview')}
+                    className={`pb-3 transition-colors relative ${
+                      activeTab === 'overview'
+                        ? 'text-[#2A4BFF] border-b-2 border-[#2A4BFF] font-bold'
+                        : 'text-[#4B5565] hover:text-[#0B0F1A]'
+                    }`}
+                  >
+                    Overview & AI Synthesis
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('obligations')}
+                    className={`pb-3 transition-colors relative flex items-center gap-1.5 ${
+                      activeTab === 'obligations'
+                        ? 'text-[#2A4BFF] border-b-2 border-[#2A4BFF] font-bold'
+                        : 'text-[#4B5565] hover:text-[#0B0F1A]'
+                    }`}
+                  >
+                    <span>Statutory Obligations</span>
+                    <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-[#EEF2FF] text-[#2A4BFF] font-bold">
+                      {selectedCircular.actionItems?.length || 0}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('briefs')}
+                    className={`pb-3 transition-colors relative ${
+                      activeTab === 'briefs'
+                        ? 'text-[#2A4BFF] border-b-2 border-[#2A4BFF] font-bold'
+                        : 'text-[#4B5565] hover:text-[#0B0F1A]'
+                    }`}
+                  >
+                    Multi-Role Impact Briefs
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('lineage')}
+                    className={`pb-3 transition-colors relative ${
+                      activeTab === 'lineage'
+                        ? 'text-[#2A4BFF] border-b-2 border-[#2A4BFF] font-bold'
+                        : 'text-[#4B5565] hover:text-[#0B0F1A]'
+                    }`}
+                  >
+                    Circular Lineage & Supersession Tree
+                  </button>
+                </div>
+
+                {/* Tab 1: Overview & AI Synthesis */}
+                {activeTab === 'overview' && (
+                  <div className="space-y-4">
+                    <div className="rounded-xl border border-[#DDE3EE] bg-white p-5 shadow-xs space-y-3">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-[#0B0F1A]">
+                        Executive Synthesis & Regulatory Scope
+                      </h3>
+                      <p className="text-xs leading-relaxed text-[#4B5565]">
+                        {selectedCircular.summary}
                       </p>
-                      {selectedCircular.supersededBy && (
-                        <button
-                          onClick={() => {
-                            const repl = circulars.find(
-                              (c) => c.circularNumber === selectedCircular.supersededBy
-                            );
-                            if (repl) setSelectedCircularId(repl.id);
-                          }}
-                          className="mt-1 inline-flex items-center gap-1 font-bold text-cyan-300 hover:underline"
-                        >
-                          <span>Switch to Active Replacement Directive</span>
-                          <ChevronRight className="h-3 w-3" />
-                        </button>
+
+                      {/* Connected Compliance Cascade Actions */}
+                      {onSwitchPillar && (
+                        <div className="pt-4 border-t border-[#DDE3EE] flex flex-wrap items-center justify-between gap-3">
+                          <span className="text-[11px] font-semibold text-[#4B5565]">
+                            Connected Compliance Cascade:
+                          </span>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              onClick={() =>
+                                onSwitchPillar('gap-matrix', {
+                                  targetPillar: 'gap-matrix',
+                                  circularNumber: selectedCircular.circularNumber,
+                                  searchTerm: selectedCircular.subject,
+                                  action: 'inspect',
+                                })
+                              }
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#EEF2FF] hover:bg-[#2A4BFF] text-[#2A4BFF] hover:text-white border border-[#2A4BFF]/30 text-xs font-semibold transition-all shadow-xs"
+                            >
+                              <Scale className="w-3.5 h-3.5" />
+                              <span>Evaluate Policy Gap Concordance in Pillar 3</span>
+                              <ExternalLink className="w-3 h-3 ml-0.5" />
+                            </button>
+                            <button
+                              onClick={() =>
+                                onSwitchPillar('marketing', {
+                                  targetPillar: 'marketing',
+                                  regulatorCode: selectedCircular.regulator as any,
+                                  action: 'pre-vet',
+                                })
+                              }
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-600 text-amber-800 hover:text-white border border-amber-300 text-xs font-semibold transition-all shadow-xs"
+                            >
+                              <Shield className="w-3.5 h-3.5" />
+                              <span>Pre-Vet Marketing Copy for this Directive</span>
+                              <ExternalLink className="w-3 h-3 ml-0.5" />
+                            </button>
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* 4 Statutory SLA Countdown Chips */}
-              <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-2.5">
-                  <div className="text-[10px] text-slate-400 mb-0.5 flex items-center gap-1">
-                    <Calendar className="h-3 w-3 text-cyan-400" />
-                    <span>Calendar Window</span>
-                  </div>
-                  <div className="text-sm font-bold text-white">
-                    {selectedCircular.daysRemaining !== null
-                      ? `${selectedCircular.daysRemaining} Days`
-                      : 'Ongoing'}
-                  </div>
-                </div>
+                {/* Tab 2: Statutory Obligations */}
+                {activeTab === 'obligations' && (
+                  <ActionItemTracker
+                    initialItems={selectedCircular.actionItems}
+                    circularNumber={selectedCircular.circularNumber}
+                    statutoryDeadline={selectedCircular.statutoryDeadline}
+                    onInspectItem={(item) => inspector.openInspector(item.id)}
+                  />
+                )}
 
-                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-2.5">
-                  <div className="text-[10px] text-slate-400 mb-0.5 flex items-center gap-1">
-                    <Briefcase className="h-3 w-3 text-emerald-400" />
-                    <span>Business Days</span>
-                  </div>
-                  <div className="text-sm font-bold text-emerald-300">
-                    {selectedCircular.businessDaysRemaining !== undefined && selectedCircular.businessDaysRemaining !== null
-                      ? `${selectedCircular.businessDaysRemaining} Work Days`
-                      : 'N/A'}
-                  </div>
-                </div>
+                {/* Tab 3: Multi-Role Impact Briefs */}
+                {activeTab === 'briefs' && (
+                  <RoleBriefViewer
+                    circularNumber={selectedCircular.circularNumber}
+                    executiveBriefCco={selectedCircular.executiveBriefCco}
+                    actionBriefCoo={selectedCircular.actionBriefCoo}
+                    technicalBriefProductEng={selectedCircular.technicalBriefProductEng}
+                    financialBriefCfo={selectedCircular.financialBriefCfo}
+                    technicalBriefCto={selectedCircular.technicalBriefCto}
+                    governanceBriefCeoCro={selectedCircular.governanceBriefCeoCro}
+                  />
+                )}
 
-                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-2.5">
-                  <div className="text-[10px] text-slate-400 mb-0.5 flex items-center gap-1">
-                    <Coins className="h-3 w-3 text-amber-400" />
-                    <span>Fine Escalation</span>
-                  </div>
-                  <div className="text-sm font-bold text-amber-300 truncate">
-                    ₦{(penalty.totalProjectedExposureNaira / 1_000_000).toFixed(1)}M Base
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-2.5">
-                  <div className="text-[10px] text-slate-400 mb-0.5 flex items-center gap-1">
-                    <ShieldAlert className="h-3 w-3 text-rose-400" />
-                    <span>SLA Escalation</span>
-                  </div>
-                  <div className="text-xs font-bold text-rose-300 truncate">
-                    {selectedCircular.countdownTier === 'CRITICAL_EMERGENCY'
-                      ? 'CEO & Board Alert'
-                      : selectedCircular.countdownTier === 'HIGH'
-                      ? 'CCO & COO Action'
-                      : 'Task Lead Gate'}
-                  </div>
-                </div>
-              </div>
-
-              {/* Progress Countdown Bar */}
-              {selectedCircular.statutoryDeadline && (
-                <div className="mb-4 rounded-xl border border-slate-800/80 bg-slate-950/60 p-3">
-                  <div className="flex justify-between text-[11px] text-slate-400 mb-1.5">
-                    <span className="font-medium text-slate-300">
-                      Statutory Enforcement Countdown Window
-                    </span>
-                    <span className="font-mono text-cyan-400 font-bold">
-                      {selectedCircular.daysRemaining} Days Remaining
-                    </span>
-                  </div>
-                  <div className="h-2 w-full rounded-full bg-slate-900 overflow-hidden border border-slate-800">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        selectedCircular.countdownTier === 'CRITICAL_EMERGENCY'
-                          ? 'bg-gradient-to-r from-red-600 to-rose-400 animate-pulse'
-                          : selectedCircular.countdownTier === 'HIGH'
-                          ? 'bg-gradient-to-r from-amber-500 to-yellow-400'
-                          : 'bg-gradient-to-r from-emerald-500 to-teal-400'
-                      }`}
-                      style={{
-                        width: `${Math.max(
-                          10,
-                          Math.min(100, (selectedCircular.daysRemaining || 14) * 5)
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Summary Paragraph */}
-              <p className="text-xs leading-relaxed text-slate-300 mb-4">
-                {selectedCircular.summary}
-              </p>
-
-              {/* Institutional Applicability Banner */}
-              <div
-                className={`rounded-xl border p-4 ${
-                  selectedCircular.applicability.isApplicable
-                    ? 'border-emerald-500/40 bg-emerald-950/20 text-emerald-200'
-                    : 'border-slate-800 bg-slate-950/40 text-slate-400'
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  {selectedCircular.applicability.isApplicable ? (
-                    <Sparkles className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
-                  ) : (
-                    <ShieldCheck className="h-5 w-5 text-slate-500 shrink-0 mt-0.5" />
-                  )}
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-bold uppercase tracking-wider">
-                        {selectedCircular.applicability.isApplicable
-                          ? 'Institutional Applicability: Direct Mandate'
-                          : 'Institutional Applicability: Noise Filtered'}
+                {/* Tab 4: Circular Lineage & Supersession Tree */}
+                {activeTab === 'lineage' && (
+                  <div className="rounded-xl border border-[#DDE3EE] bg-white p-5 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between pb-2 border-b border-[#DDE3EE]">
+                      <div className="flex items-center gap-2 text-xs font-bold text-[#0B0F1A]">
+                        <GitBranch className="h-4 w-4 text-[#2A4BFF]" />
+                        <span>Statutory Circular Lineage & Supersession DAG</span>
+                      </div>
+                      <span className="text-[10px] text-[#4B5565] font-mono">
+                        Node ID: {selectedCircular.id}
                       </span>
                     </div>
-                    <p className="text-xs leading-relaxed">
-                      {selectedCircular.applicability.reason}
-                    </p>
-                  </div>
-                </div>
-              </div>
 
-              {/* Circular Lineage & Supersession Explorer Panel */}
-              <div className="mt-4 rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                <div className="flex items-center justify-between pb-2 mb-3 border-b border-slate-800/60">
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
-                    <GitBranch className="h-4 w-4 text-cyan-400" />
-                    <span>Circular Lineage & Supersession Graph (Task 2.5)</span>
-                  </div>
-                  <span className="text-[10px] text-slate-500 font-mono">
-                    Node ID: {selectedCircular.id}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-3 overflow-x-auto py-2 text-xs">
-                  {/* Ancestor / Parent Node */}
-                  <div className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/60 px-3 py-2 shrink-0">
-                    <GitCommit className="h-3.5 w-3.5 text-amber-400" />
-                    <div>
-                      <div className="text-[10px] text-slate-500">Predecessor Law</div>
-                      <div className="font-mono text-xs font-semibold text-slate-300">
-                        {selectedCircular.amends?.[0] || 'Original Directive'}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center text-slate-600 shrink-0">
-                    <ArrowRight className="h-4 w-4 text-cyan-400" />
-                  </div>
-
-                  {/* Current Circular Node */}
-                  <div className="flex items-center gap-2 rounded-lg border border-cyan-500/60 bg-cyan-950/40 px-3 py-2 shrink-0 ring-1 ring-cyan-500/40 shadow-sm">
-                    <GitCommit className="h-3.5 w-3.5 text-cyan-400" />
-                    <div>
-                      <div className="text-[10px] text-cyan-300 font-bold">This Directive</div>
-                      <div className="font-mono text-xs font-bold text-white">
-                        {selectedCircular.circularNumber}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Child / Successor Node if amended */}
-                  {selectedCircular.supersededBy && (
-                    <>
-                      <div className="flex items-center text-slate-600 shrink-0">
-                        <ArrowRight className="h-4 w-4 text-rose-400" />
-                      </div>
-                      <div className="flex items-center gap-2 rounded-lg border border-rose-500/60 bg-rose-950/40 px-3 py-2 shrink-0">
-                        <GitCommit className="h-3.5 w-3.5 text-rose-400" />
+                    <div className="flex items-center gap-3 overflow-x-auto py-3 text-xs">
+                      {/* Predecessor Node */}
+                      <div className="flex items-center gap-2 rounded-xl border border-[#DDE3EE] bg-[#F9FAFC] px-3.5 py-2.5 shrink-0">
+                        <GitCommit className="h-3.5 w-3.5 text-amber-500" />
                         <div>
-                          <div className="text-[10px] text-rose-300 font-bold">Revoked By</div>
-                          <div className="font-mono text-xs font-bold text-white">
-                            {selectedCircular.supersededBy}
+                          <div className="text-[10px] text-[#4B5565]">Predecessor Law</div>
+                          <div className="font-mono text-xs font-semibold text-[#0B0F1A]">
+                            {selectedCircular.amends?.[0] || 'Original Directive'}
                           </div>
                         </div>
                       </div>
-                    </>
-                  )}
-                </div>
-              </div>
 
-              {/* Direct Cross-Pillar Linking Action Strip */}
-              {onSwitchPillar && (
-                <div className="mt-4 pt-3.5 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
-                  <span className="text-[11px] font-semibold text-slate-400">
-                    Connected Compliance Cascade:
-                  </span>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      onClick={() =>
-                        onSwitchPillar('gap-matrix', {
-                          targetPillar: 'gap-matrix',
-                          circularNumber: selectedCircular.circularNumber,
-                          searchTerm: selectedCircular.subject,
-                          action: 'inspect',
-                        })
-                      }
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 text-xs font-semibold transition-all shadow-sm"
-                    >
-                      <Scale className="w-3.5 h-3.5 text-indigo-400" />
-                      <span>Evaluate Policy Gap Concordance in Pillar 3</span>
-                      <ExternalLink className="w-3 h-3 ml-0.5" />
-                    </button>
-                    <button
-                      onClick={() =>
-                        onSwitchPillar('marketing', {
-                          targetPillar: 'marketing',
-                          regulatorCode: selectedCircular.regulator as any,
-                          action: 'pre-vet',
-                        })
-                      }
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600/20 hover:bg-amber-600 text-amber-300 hover:text-white border border-amber-500/30 text-xs font-semibold transition-all shadow-sm"
-                    >
-                      <Shield className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Pre-Vet Marketing Copy for this Directive</span>
-                      <ExternalLink className="w-3 h-3 ml-0.5" />
-                    </button>
+                      <div className="flex items-center text-[#8D99AE] shrink-0">
+                        <ArrowRight className="h-4 w-4 text-[#2A4BFF]" />
+                      </div>
+
+                      {/* Current Node */}
+                      <div className="flex items-center gap-2 rounded-xl border border-[#2A4BFF] bg-[#2A4BFF]/5 px-3.5 py-2.5 shrink-0 ring-1 ring-[#2A4BFF]">
+                        <GitCommit className="h-3.5 w-3.5 text-[#2A4BFF]" />
+                        <div>
+                          <div className="text-[10px] text-[#2A4BFF] font-bold">This Directive</div>
+                          <div className="font-mono text-xs font-bold text-[#0B0F1A]">
+                            {selectedCircular.circularNumber}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Successor Node if superseded */}
+                      {selectedCircular.supersededBy && (
+                        <>
+                          <div className="flex items-center text-[#8D99AE] shrink-0">
+                            <ArrowRight className="h-4 w-4 text-red-500" />
+                          </div>
+                          <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 shrink-0">
+                            <GitCommit className="h-3.5 w-3.5 text-red-500" />
+                            <div>
+                              <div className="text-[10px] text-red-700 font-bold">Revoked By</div>
+                              <div className="font-mono text-xs font-bold text-red-900">
+                                {selectedCircular.supersededBy}
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
+          )}
+        </main>
 
-            {/* 2. 4-Way Multi-Role Impact Viewer */}
-            <RoleBriefViewer
-              circularNumber={selectedCircular.circularNumber}
-              executiveBriefCco={selectedCircular.executiveBriefCco}
-              actionBriefCoo={selectedCircular.actionBriefCoo}
-              technicalBriefProductEng={selectedCircular.technicalBriefProductEng}
-              financialBriefCfo={selectedCircular.financialBriefCfo}
-              technicalBriefCto={selectedCircular.technicalBriefCto}
-              governanceBriefCeoCro={selectedCircular.governanceBriefCeoCro}
-            />
-
-            {/* 3. Action Item Tracker */}
-            <ActionItemTracker
-              initialItems={selectedCircular.actionItems}
-              circularNumber={selectedCircular.circularNumber}
-              statutoryDeadline={selectedCircular.statutoryDeadline}
-            />
-          </div>
-        </div>
-      </main>
-
-      {/* Circular Ingestion Slide Drawer */}
-      <CircularUploadDrawer
-        isOpen={isUploadDrawerOpen}
-        onClose={() => setIsUploadDrawerOpen(false)}
-        onIngestSuccess={handleIngestSuccess}
-      />
-    </div>
+        {/* Circular Ingestion Drawer (Level 6) */}
+        <CircularUploadDrawer
+          isOpen={isUploadDrawerOpen}
+          onClose={() => setIsUploadDrawerOpen(false)}
+          onIngestSuccess={handleIngestSuccess}
+        />
+      </div>
+    </MultiPaneContainer>
   );
 }

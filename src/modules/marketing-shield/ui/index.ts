@@ -8,4 +8,5 @@ export * from './ActionChecklist';
 export * from './CcoGovernanceBlock';
 export * from './ClaimsLedgerTab';
 export * from './DriftWatcherTab';
+export * from './CampaignCopyEditor';
 export * from './MarketingShieldDashboard';

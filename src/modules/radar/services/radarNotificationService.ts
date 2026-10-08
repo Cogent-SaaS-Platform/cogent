@@ -4,6 +4,7 @@ import { Database } from '@/shared/db';
 import { ConfigurationError } from '@/shared/errors';
 import { logger } from '@/shared/logger';
 import { RadarPriority, RegulatorCode } from '@/shared/types';
+import { sendUrgentComplianceAlert } from '@/shared/notifications';
 
 export interface DispatchNotificationParams {
   organizationId: string;
@@ -14,6 +15,8 @@ export interface DispatchNotificationParams {
   priority: RadarPriority;
   statutoryDeadline: string | null;
   actionItemsCount: number;
+  recipientEmail?: string;
+  organizationName?: string;
 }
 
 export interface NotificationDispatchResult {
@@ -23,8 +26,8 @@ export interface NotificationDispatchResult {
 }
 
 /**
- * Actionable Notification & Alert Escalation Service (Task 12.3)
- * Dispatches in-app notifications and email alerts for high & critical regulatory circulars.
+ * Actionable Notification & Alert Escalation Service (Task 12.3 & Task A3.3)
+ * Dispatches in-app notifications and real transactional email alerts for high & critical regulatory circulars via Resend.
  */
 export class RadarNotificationService {
   private dbClient: SupabaseClient<Database>;
@@ -38,7 +41,7 @@ export class RadarNotificationService {
   }
 
   /**
-   * Dispatches actionable notification for an applicable circular
+   * Dispatches actionable notification and triggers real transactional Resend email for urgent circulars
    */
   public async dispatchUrgentAlert(
     params: DispatchNotificationParams
@@ -52,6 +55,8 @@ export class RadarNotificationService {
       priority,
       statutoryDeadline,
       actionItemsCount,
+      recipientEmail,
+      organizationName,
     } = params;
 
     const notificationId = crypto.randomUUID();
@@ -71,7 +76,11 @@ export class RadarNotificationService {
 
     if (this.dbClient) {
       try {
-        const client = this.dbClient as any;
+        const client = this.dbClient as unknown as {
+          from: (table: string) => {
+            insert: (values: Record<string, unknown>) => Promise<{ error: unknown }>;
+          };
+        };
         await client.from('notifications').insert({
           id: notificationId,
           organization_id: organizationId,
@@ -82,8 +91,9 @@ export class RadarNotificationService {
           action_url: `/radar?circularId=${circularId}`,
           is_read: false,
         });
-      } catch (err) {
-        logger.warn({ err }, 'Failed to insert notification into database');
+      } catch (err: unknown) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        logger.warn({ error: error.message }, 'Failed to insert notification into database');
       }
     }
 
@@ -98,14 +108,44 @@ export class RadarNotificationService {
       'Radar notification dispatched'
     );
 
-    // If Resend API key is present in environment, dispatch email alert
+    // Dispatch real transactional email via Resend for high/critical directives
     let emailAlertTriggered = false;
-    if (isUrgent && process.env.RESEND_API_KEY) {
-      emailAlertTriggered = true;
-      logger.info(
-        { circularNumber, organizationId },
-        'Dispatched urgent regulatory email alert via Resend'
-      );
+    if (isUrgent) {
+      let resolvedOrgName = organizationName;
+      if (!resolvedOrgName && this.dbClient) {
+        try {
+          const response = await this.dbClient
+            .from('organizations')
+            .select('name')
+            .eq('id', organizationId)
+            .single();
+          const org = response.data as { name: string } | null;
+          if (org?.name) {
+            resolvedOrgName = org.name;
+          }
+        } catch (orgLookupErr: unknown) {
+          logger.warn(
+            { organizationId, error: orgLookupErr instanceof Error ? orgLookupErr.message : String(orgLookupErr) },
+            'Could not resolve organization name for email alert'
+          );
+        }
+      }
+
+      const effectiveDate = statutoryDeadline || 'Immediate';
+      const urgencyLevel: 'CRITICAL' | 'HIGH' | 'NORMAL' =
+        priority === 'CRITICAL_EMERGENCY' ? 'CRITICAL' : 'HIGH';
+
+      emailAlertTriggered = await sendUrgentComplianceAlert({
+        recipientEmail:
+          recipientEmail ||
+          process.env.COMPLIANCE_ALERTS_EMAIL ||
+          'compliance@paystack.fintech.internal',
+        organizationName: resolvedOrgName || 'Authorized Tenant',
+        circularNumber,
+        circularTitle: subject,
+        effectiveDate,
+        urgencyLevel,
+      });
     }
 
     return {

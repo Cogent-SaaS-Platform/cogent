@@ -9,6 +9,7 @@ import {
   AlertCircle,
   Loader2,
   CheckCircle2,
+  ShieldCheck,
 } from 'lucide-react';
 import { RegulatorCode } from '@/shared/types';
 
@@ -90,36 +91,37 @@ export function CircularUploadDrawer({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-end bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="h-full w-full max-w-lg border-l border-slate-800 bg-[#090D16] p-6 shadow-2xl overflow-y-auto flex flex-col justify-between animate-in slide-in-from-right duration-300">
+    <div className="fixed inset-0 z-50 flex items-center justify-end bg-[#0B0F1A]/40 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="h-full w-full max-w-lg border-l border-[#DDE3EE] bg-white p-6 shadow-2xl overflow-y-auto flex flex-col justify-between animate-in slide-in-from-right duration-200">
         <div>
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
+          <div className="flex items-center justify-between border-b border-[#DDE3EE] pb-4 mb-6">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EEF2FF] text-[#2A4BFF] border border-[#C7D2FE]">
                 <FileUp className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-white">
-                  Ingest Regulatory Circular
+                <h2 className="text-base font-bold text-[#0B0F1A]">
+                  Ingest Regulatory Directive
                 </h2>
-                <p className="text-xs text-slate-400">
-                  Upload PDF gazette or paste official directive
+                <p className="text-xs text-[#4B5565]">
+                  Upload official gazette PDF or transcript text
                 </p>
               </div>
             </div>
 
             <button
               onClick={onClose}
-              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+              className="rounded-lg p-1.5 text-[#8D99AE] hover:bg-[#F5F6FA] hover:text-[#0B0F1A] transition-colors"
+              aria-label="Close drawer"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
 
           {errorMessage && (
-            <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-red-500/30 bg-red-950/20 p-3.5 text-xs text-red-300">
-              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-red-400" />
+            <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-3.5 text-xs text-[#991B1B]">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-[#EF4444]" />
               <span>{errorMessage}</span>
             </div>
           )}
@@ -127,13 +129,13 @@ export function CircularUploadDrawer({
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Regulator Select */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              <label className="block text-xs font-semibold text-[#0B0F1A] mb-1.5">
                 Issuing Regulatory Body
               </label>
               <select
                 value={regulator}
                 onChange={(e) => setRegulator(e.target.value as RegulatorCode)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white focus:border-cyan-500 focus:outline-none"
+                className="w-full rounded-xl border border-[#DDE3EE] bg-[#F5F6FA] px-3 py-2 text-xs text-[#0B0F1A] focus:border-[#2A4BFF] focus:outline-none"
               >
                 <option value="CBN">Central Bank of Nigeria (CBN)</option>
                 <option value="SEC">Securities and Exchange Commission (SEC)</option>
@@ -141,47 +143,48 @@ export function CircularUploadDrawer({
                 <option value="NDPC">Nigeria Data Protection Commission (NDPC)</option>
                 <option value="FCCPC">Federal Competition & Consumer Protection Commission (FCCPC)</option>
                 <option value="NFIU">Nigerian Financial Intelligence Unit (NFIU)</option>
+                <option value="NDIC">Nigeria Deposit Insurance Corporation (NDIC)</option>
               </select>
             </div>
 
             {/* Optional Reference Code */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Circular Reference Code <span className="text-slate-500 font-normal">(Optional, parsed automatically if omitted)</span>
+              <label className="block text-xs font-semibold text-[#0B0F1A] mb-1.5">
+                Circular Reference Code <span className="text-[#8D99AE] font-normal">(Optional, parsed automatically if omitted)</span>
               </label>
               <input
                 type="text"
                 value={referenceCode}
                 onChange={(e) => setReferenceCode(e.target.value)}
-                placeholder="e.g. BPS/DIR/GEN/CIR/05/011"
-                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none"
+                placeholder="e.g. PSM/DIR/CON/CWS/08/014"
+                className="w-full rounded-xl border border-[#DDE3EE] bg-[#F5F6FA] px-3 py-2 text-xs text-[#0B0F1A] placeholder-[#8D99AE] focus:border-[#2A4BFF] focus:outline-none font-mono"
               />
             </div>
 
             {/* File Upload Box */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              <label className="block text-xs font-semibold text-[#0B0F1A] mb-1.5">
                 Official PDF Document
               </label>
-              <div className="relative rounded-xl border-2 border-dashed border-slate-700 bg-slate-900/40 p-6 text-center hover:border-cyan-500/60 transition-colors">
+              <div className="relative rounded-xl border-2 border-dashed border-[#DDE3EE] bg-[#F9FAFC] p-6 text-center hover:border-[#2A4BFF] transition-colors">
                 <input
                   type="file"
                   accept="application/pdf,text/plain"
                   onChange={(e) => setFile(e.target.files?.[0] || null)}
                   className="absolute inset-0 opacity-0 cursor-pointer"
                 />
-                <Upload className="mx-auto h-8 w-8 text-slate-500 mb-2" />
+                <Upload className="mx-auto h-8 w-8 text-[#8D99AE] mb-2" />
                 {file ? (
-                  <div className="text-xs text-cyan-300 font-semibold truncate">
+                  <div className="text-xs text-[#2A4BFF] font-semibold truncate">
                     {file.name} ({(file.size / 1024).toFixed(1)} KB)
                   </div>
                 ) : (
                   <>
-                    <p className="text-xs text-slate-300 font-medium">
-                      Click to choose or drag & drop circular PDF
+                    <p className="text-xs text-[#0B0F1A] font-semibold">
+                      Click to browse or drag & drop circular PDF
                     </p>
-                    <p className="text-[11px] text-slate-500 mt-1">
-                      PDF, Gazette scans up to 25MB
+                    <p className="text-[11px] text-[#8D99AE] mt-1">
+                      PDF, Official Nigerian Gazette scans up to 25MB
                     </p>
                   </>
                 )}
@@ -191,24 +194,24 @@ export function CircularUploadDrawer({
             {/* Divider */}
             <div className="relative my-4 text-center">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-800" />
+                <div className="w-full border-t border-[#DDE3EE]" />
               </div>
-              <span className="relative bg-[#090D16] px-2 text-[11px] font-semibold text-slate-500 uppercase">
-                Or Paste Direct Text
+              <span className="relative bg-white px-2 text-[11px] font-semibold text-[#8D99AE] uppercase">
+                Or Paste Directive Text
               </span>
             </div>
 
             {/* Raw Text Textarea */}
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+              <label className="block text-xs font-semibold text-[#0B0F1A] mb-1.5">
                 Circular Transcript / Text Content
               </label>
               <textarea
                 value={rawText}
                 onChange={(e) => setRawText(e.target.value)}
-                placeholder="Paste full text of circular directive here..."
+                placeholder="Paste verbatim text of circular directive here..."
                 rows={5}
-                className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-xs text-white placeholder-slate-500 focus:border-cyan-500 focus:outline-none font-mono"
+                className="w-full rounded-xl border border-[#DDE3EE] bg-[#F5F6FA] p-3 text-xs text-[#0B0F1A] placeholder-[#8D99AE] focus:border-[#2A4BFF] focus:outline-none font-mono"
               />
             </div>
 
@@ -216,7 +219,7 @@ export function CircularUploadDrawer({
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-cyan-900/30 hover:from-cyan-500 hover:to-blue-500 transition-all disabled:opacity-50"
+                className="btn-base btn-primary btn-md w-full gap-2 shadow-xs"
               >
                 {isLoading ? (
                   <>
@@ -234,8 +237,9 @@ export function CircularUploadDrawer({
           </form>
         </div>
 
-        <div className="border-t border-slate-800 pt-4 text-center text-[11px] text-slate-500">
-          Enforces SHA-256 seal into CAMA/BOFIA 6-year immutable audit ledger.
+        <div className="border-t border-[#DDE3EE] pt-4 text-center text-[11px] text-[#8D99AE] flex items-center justify-center gap-1.5">
+          <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]" />
+          <span>Generates SHA-256 seal for CAMA/BOFIA 6-year immutable audit ledger.</span>
         </div>
       </div>
     </div>

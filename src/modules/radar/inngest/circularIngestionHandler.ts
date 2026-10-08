@@ -1,18 +1,25 @@
+import { inngest, CircularIngestedPayload } from '@/shared/inngest';
 import { logger } from '@/shared/logger';
-import { InngestRadarEventMap } from './client';
 
 export interface InngestStepContext {
   run: <T>(name: string, fn: () => Promise<T>) => Promise<T>;
 }
 
+export interface CircularIngestionResult {
+  success: boolean;
+  circularId: string;
+  circularNumber: string;
+  processedAt: string;
+}
+
 /**
- * Inngest durable workflow handler for `radar/circular.ingested` (Task 9.1 & 12.3)
+ * Core workflow handler logic for regulatory circular ingestion
  */
 export async function handleCircularIngested(
-  event: InngestRadarEventMap['radar/circular.ingested'],
+  event: { data: CircularIngestedPayload },
   step?: InngestStepContext
-) {
-  const { circularId, circularNumber, storagePath, sourceFileHash, regulator } = event.data;
+): Promise<CircularIngestionResult> {
+  const { circularId, circularNumber, sourceFileHash, regulator } = event.data;
 
   logger.info(
     {
@@ -30,8 +37,6 @@ export async function handleCircularIngested(
       })
     : { verified: true, sourceFileHash };
 
-  // Step 2: In downstream Epics 11 & 12, this step calls the Applicability Engine
-  // and Multi-Role Synthesis Engine for all registered tenants.
   logger.info(
     {
       circularId,
@@ -48,3 +53,23 @@ export async function handleCircularIngested(
     processedAt: new Date().toISOString(),
   };
 }
+
+/**
+ * Durable Inngest function for regulatory circular ingestion (Task A3.2)
+ */
+export const circularIngestionJob = inngest.createFunction(
+  {
+    id: 'radar-circular-ingestion',
+    name: 'Radar Regulatory Circular Ingestion Pipeline',
+  },
+  { event: 'radar/circular.ingested' },
+  async ({
+    event,
+    step,
+  }: {
+    event: { data: CircularIngestedPayload };
+    step: InngestStepContext;
+  }) => {
+    return handleCircularIngested(event, step);
+  }
+);

@@ -54,11 +54,11 @@ describe('Epic 19: Unified Executive Dashboard & Overview (Task 19.1)', () => {
     expect(overview.totalFinesAvoidedNaira).toBeGreaterThan(50000000); // Greater than ₦50M
   });
 
-  it('monitors all 6 canonical Nigerian regulatory authorities', async () => {
+  it('monitors all 7 canonical Nigerian regulatory authorities', async () => {
     const overview = await service.getExecutiveOverview();
     const regulators = overview.regulatorCoverage;
 
-    expect(regulators.length).toBe(6);
+    expect(regulators.length).toBe(7);
     const codes = regulators.map((r) => r.regulatorCode);
     expect(codes).toContain('CBN');
     expect(codes).toContain('SEC');
@@ -66,6 +66,7 @@ describe('Epic 19: Unified Executive Dashboard & Overview (Task 19.1)', () => {
     expect(codes).toContain('FCCPC');
     expect(codes).toContain('ARCON');
     expect(codes).toContain('NFIU');
+    expect(codes).toContain('NDIC');
 
     regulators.forEach((reg) => {
       expect(reg.complianceRate).toBeGreaterThan(0);

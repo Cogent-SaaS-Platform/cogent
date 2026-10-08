@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { PresentationActionItem } from '@/shared/types/presentation';
-import { CheckSquare, Square, Clock, Building, AlertCircle, CheckCircle2, UserCheck } from 'lucide-react';
+import { CheckSquare, Square, Clock, Building, CheckCircle2 } from 'lucide-react';
 
 interface ActionChecklistProps {
   actions: PresentationActionItem[];
@@ -32,26 +32,26 @@ export const ActionChecklist: React.FC<ActionChecklistProps> = ({
   const getPriorityStyle = (priority: string) => {
     switch (priority) {
       case 'CRITICAL':
-        return 'bg-red-500/10 text-red-400 border-red-500/30';
+        return 'bg-red-50 text-red-700 border-red-200';
       case 'HIGH':
-        return 'bg-orange-500/10 text-orange-400 border-orange-500/30';
+        return 'bg-orange-50 text-orange-800 border-orange-200';
       case 'MEDIUM':
-        return 'bg-amber-500/10 text-amber-400 border-amber-500/30';
+        return 'bg-amber-50 text-amber-800 border-amber-200';
       default:
-        return 'bg-blue-500/10 text-blue-400 border-blue-500/30';
+        return 'bg-blue-50 text-blue-700 border-blue-200';
     }
   };
 
   const getOwnerStyle = (owner: string) => {
     switch (owner) {
       case 'Compliance':
-        return 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30';
+        return 'bg-indigo-50 text-indigo-700 border-indigo-200';
       case 'Legal':
-        return 'bg-purple-500/10 text-purple-300 border-purple-500/30';
+        return 'bg-purple-50 text-purple-700 border-purple-200';
       case 'Marketing':
-        return 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30';
+        return 'bg-blue-50 text-blue-700 border-blue-200';
       default:
-        return 'bg-slate-500/10 text-slate-300 border-slate-500/30';
+        return 'bg-slate-50 text-slate-700 border-slate-200';
     }
   };
 
@@ -60,23 +60,23 @@ export const ActionChecklist: React.FC<ActionChecklistProps> = ({
       {/* Header & Progress Indicator */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-300 flex items-center gap-2">
-            <CheckSquare className="h-4 w-4 text-emerald-400" />
+          <h3 className="text-sm font-bold uppercase tracking-wider text-[#0B0F1A] flex items-center gap-2">
+            <CheckSquare className="h-4 w-4 text-[#10B981]" />
             <span>Remediation Action Plan ({actions.length})</span>
           </h3>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-[#4B5565]">
             Level 5 Progressive Disclosure: Statutory Rectification Tasks & Departmental Ownership
           </p>
         </div>
 
         {/* Progress Metric */}
         <div className="flex items-center gap-3">
-          <span className="text-xs text-slate-400 font-medium">
+          <span className="text-xs text-[#4B5565] font-semibold">
             {completedCount} of {actions.length} Completed
           </span>
-          <div className="h-2 w-28 rounded-full bg-slate-800 overflow-hidden border border-slate-700/50">
+          <div className="h-2 w-28 rounded-full bg-[#E8EDF5] overflow-hidden">
             <div
-              className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+              className="h-full rounded-full bg-[#10B981] transition-all duration-300"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
@@ -91,19 +91,19 @@ export const ActionChecklist: React.FC<ActionChecklistProps> = ({
             onClick={() => handleToggle(action.id)}
             className={`flex items-start gap-4 rounded-xl border p-4 transition-all cursor-pointer ${
               action.completed
-                ? 'border-emerald-500/30 bg-emerald-950/10 opacity-75'
-                : 'border-slate-800 bg-slate-900/70 hover:border-slate-700 hover:bg-slate-900'
+                ? 'border-emerald-200 bg-emerald-50/30'
+                : 'border-[#DDE3EE] bg-white hover:border-[#2A4BFF]/40 hover:bg-[#F9FAFC] shadow-xs'
             }`}
           >
             {/* Checkbox Icon */}
             <button
               type="button"
-              className="mt-0.5 text-slate-400 hover:text-white transition-colors"
+              className="mt-0.5 text-[#8D99AE] hover:text-[#2A4BFF] transition-colors"
             >
               {action.completed ? (
-                <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                <CheckCircle2 className="h-5 w-5 text-[#10B981]" />
               ) : (
-                <Square className="h-5 w-5 text-slate-600" />
+                <Square className="h-5 w-5 text-[#8D99AE]" />
               )}
             </button>
 
@@ -112,7 +112,7 @@ export const ActionChecklist: React.FC<ActionChecklistProps> = ({
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span
                   className={`text-sm font-semibold ${
-                    action.completed ? 'text-slate-400 line-through' : 'text-white'
+                    action.completed ? 'text-[#8D99AE] line-through' : 'text-[#0B0F1A]'
                   }`}
                 >
                   {action.title}
@@ -121,7 +121,7 @@ export const ActionChecklist: React.FC<ActionChecklistProps> = ({
                 {/* Badges: Priority & Owner */}
                 <div className="flex items-center gap-2">
                   <span
-                    className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${getPriorityStyle(
+                    className={`rounded-full border px-2 py-0.5 text-[11px] font-bold ${getPriorityStyle(
                       action.priority
                     )}`}
                   >
@@ -129,7 +129,7 @@ export const ActionChecklist: React.FC<ActionChecklistProps> = ({
                   </span>
 
                   <span
-                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium ${getOwnerStyle(
+                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${getOwnerStyle(
                       action.ownerDepartment
                     )}`}
                   >
@@ -139,11 +139,11 @@ export const ActionChecklist: React.FC<ActionChecklistProps> = ({
                 </div>
               </div>
 
-              <p className="text-xs text-slate-300 leading-relaxed">{action.description}</p>
+              <p className="text-xs text-[#4B5565] leading-relaxed">{action.description}</p>
 
               {/* Deadline Indicator */}
               {action.suggestedDeadlineDays && (
-                <div className="flex items-center gap-1.5 pt-1 text-[11px] text-amber-400">
+                <div className="flex items-center gap-1.5 pt-1 text-[11px] text-amber-700 font-medium">
                   <Clock className="h-3 w-3" />
                   <span>
                     Deadline: Within {action.suggestedDeadlineDays}{' '}

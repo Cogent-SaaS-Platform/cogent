@@ -6,7 +6,6 @@ import {
   Zap,
   Cpu,
   Clock,
-  CheckCircle2,
   Copy,
   Check,
   AlertCircle,
@@ -48,18 +47,18 @@ export const ExecutiveSummaryCard: React.FC<ExecutiveSummaryCardProps> = ({
   return (
     <div
       id="marketing-shield-executive-summary"
-      className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-xl shadow-lg transition-all"
+      className="rounded-2xl border border-[#DDE3EE] bg-white p-6 shadow-xs transition-all"
     >
       <div className="flex flex-col gap-4">
         {/* Header with Title and ARCON Pre-Clearance Badge */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#DDE3EE] pb-4">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#2A4BFF]/10 border border-[#2A4BFF]/20 text-[#2A4BFF]">
               <FileText className="h-4 w-4" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-white">Executive Compliance Briefing</h3>
-              <p className="text-xs text-slate-400">
+              <h3 className="text-base font-bold text-[#0B0F1A]">Executive Compliance Briefing</h3>
+              <p className="text-xs text-[#4B5565]">
                 Level 2 Operational Assessment & Provenance Traceability
               </p>
             </div>
@@ -67,13 +66,13 @@ export const ExecutiveSummaryCard: React.FC<ExecutiveSummaryCardProps> = ({
 
           {/* ARCON Pre-Clearance Notice */}
           {arconPreclearanceRequired ? (
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 px-3.5 py-1 text-xs font-medium text-amber-300">
-              <AlertCircle className="h-3.5 w-3.5 text-amber-400" />
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3.5 py-1 text-xs font-semibold text-amber-800">
+              <AlertCircle className="h-3.5 w-3.5 text-amber-600" />
               <span>ARCON ASP Pre-Clearance Mandatory (Code Art. 24(1))</span>
             </div>
           ) : (
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-3.5 py-1 text-xs font-medium text-emerald-400">
-              <FileCheck className="h-3.5 w-3.5 text-emerald-400" />
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-3.5 py-1 text-xs font-semibold text-emerald-700">
+              <FileCheck className="h-3.5 w-3.5 text-emerald-600" />
               <span>Standard Regulatory Pre-Clearance Standard</span>
             </div>
           )}
@@ -81,17 +80,17 @@ export const ExecutiveSummaryCard: React.FC<ExecutiveSummaryCardProps> = ({
 
         {/* Operational Summary Body */}
         <div className="py-2">
-          <p className="text-sm leading-relaxed text-slate-200">{summary}</p>
+          <p className="text-sm leading-relaxed text-[#0B0F1A]">{summary}</p>
         </div>
 
         {/* Active Licenses Strip if present */}
         {activeLicenses.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800/60 text-xs">
-            <span className="text-slate-400 font-medium">Tenant License Profiles:</span>
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#DDE3EE] text-xs">
+            <span className="text-[#4B5565] font-semibold">Tenant License Profiles:</span>
             {activeLicenses.map((lic) => (
               <span
                 key={lic}
-                className="rounded-md bg-slate-800 border border-slate-700 px-2 py-0.5 text-[11px] font-mono text-cyan-300"
+                className="rounded-md bg-[#F5F6FA] border border-[#DDE3EE] px-2 py-0.5 text-[11px] font-mono font-bold text-[#2A4BFF]"
               >
                 {lic}
               </span>
@@ -100,35 +99,35 @@ export const ExecutiveSummaryCard: React.FC<ExecutiveSummaryCardProps> = ({
         )}
 
         {/* Telemetry & Audit Verification Strip */}
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-950/70 border border-slate-800/80 px-4 py-2.5 text-xs text-slate-400">
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#F9FAFC] border border-[#DDE3EE] px-4 py-2.5 text-xs text-[#4B5565]">
           <div className="flex flex-wrap items-center gap-4 sm:gap-6">
             <div className="flex items-center gap-1.5">
-              <Zap className="h-3.5 w-3.5 text-amber-400" />
-              <span>{telemetry.latencyMs}ms Latency</span>
+              <Zap className="h-3.5 w-3.5 text-amber-600" />
+              <span className="font-medium">{telemetry.latencyMs}ms Latency</span>
             </div>
 
             <div className="flex items-center gap-1.5">
-              <Cpu className="h-3.5 w-3.5 text-cyan-400" />
-              <span className="font-mono text-slate-300">{telemetry.modelIdentifier}</span>
+              <Cpu className="h-3.5 w-3.5 text-[#2A4BFF]" />
+              <span className="font-mono text-[#0B0F1A]">{telemetry.modelIdentifier}</span>
             </div>
 
             <div className="flex items-center gap-1.5">
-              <Clock className="h-3.5 w-3.5 text-slate-400" />
+              <Clock className="h-3.5 w-3.5 text-[#4B5565]" />
               <span>{new Date(telemetry.verifiedAt).toLocaleTimeString()} WAT</span>
             </div>
           </div>
 
           {/* Cryptographic SHA-256 Audit Hash */}
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-mono text-slate-500">SHA-256:</span>
-            <span className="font-mono text-[11px] text-slate-300">{truncatedHash}</span>
+            <span className="text-[11px] font-mono text-[#8D99AE]">SHA-256:</span>
+            <span className="font-mono text-[11px] text-[#0B0F1A] font-semibold">{truncatedHash}</span>
             <button
               onClick={handleCopyHash}
               title="Copy cryptographic audit hash"
-              className="inline-flex h-6 w-6 items-center justify-center rounded hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+              className="inline-flex h-6 w-6 items-center justify-center rounded hover:bg-[#E8EDF5] text-[#4B5565] hover:text-[#0B0F1A] transition-colors"
             >
               {copiedHash ? (
-                <Check className="h-3 w-3 text-emerald-400" />
+                <Check className="h-3 w-3 text-emerald-600" />
               ) : (
                 <Copy className="h-3 w-3" />
               )}

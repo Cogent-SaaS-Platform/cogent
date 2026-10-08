@@ -5,7 +5,6 @@ import {
   X,
   Upload,
   FileText,
-  CheckCircle,
   AlertCircle,
   FileCheck2,
   FolderOpen,
@@ -147,26 +146,26 @@ All customer identification files, account ledgers, and transaction records shal
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-sm flex justify-end">
-      <div className="w-full max-w-2xl bg-[#0F1422] border-l border-slate-800 h-full overflow-y-auto flex flex-col shadow-2xl animate-in slide-in-from-right duration-300">
+    <div className="fixed inset-0 z-50 overflow-hidden bg-[#0B0F1A]/50 backdrop-blur-sm flex justify-end">
+      <div className="w-full max-w-2xl bg-white border-l border-[#DDE3EE] h-full overflow-y-auto flex flex-col shadow-2xl animate-in slide-in-from-right duration-300">
         {/* Header */}
-        <div className="p-6 border-b border-slate-800 bg-[#141A2B] flex items-center justify-between">
+        <div className="p-6 border-b border-[#DDE3EE] bg-[#F9FAFC] flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+            <div className="w-10 h-10 rounded-xl bg-[#EEF2FF] border border-[#C7D2FE] flex items-center justify-center text-[#2A4BFF]">
               <Upload className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white tracking-tight">
+              <h2 className="text-lg font-bold text-[#0B0F1A] tracking-tight">
                 Upload Internal Policy Document
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-[#4B5565]">
                 Automated structural chunking and tenant-private vector indexing (Epic 14 & 15)
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+            className="p-2 text-[#4B5565] hover:text-[#0B0F1A] rounded-lg hover:bg-[#F5F6FA] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -175,7 +174,7 @@ All customer identification files, account ledgers, and transaction records shal
         {/* Form Body */}
         <div className="p-6 space-y-5 flex-1">
           {errorMessage && (
-            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-center gap-2">
+            <div className="p-4 rounded-xl bg-[#FEF2F2] border border-[#FECACA] text-[#DC2626] text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{errorMessage}</span>
             </div>
@@ -186,7 +185,7 @@ All customer identification files, account ledgers, and transaction records shal
             <button
               type="button"
               onClick={loadSampleAmlPolicy}
-              className="text-xs font-medium text-indigo-400 hover:text-indigo-300 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 transition-colors"
+              className="text-xs font-semibold text-[#2A4BFF] hover:text-[#1E3BD9] flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#EEF2FF] border border-[#C7D2FE] transition-colors"
             >
               <Sparkles className="w-3.5 h-3.5" />
               Load Canonical AML Policy Sample
@@ -194,7 +193,7 @@ All customer identification files, account ledgers, and transaction records shal
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-semibold text-[#4B5565] uppercase tracking-wider mb-2">
               Policy Manual Title
             </label>
             <input
@@ -202,19 +201,19 @@ All customer identification files, account ledgers, and transaction records shal
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Information Security Policy, Customer Credit Policy, AML/CFT Manual"
-              className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+              className="w-full px-3.5 py-2.5 bg-white border border-[#DDE3EE] rounded-lg text-sm text-[#0B0F1A] placeholder-[#94A3B8] focus:outline-none focus:border-[#2A4BFF] focus:ring-1 focus:ring-[#2A4BFF]"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-semibold text-[#4B5565] uppercase tracking-wider mb-2">
                 Responsible Department
               </label>
               <select
                 value={department}
                 onChange={(e) => setDepartment(e.target.value as OrgDepartment)}
-                className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white focus:outline-none focus:border-indigo-500"
+                className="w-full px-3.5 py-2.5 bg-white border border-[#DDE3EE] rounded-lg text-sm text-[#0B0F1A] focus:outline-none focus:border-[#2A4BFF] focus:ring-1 focus:ring-[#2A4BFF]"
               >
                 <option value="COMPLIANCE_LEGAL">Compliance & Legal</option>
                 <option value="OPERATIONS">Operations</option>
@@ -227,7 +226,7 @@ All customer identification files, account ledgers, and transaction records shal
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-semibold text-[#4B5565] uppercase tracking-wider mb-2">
                 Version Tag
               </label>
               <input
@@ -235,14 +234,14 @@ All customer identification files, account ledgers, and transaction records shal
                 value={versionTag}
                 onChange={(e) => setVersionTag(e.target.value)}
                 placeholder="1.0"
-                className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                className="w-full px-3.5 py-2.5 bg-white border border-[#DDE3EE] rounded-lg text-sm text-[#0B0F1A] placeholder-[#94A3B8] focus:outline-none focus:border-[#2A4BFF] focus:ring-1 focus:ring-[#2A4BFF]"
               />
             </div>
           </div>
 
           {/* Input Mode Selector */}
           <div>
-            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+            <label className="block text-xs font-semibold text-[#4B5565] uppercase tracking-wider mb-2">
               Ingestion Mode
             </label>
             <div className="grid grid-cols-2 gap-3">
@@ -251,8 +250,8 @@ All customer identification files, account ledgers, and transaction records shal
                 onClick={() => setMode('TEXT')}
                 className={`px-4 py-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 border transition-all ${
                   mode === 'TEXT'
-                    ? 'bg-indigo-600/20 text-indigo-300 border-indigo-500/50'
-                    : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+                    ? 'bg-[#EEF2FF] text-[#2A4BFF] border-[#2A4BFF]'
+                    : 'bg-white text-[#4B5565] border-[#DDE3EE] hover:text-[#0B0F1A] hover:bg-[#F9FAFC]'
                 }`}
               >
                 <FileText className="w-4 h-4" />
@@ -263,8 +262,8 @@ All customer identification files, account ledgers, and transaction records shal
                 onClick={() => setMode('FILE')}
                 className={`px-4 py-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-2 border transition-all ${
                   mode === 'FILE'
-                    ? 'bg-indigo-600/20 text-indigo-300 border-indigo-500/50'
-                    : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+                    ? 'bg-[#EEF2FF] text-[#2A4BFF] border-[#2A4BFF]'
+                    : 'bg-white text-[#4B5565] border-[#DDE3EE] hover:text-[#0B0F1A] hover:bg-[#F9FAFC]'
                 }`}
               >
                 <FolderOpen className="w-4 h-4" />
@@ -276,7 +275,7 @@ All customer identification files, account ledgers, and transaction records shal
           {/* Mode Specific Input */}
           {mode === 'TEXT' ? (
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-semibold text-[#4B5565] uppercase tracking-wider mb-2">
                 Policy Document Text (Preserves Sections & Headings)
               </label>
               <textarea
@@ -284,26 +283,26 @@ All customer identification files, account ledgers, and transaction records shal
                 value={rawText}
                 onChange={(e) => setRawText(e.target.value)}
                 placeholder="Paste internal policy manual text here. Include section numbers (e.g. 'Section 3.1') for structural clause extraction..."
-                className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500 leading-relaxed"
+                className="w-full px-3.5 py-2.5 bg-[#F9FAFC] border border-[#DDE3EE] rounded-lg text-xs font-mono text-[#0B0F1A] placeholder-[#94A3B8] focus:outline-none focus:border-[#2A4BFF] focus:ring-1 focus:ring-[#2A4BFF] leading-relaxed"
               />
             </div>
           ) : (
             <div>
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+              <label className="block text-xs font-semibold text-[#4B5565] uppercase tracking-wider mb-2">
                 Select PDF or DOCX File
               </label>
-              <div className="border-2 border-dashed border-slate-700 hover:border-indigo-500/60 rounded-xl p-8 text-center bg-slate-900/50 cursor-pointer transition-colors relative">
+              <div className="border-2 border-dashed border-[#DDE3EE] hover:border-[#2A4BFF]/60 rounded-xl p-8 text-center bg-[#F9FAFC] cursor-pointer transition-colors relative">
                 <input
                   type="file"
                   accept=".pdf,.docx,.txt,.md"
                   onChange={handleFileChange}
                   className="absolute inset-0 opacity-0 cursor-pointer"
                 />
-                <Upload className="w-8 h-8 text-indigo-400 mx-auto mb-3" />
-                <p className="text-sm font-medium text-white mb-1">
+                <Upload className="w-8 h-8 text-[#2A4BFF] mx-auto mb-3" />
+                <p className="text-sm font-medium text-[#0B0F1A] mb-1">
                   {selectedFile ? selectedFile.name : 'Click or drag policy file to upload'}
                 </p>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-[#4B5565]">
                   {selectedFile
                     ? `${(selectedFile.size / 1024).toFixed(1)} KB`
                     : 'PDF, DOCX, TXT up to 25MB'}
@@ -314,21 +313,21 @@ All customer identification files, account ledgers, and transaction records shal
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-slate-800 bg-[#141A2B] flex items-center justify-between">
-          <span className="text-xs text-slate-400">
-            Storage: <code className="text-indigo-400 font-mono">policies/{organizationId.slice(0, 8)}/...</code>
+        <div className="p-4 border-t border-[#DDE3EE] bg-[#F9FAFC] flex items-center justify-between">
+          <span className="text-xs text-[#4B5565]">
+            Storage: <code className="text-[#2A4BFF] font-mono font-medium">policies/{organizationId.slice(0, 8)}/...</code>
           </span>
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"
+              className="px-4 py-2 text-xs font-semibold text-[#4B5565] hover:text-[#0B0F1A] bg-white border border-[#DDE3EE] hover:bg-[#F5F6FA] rounded-lg transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleIngest}
               disabled={isIngesting}
-              className="px-5 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded-lg transition-colors flex items-center gap-2"
+              className="px-5 py-2 text-xs font-semibold text-white bg-[#2A4BFF] hover:bg-[#1E3BD9] disabled:opacity-50 rounded-lg shadow-sm transition-colors flex items-center gap-2"
             >
               {isIngesting ? (
                 <>

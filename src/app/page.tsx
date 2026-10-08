@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PlatformPillar, CrossPillarLinkContext } from '@/shared/types';
-import { EnterpriseHeader } from '@/shared/ui/EnterpriseHeader';
+import { AppShell } from '@/shared/ui/AppShell';
 import { ExecutiveDashboard } from '@/modules/executive';
 import { MarketingShieldDashboard } from '@/modules/marketing-shield';
 import { RadarCockpit } from '@/modules/radar';
@@ -12,7 +12,7 @@ export default function Home() {
   const [activePillar, setActivePillar] = useState<PlatformPillar>('executive');
   const [crossPillarContext, setCrossPillarContext] = useState<CrossPillarLinkContext | null>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const pillarParam = params.get('pillar') as PlatformPillar | null;
@@ -29,32 +29,44 @@ export default function Home() {
     }
   };
 
+  const handleNavigateOverride = (href: string) => {
+    if (href === '/overview' || href === '/') {
+      setActivePillar('executive');
+    } else if (href === '/insight' || href === '/radar') {
+      setActivePillar('radar');
+    } else if (href === '/marketing') {
+      setActivePillar('marketing');
+    } else if (href === '/gap' || href === '/gap-matrix') {
+      setActivePillar('gap-matrix');
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#090D16] flex flex-col">
-      <EnterpriseHeader activePillar={activePillar} onSwitchPillar={handleSwitchPillar} />
-      <main className="flex-1">
-        {activePillar === 'executive' && (
-          <ExecutiveDashboard onSwitchPillar={handleSwitchPillar} />
-        )}
-        {activePillar === 'marketing' && (
-          <MarketingShieldDashboard
-            onSwitchPillar={handleSwitchPillar}
-            initialContext={crossPillarContext}
-          />
-        )}
-        {activePillar === 'radar' && (
-          <RadarCockpit
-            onSwitchPillar={handleSwitchPillar}
-            initialContext={crossPillarContext}
-          />
-        )}
-        {activePillar === 'gap-matrix' && (
-          <GapMatrixDashboard
-            onSwitchPillar={handleSwitchPillar}
-            initialContext={crossPillarContext}
-          />
-        )}
-      </main>
-    </div>
+    <AppShell
+      activePillarOverride={activePillar}
+      onNavigateOverride={handleNavigateOverride}
+    >
+      {activePillar === 'executive' && (
+        <ExecutiveDashboard onSwitchPillar={handleSwitchPillar} />
+      )}
+      {activePillar === 'marketing' && (
+        <MarketingShieldDashboard
+          onSwitchPillar={handleSwitchPillar}
+          initialContext={crossPillarContext}
+        />
+      )}
+      {activePillar === 'radar' && (
+        <RadarCockpit
+          onSwitchPillar={handleSwitchPillar}
+          initialContext={crossPillarContext}
+        />
+      )}
+      {activePillar === 'gap-matrix' && (
+        <GapMatrixDashboard
+          onSwitchPillar={handleSwitchPillar}
+          initialContext={crossPillarContext}
+        />
+      )}
+    </AppShell>
   );
 }

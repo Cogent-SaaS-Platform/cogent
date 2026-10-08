@@ -1,23 +1,15 @@
 'use client';
 
-import React from 'react';
-import { useRouter } from 'next/navigation';
+import React, { Suspense } from 'react';
+import { AppShell } from '@/shared/ui/AppShell';
 import { GapMatrixDashboard } from '@/modules/gap-matrix';
 
 export default function GapMatrixPage() {
-  const router = useRouter();
-
   return (
-    <main className="min-h-screen bg-[#090D16]">
-      <GapMatrixDashboard
-        onSwitchPillar={(p) => {
-          if (p === 'marketing') {
-            router.push('/');
-          } else if (p === 'radar') {
-            router.push('/radar');
-          }
-        }}
-      />
-    </main>
+    <AppShell activePillarOverride="gap">
+      <Suspense fallback={<div className="p-8 text-[#4B5565] text-xs">Loading 5-W Policy Gap Matrix...</div>}>
+        <GapMatrixDashboard />
+      </Suspense>
+    </AppShell>
   );
 }

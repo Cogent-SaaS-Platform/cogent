@@ -8,7 +8,17 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const tenantCtx = await getTenantContext();
     const organizationId = tenantCtx.organizationId;
-    const organizationName = searchParams.get('organizationName') || 'Apex Paystack FinTech Ltd';
+    const paramOrgName = searchParams.get('organizationName');
+    let organizationName: string = paramOrgName && paramOrgName.trim() ? paramOrgName.trim() : '';
+    if (!organizationName) {
+      const response = await tenantCtx.dbClient
+        .from('organizations')
+        .select('name')
+        .eq('id', organizationId)
+        .single();
+      const org = response.data as { name: string } | null;
+      organizationName = org?.name || 'Authorized Tenant';
+    }
     const executiveOverviewService = new ExecutiveOverviewService({ dbClient: tenantCtx.dbClient });
 
     const data = await executiveOverviewService.getExecutiveOverview(

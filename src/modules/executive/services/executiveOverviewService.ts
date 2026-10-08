@@ -37,7 +37,7 @@ export class ExecutiveOverviewService {
    */
   public async getExecutiveOverview(
     organizationId: string = '00000000-0000-0000-0000-000000000001',
-    organizationName: string = 'Apex Paystack FinTech Ltd'
+    organizationName: string = 'Authorized Tenant'
   ): Promise<ExecutiveOverviewData> {
     const timestamp = new Date().toISOString();
 
@@ -319,6 +319,14 @@ export class ExecutiveOverviewService {
         status: 'COMPLIANT',
         keyStatute: 'SEC Rules on Digital Sub-Brokers & VASPs 2026',
       },
+      {
+        regulatorCode: 'NDIC',
+        regulatorName: 'Nigeria Deposit Insurance Corporation',
+        activeInstrumentsCount: 8,
+        complianceRate: 95,
+        status: 'COMPLIANT',
+        keyStatute: 'NDIC Act 2023 & Deposit Insurance Guidelines',
+      },
     ];
 
     // Departmental Readiness Breakdown
@@ -504,7 +512,7 @@ export class ExecutiveOverviewService {
    */
   public async generateExecutiveComplianceExport(
     organizationId: string = '00000000-0000-0000-0000-000000000001',
-    organizationName: string = 'Apex Paystack FinTech Ltd'
+    organizationName: string = 'Authorized Tenant'
   ): Promise<ExecutiveComplianceExportResult> {
     const overview = await this.getExecutiveOverview(organizationId, organizationName);
     const generatedAt = new Date().toISOString();

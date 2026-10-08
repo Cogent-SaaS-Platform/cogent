@@ -28,9 +28,9 @@ export default function RootLayout({
   const htmlContent = (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased bg-[#090D16] text-slate-100`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased bg-[#F5F6FA] text-[#0B0F1A]`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col bg-[#F5F6FA] text-[#0B0F1A]">{children}</body>
     </html>
   );
 
@@ -42,8 +42,15 @@ export default function RootLayout({
     <ClerkProvider
       appearance={{
         variables: {
-          colorPrimary: '#06b6d4', // cyan-500
-          colorBackground: '#0b1120', // slate-950
+          colorPrimary: '#2A4BFF',
+          colorPrimaryForeground: '#FFFFFF',
+          colorBackground: '#FFFFFF',
+          colorForeground: '#0B0F1A',
+          colorMutedForeground: '#4B5565',
+          colorMuted: '#F5F6FA',
+          colorDanger: '#EF4444',
+          colorSuccess: '#10B981',
+          colorWarning: '#F59E0B',
           borderRadius: '0.75rem',
         },
       }}

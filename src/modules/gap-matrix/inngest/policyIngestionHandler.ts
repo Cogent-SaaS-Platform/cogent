@@ -1,18 +1,26 @@
+import { inngest, PolicyUploadedPayload } from '@/shared/inngest';
 import { logger } from '@/shared/logger';
-import { InngestGapMatrixEventMap } from './client';
 
 export interface InngestStepContext {
   run: <T>(name: string, fn: () => Promise<T>) => Promise<T>;
 }
 
+export interface PolicyIngestionResult {
+  success: boolean;
+  policyId: string;
+  organizationId: string;
+  title: string;
+  processedAt: string;
+}
+
 /**
- * Inngest durable workflow handler for `gap-matrix/policy.uploaded` (Task 14.2)
+ * Core workflow handler logic for corporate policy uploads
  */
 export async function handlePolicyUploaded(
-  event: InngestGapMatrixEventMap['gap-matrix/policy.uploaded'],
+  event: { data: PolicyUploadedPayload },
   step?: InngestStepContext
-) {
-  const { policyId, organizationId, title, storagePath, sourceFileHash, clausesCount } = event.data;
+): Promise<PolicyIngestionResult> {
+  const { policyId, organizationId, title, sourceFileHash, clausesCount } = event.data;
 
   logger.info(
     {
@@ -47,3 +55,23 @@ export async function handlePolicyUploaded(
     processedAt: new Date().toISOString(),
   };
 }
+
+/**
+ * Durable Inngest function for policy ingestion (Task A3.2)
+ */
+export const policyIngestionJob = inngest.createFunction(
+  {
+    id: 'gap-matrix-policy-ingestion',
+    name: 'Gap Matrix Corporate Policy Ingestion Pipeline',
+  },
+  { event: 'gap-matrix/policy.uploaded' },
+  async ({
+    event,
+    step,
+  }: {
+    event: { data: PolicyUploadedPayload };
+    step: InngestStepContext;
+  }) => {
+    return handlePolicyUploaded(event, step);
+  }
+);
