@@ -1,8 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
 import { renderToString } from 'react-dom/server';
 import { ClerkAvatar, UserAvatar, OrgAvatar } from '@/shared/ui/ClerkAvatar';
 import { AuthShowcasePanel } from '@/shared/ui/AuthShowcasePanel';
+
+vi.mock('@clerk/nextjs', () => ({
+  useUser: () => ({ user: null, isLoaded: true }),
+  useOrganization: () => ({ organization: null, isLoaded: true }),
+}));
 
 describe('Settings & Auth UI Components', () => {
   describe('ClerkAvatar Component (Marble #6C47FF Silhouette)', () => {

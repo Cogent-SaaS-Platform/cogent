@@ -1,0 +1,41 @@
+name: Supabase Database Heartbeat
+
+on:
+  schedule:
+    - cron: '0 4 * * *' # Executes daily at 4:00 AM UTC
+  workflow_dispatch:
+
+jobs:
+  ping-database:
+    name: Keep-Alive Database Query
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Send Supabase REST Heartbeat
+        env:
+          SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_KEY" ]; then
+            echo "::error::SUPABASE_URL or SUPABASE_KEY secret is not configured"
+            exit 1
+          fi
+
+          echo "Executing Supabase Postgres REST v1 keep-alive query..."
+          RESPONSE=$(curl -s -S -w "\n%{http_code}" -X GET "${SUPABASE_URL}/rest/v1/organizations?select=id&limit=1" \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}" \
+            -H "Content-Type: application/json")
+
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          echo "HTTP Response Status: ${HTTP_STATUS}"
+          echo "Response Payload: ${BODY}"
+
+          if [ "$HTTP_STATUS" -ne 200 ]; then
+            echo "::error::Supabase keep-alive probe failed with HTTP status ${HTTP_STATUS}"
+            exit 1
+          fi
+
+          echo "Supabase database heartbeat query completed successfully. Inactivity timer reset."

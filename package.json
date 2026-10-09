@@ -20,6 +20,8 @@
     "@aws-sdk/s3-request-presigner": "^3.1146.0",
     "@clerk/nextjs": "^7.9.10",
     "@google/genai": "^2.27.0",
+    "@logtail/pino": "^0.5.12",
+    "@sentry/nextjs": "^11.6.0",
     "@supabase/supabase-js": "^2.117.2",
     "@upstash/ratelimit": "^2.2.0",
     "@upstash/redis": "^1.39.0",

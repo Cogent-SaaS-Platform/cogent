@@ -1,4 +1,4 @@
-import pino, { Logger, LoggerOptions } from 'pino';
+import pino, { Logger, LoggerOptions, TransportSingleOptions } from 'pino';
 
 /**
  * Sensitive fields to redact per NDPA 2023 & docs/SECURITY.md
@@ -35,10 +35,38 @@ const SENSITIVE_PATHS = [
   '*.copy_text',
 ];
 
-const isDevelopment = process.env.NODE_ENV !== 'production';
+const isProduction = process.env.NODE_ENV === 'production';
+const isTest = process.env.NODE_ENV === 'test';
+const betterStackToken = process.env.BETTER_STACK_SOURCE_TOKEN;
+
+function resolveTransport(): TransportSingleOptions | undefined {
+  // If Better Stack token is provided, stream via HTTPS transport (quarantined from test runner)
+  if (betterStackToken && !isTest) {
+    return {
+      target: '@logtail/pino',
+      options: { sourceToken: betterStackToken },
+    };
+  }
+
+  // Fallback to pretty printing in local development (non-production, non-CI, non-test)
+  if (!isProduction && !isTest) {
+    return {
+      target: 'pino-pretty',
+      options: {
+        colorize: true,
+        ignore: 'pid,hostname',
+      },
+    };
+  }
+
+  // Fallback to standard JSON stdout in production or CI/test
+  return undefined;
+}
+
+const transport = resolveTransport();
 
 const options: LoggerOptions = {
-  level: process.env.LOG_LEVEL || (isDevelopment ? 'debug' : 'info'),
+  level: process.env.LOG_LEVEL || (isProduction ? 'info' : 'debug'),
   redact: {
     paths: SENSITIVE_PATHS,
     censor: '[REDACTED_PII]',
@@ -48,6 +76,7 @@ const options: LoggerOptions = {
     service: 'cogent-engine',
   },
   timestamp: pino.stdTimeFunctions.isoTime,
+  ...(transport ? { transport } : {}),
 };
 
 export const logger: Logger = pino(options);
