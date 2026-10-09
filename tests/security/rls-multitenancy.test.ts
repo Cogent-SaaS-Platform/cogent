@@ -280,12 +280,29 @@ describe('Automated Multi-Tenant RLS Security Test Suite (Epic 8 / Task 8.2)', (
     });
 
     it('enforces RBAC requireRole: allows permitted roles and blocks forbidden roles', async () => {
+      const mockSub = {
+        tier: 'STARTER' as const,
+        status: 'active' as const,
+        isActive: true,
+        isInGracePeriod: false,
+        isReadOnly: false,
+        trialEndsAt: null,
+        gracePeriodEndsAt: null,
+        currentPeriodEnd: null,
+        marketingScanQuota: 50,
+        policyDocumentQuota: 3,
+        paystackSubscriptionCode: null,
+        paystackPlanCode: null,
+      };
+
       const adminCtx = {
         organizationId: TENANT_A_ORG_ID,
         userId: TEST_USER_ID,
         userOrgRole: 'org:admin' as const,
         dbClient: anonClient,
         isDevFallback: false,
+        subscription: mockSub,
+        isSubscriptionActive: true,
       };
 
       const viewerCtx = {
@@ -294,6 +311,8 @@ describe('Automated Multi-Tenant RLS Security Test Suite (Epic 8 / Task 8.2)', (
         userOrgRole: 'org:viewer' as const,
         dbClient: anonClient,
         isDevFallback: false,
+        subscription: mockSub,
+        isSubscriptionActive: true,
       };
 
       const noRoleCtx = {
@@ -301,6 +320,8 @@ describe('Automated Multi-Tenant RLS Security Test Suite (Epic 8 / Task 8.2)', (
         userId: TEST_USER_ID,
         dbClient: anonClient,
         isDevFallback: false,
+        subscription: mockSub,
+        isSubscriptionActive: true,
       };
 
       // Admin role allowed for org:admin and org:compliance_officer

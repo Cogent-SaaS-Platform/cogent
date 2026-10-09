@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { PlatformPillar, CrossPillarLinkContext } from '@/shared/types';
 import { AppShell } from '@/shared/ui/AppShell';
-import { ExecutiveDashboard } from '@/modules/executive';
-import { MarketingShieldDashboard } from '@/modules/marketing-shield';
-import { RadarCockpit } from '@/modules/radar';
-import { GapMatrixDashboard } from '@/modules/gap-matrix';
+import { ExecutiveDashboard } from '@/modules/executive/ui';
+import { MarketingShieldDashboard } from '@/modules/marketing-shield/ui';
+import { RadarCockpit } from '@/modules/radar/ui';
+import { GapMatrixDashboard } from '@/modules/gap-matrix/ui';
 
 export default function Home() {
   const [activePillar, setActivePillar] = useState<PlatformPillar>('executive');
@@ -46,27 +46,29 @@ export default function Home() {
       activePillarOverride={activePillar}
       onNavigateOverride={handleNavigateOverride}
     >
-      {activePillar === 'executive' && (
-        <ExecutiveDashboard onSwitchPillar={handleSwitchPillar} />
-      )}
-      {activePillar === 'marketing' && (
-        <MarketingShieldDashboard
-          onSwitchPillar={handleSwitchPillar}
-          initialContext={crossPillarContext}
-        />
-      )}
-      {activePillar === 'radar' && (
-        <RadarCockpit
-          onSwitchPillar={handleSwitchPillar}
-          initialContext={crossPillarContext}
-        />
-      )}
-      {activePillar === 'gap-matrix' && (
-        <GapMatrixDashboard
-          onSwitchPillar={handleSwitchPillar}
-          initialContext={crossPillarContext}
-        />
-      )}
+      <Suspense fallback={<div className="p-8 text-[#4B5565] text-xs">Loading Cogent Intelligence...</div>}>
+        {activePillar === 'executive' && (
+          <ExecutiveDashboard onSwitchPillar={handleSwitchPillar} />
+        )}
+        {activePillar === 'marketing' && (
+          <MarketingShieldDashboard
+            onSwitchPillar={handleSwitchPillar}
+            initialContext={crossPillarContext}
+          />
+        )}
+        {activePillar === 'radar' && (
+          <RadarCockpit
+            onSwitchPillar={handleSwitchPillar}
+            initialContext={crossPillarContext}
+          />
+        )}
+        {activePillar === 'gap-matrix' && (
+          <GapMatrixDashboard
+            onSwitchPillar={handleSwitchPillar}
+            initialContext={crossPillarContext}
+          />
+        )}
+      </Suspense>
     </AppShell>
   );
 }

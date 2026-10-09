@@ -240,7 +240,7 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
 
     setIsSubmitting(true);
     try {
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         scanId,
         campaignName,
         status: newStatus,
@@ -327,9 +327,9 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
       } else {
         throw new Error(data.error || 'Failed to submit attestation');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Sign-off error:', err);
-      alert('Attestation failed: ' + (err.message || 'Network error'));
+      alert('Attestation failed: ' + (err instanceof Error ? err.message : 'Network error'));
     } finally {
       setIsSubmitting(false);
     }

@@ -55,6 +55,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['regulatory_bodies']['Insert']>;
+        Relationships: [];
       };
       regulatory_instruments: {
         Row: {
@@ -74,6 +75,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['regulatory_instruments']['Insert']>;
+        Relationships: [];
       };
       regulatory_document_versions: {
         Row: {
@@ -117,6 +119,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['regulatory_document_versions']['Insert']>;
+        Relationships: [];
       };
       regulatory_clauses: {
         Row: {
@@ -142,6 +145,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['regulatory_clauses']['Insert']>;
+        Relationships: [];
       };
       regulatory_obligations: {
         Row: {
@@ -165,6 +169,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['regulatory_obligations']['Insert']>;
+        Relationships: [];
       };
       applicability_rules: {
         Row: {
@@ -186,6 +191,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['applicability_rules']['Insert']>;
+        Relationships: [];
       };
       statutory_penalties: {
         Row: {
@@ -211,6 +217,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['statutory_penalties']['Insert']>;
+        Relationships: [];
       };
       prohibited_terms: {
         Row: {
@@ -238,6 +245,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['prohibited_terms']['Insert']>;
+        Relationships: [];
       };
       organizations: {
         Row: {
@@ -263,6 +271,7 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Database['public']['Tables']['organizations']['Insert']>;
+        Relationships: [];
       };
       users: {
         Row: {
@@ -284,6 +293,7 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Database['public']['Tables']['users']['Insert']>;
+        Relationships: [];
       };
       organization_memberships: {
         Row: {
@@ -305,6 +315,7 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Database['public']['Tables']['organization_memberships']['Insert']>;
+        Relationships: [];
       };
       tenant_licenses: {
         Row: {
@@ -332,6 +343,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['tenant_licenses']['Insert']>;
+        Relationships: [];
       };
       tenant_payment_rails: {
         Row: {
@@ -342,6 +354,8 @@ export interface Database {
           settlement_bank_code: string | null;
           daily_volume_tier: string | null;
           is_active: boolean;
+          drift_flagged: boolean;
+          drift_reason: string | null;
           created_at: string;
         };
         Insert: {
@@ -352,9 +366,12 @@ export interface Database {
           settlement_bank_code?: string | null;
           daily_volume_tier?: string | null;
           is_active?: boolean;
+          drift_flagged?: boolean;
+          drift_reason?: string | null;
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['tenant_payment_rails']['Insert']>;
+        Relationships: [];
       };
       ai_analysis_runs: {
         Row: {
@@ -400,6 +417,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['ai_analysis_runs']['Insert']>;
+        Relationships: [];
       };
       marketing_scans: {
         Row: {
@@ -418,6 +436,7 @@ export interface Database {
           compliant_rewrite_full: string | null;
           arcon_preclearance_required: boolean;
           approval_status: HumanApprovalStatus;
+          state_reason: string | null;
           approved_by_user_id: string | null;
           approved_at: string | null;
           created_at: string;
@@ -438,11 +457,13 @@ export interface Database {
           compliant_rewrite_full?: string | null;
           arcon_preclearance_required?: boolean;
           approval_status?: HumanApprovalStatus;
+          state_reason?: string | null;
           approved_by_user_id?: string | null;
           approved_at?: string | null;
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['marketing_scans']['Insert']>;
+        Relationships: [];
       };
       marketing_findings: {
         Row: {
@@ -478,6 +499,7 @@ export interface Database {
           statutory_penalty_naira?: number;
         };
         Update: Partial<Database['public']['Tables']['marketing_findings']['Insert']>;
+        Relationships: [];
       };
       // Migration 20261006000001 — Phase 1 / Task 1.1
       tenant_claims_ledger: {
@@ -494,6 +516,8 @@ export interface Database {
           approved_at: string;
           expires_at: string | null;
           is_active: boolean;
+          drift_flagged: boolean;
+          drift_reason: string | null;
           created_at: string;
         };
         Insert: {
@@ -509,9 +533,12 @@ export interface Database {
           approved_at?: string;
           expires_at?: string | null;
           is_active?: boolean;
+          drift_flagged?: boolean;
+          drift_reason?: string | null;
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['tenant_claims_ledger']['Insert']>;
+        Relationships: [];
       };
       marketing_live_assets: {
         Row: {
@@ -539,6 +566,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['marketing_live_assets']['Insert']>;
+        Relationships: [];
       };
       audit_logs: {
         Row: {
@@ -566,6 +594,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['audit_logs']['Insert']>;
+        Relationships: [];
       };
       notifications: {
         Row: {
@@ -576,6 +605,7 @@ export interface Database {
           message: string;
           type: string;
           action_url: string | null;
+          link: string | null;
           is_read: boolean;
           read_at: string | null;
           created_at: string;
@@ -588,11 +618,47 @@ export interface Database {
           message: string;
           type?: string;
           action_url?: string | null;
+          link?: string | null;
           is_read?: boolean;
           read_at?: string | null;
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['notifications']['Insert']>;
+        Relationships: [];
+      };
+      radar_notifications: {
+        Row: {
+          id: string;
+          organization_id: string;
+          user_id: string | null;
+          title: string;
+          message: string;
+          type: string;
+          priority: string;
+          target_department: OrgDepartment;
+          action_url: string | null;
+          link: string | null;
+          is_read: boolean;
+          metadata: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          user_id?: string | null;
+          title: string;
+          message: string;
+          type?: string;
+          priority?: string;
+          target_department?: OrgDepartment;
+          action_url?: string | null;
+          link?: string | null;
+          is_read?: boolean;
+          metadata?: Json | null;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['radar_notifications']['Insert']>;
+        Relationships: [];
       };
       policy_documents: {
         Row: {
@@ -618,6 +684,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['policy_documents']['Insert']>;
+        Relationships: [];
       };
       policy_clauses: {
         Row: {
@@ -639,6 +706,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['policy_clauses']['Insert']>;
+        Relationships: [];
       };
       gap_evaluations: {
         Row: {
@@ -651,6 +719,8 @@ export interface Database {
           critical_gaps_count: number;
           partially_met_count: number;
           adequately_met_count: number;
+          status: string | null;
+          metadata: Json | null;
           created_at: string;
         };
         Insert: {
@@ -663,9 +733,12 @@ export interface Database {
           critical_gaps_count?: number;
           partially_met_count?: number;
           adequately_met_count?: number;
+          status?: string | null;
+          metadata?: Json | null;
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['gap_evaluations']['Insert']>;
+        Relationships: [];
       };
       gap_matrix_items: {
         Row: {
@@ -681,6 +754,9 @@ export interface Database {
           what_to_know: string;
           what_has_changed: string;
           what_to_do: string;
+          draft_replacement_language: string | null;
+          responsible_role: string | null;
+          remediation_timeline_days: number | null;
           derived_insight: string;
           created_at: string;
         };
@@ -697,10 +773,14 @@ export interface Database {
           what_to_know: string;
           what_has_changed: string;
           what_to_do: string;
+          draft_replacement_language?: string | null;
+          responsible_role?: string | null;
+          remediation_timeline_days?: number | null;
           derived_insight: string;
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['gap_matrix_items']['Insert']>;
+        Relationships: [];
       };
       radar_circulars: {
         Row: {
@@ -744,6 +824,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['radar_circulars']['Insert']>;
+        Relationships: [];
       };
       circular_supersession_links: {
         Row: {
@@ -763,6 +844,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['circular_supersession_links']['Insert']>;
+        Relationships: [];
       };
       radar_tenant_impacts: {
         Row: {
@@ -812,6 +894,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['radar_tenant_impacts']['Insert']>;
+        Relationships: [];
       };
       radar_action_items: {
         Row: {
@@ -841,6 +924,7 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['radar_action_items']['Insert']>;
+        Relationships: [];
       };
       tenant_subscriptions: {
         Row: {
@@ -880,6 +964,7 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Database['public']['Tables']['tenant_subscriptions']['Insert']>;
+        Relationships: [];
       };
       billing_events: {
         Row: {
@@ -899,15 +984,19 @@ export interface Database {
           processed_at?: string;
         };
         Update: Partial<Database['public']['Tables']['billing_events']['Insert']>;
+        Relationships: [];
       };
+    };
+    Views: {
+      [_ in never]: never;
     };
     Functions: {
       current_org_id: {
-        Args: Record<PropertyKey, never>;
+        Args: Record<string, never>;
         Returns: string;
       };
       current_user_id: {
-        Args: Record<PropertyKey, never>;
+        Args: Record<string, never>;
         Returns: string;
       };
       match_policy_clauses: {
@@ -925,6 +1014,12 @@ export interface Database {
           similarity: number;
         }[];
       };
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
     };
   };
 }

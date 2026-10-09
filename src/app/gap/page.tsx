@@ -2,7 +2,7 @@
 
 import React, { Suspense } from 'react';
 import { AppShell } from '@/shared/ui/AppShell';
-import { GapMatrixDashboard } from '@/modules/gap-matrix';
+import { GapMatrixDashboard } from '@/modules/gap-matrix/ui';
 
 export default function GapPage() {
   return (

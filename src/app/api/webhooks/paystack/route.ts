@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { createAdminClient } from '@/shared/db';
+import { createAdminClient, Json } from '@/shared/db';
 import { logger } from '@/shared/logger';
 import {
   PaystackWebhookPayload,
@@ -313,7 +313,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       event_id: eventRef,
       event_type: eventType,
       organization_id: resolvedOrgId,
-      payload: event as any,
+      payload: event as unknown as Json,
     });
 
     if (ledgerError) {

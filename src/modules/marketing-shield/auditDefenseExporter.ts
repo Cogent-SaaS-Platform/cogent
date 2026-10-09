@@ -101,7 +101,7 @@ export class AuditDefenseExporter {
       .eq('scan_id', scanId)
       .eq('organization_id', organizationId);
 
-    const findings: FindingPresentationCard[] = (findingsData || []).map((f: any, idx: number) => ({
+    const findings: FindingPresentationCard[] = (findingsData || []).map((f, idx: number) => ({
       id: f.id || `finding_${idx + 1}`,
       ruleCode: f.rule_code,
       regulatorCode: (f.statutory_citation?.includes('ARCON') ? 'ARCON' : 'CBN') as RegulatorCode,

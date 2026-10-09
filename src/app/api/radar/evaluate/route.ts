@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Fetch circular record from database
-    const { data: circular, error: circularError } = await (db as any)
+    const { data: circular, error: circularError } = await db
       .from('radar_circulars')
       .select('*')
       .eq('id', circularId)
@@ -94,12 +94,16 @@ export async function POST(req: NextRequest) {
       });
     } else {
       // Record non-applicable or unsynthesized status in radar_tenant_impacts
-      await (db as any).from('radar_tenant_impacts').upsert(
+      await db.from('radar_tenant_impacts').upsert(
         {
           organization_id: organizationId,
           circular_id: circularId,
           is_applicable: applicabilityResult.isApplicable,
           applicability_reason: applicabilityResult.reason,
+          executive_brief_cco: 'Non-applicable to institutional license profile.',
+          action_brief_coo: 'No operational action required.',
+          technical_brief_product_eng: 'No technical modification required.',
+          financial_brief_cfo: 'No capital or financial exposure.',
           status: applicabilityResult.isApplicable ? 'PENDING_SYNTHESIS' : 'FILTERED_OUT',
         },
         { onConflict: 'organization_id,circular_id' }
@@ -116,10 +120,11 @@ export async function POST(req: NextRequest) {
         synthesis: synthesisResult,
       },
     });
-  } catch (error: any) {
-    logger.error({ error: error.message }, 'Failed to evaluate circular applicability');
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ error: err.message }, 'Failed to evaluate circular applicability');
     return NextResponse.json(
-      { success: false, error: error.message || 'Evaluation failed' },
+      { success: false, error: err.message || 'Evaluation failed' },
       { status: 500 }
     );
   }

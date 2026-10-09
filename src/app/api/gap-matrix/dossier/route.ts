@@ -34,10 +34,11 @@ export async function POST(req: NextRequest) {
         html,
       },
     });
-  } catch (error: any) {
-    logger.error({ error: error.message }, 'Failed generating audit defense dossier');
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ error: err.message }, 'Failed generating audit defense dossier');
     return NextResponse.json(
-      { error: error.message || 'Internal dossier generation error' },
+      { error: err.message || 'Internal dossier generation error' },
       { status: 500 }
     );
   }

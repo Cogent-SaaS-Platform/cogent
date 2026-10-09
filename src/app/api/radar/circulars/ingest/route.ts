@@ -84,11 +84,12 @@ export async function POST(req: NextRequest) {
       },
       { status: statusCode }
     );
-  } catch (error: any) {
-    logger.error({ error: error.message }, 'Error in /api/radar/circulars/ingest');
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ error: err.message }, 'Error in /api/radar/circulars/ingest');
     return NextResponse.json(
       {
-        error: error.message || 'Internal circular ingestion failure',
+        error: err.message || 'Internal circular ingestion failure',
       },
       { status: 500 }
     );

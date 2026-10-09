@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/shared/auth';
 import { logger } from '@/shared/logger';
 import { defaultCountdownCalculator } from '@/modules/radar/services/deadlineCountdownCalculator';
-import { RegulatorCode } from '@/shared/types';
+import { RegulatorCode, RadarPriority } from '@/shared/types';
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
       .order('created_at', { ascending: false });
 
     if (priority) {
-      query = query.eq('priority', priority);
+      query = query.eq('priority', priority as RadarPriority);
     }
 
     const { data, error } = await query;
@@ -31,14 +31,14 @@ export async function GET(req: NextRequest) {
     // Filter by regulator if requested
     let circulars = data || [];
     if (regulator) {
-      circulars = circulars.filter((c: any) =>
+      circulars = circulars.filter((c) =>
         c.circular_number?.toUpperCase().startsWith(regulator.toUpperCase()) ||
         c.subject?.toUpperCase().includes(regulator.toUpperCase())
       );
     }
 
     // Augment circulars with dynamic statutory countdown evaluations & penalty projections
-    const enrichedCirculars = circulars.map((c: any) => {
+    const enrichedCirculars = circulars.map((c) => {
       let regulatorCode: RegulatorCode = 'CBN';
       const refPrefix = (c.circular_number || '').split('/')[0]?.toUpperCase();
       if (['CBN', 'SEC', 'ARCON', 'NDPC', 'FCCPC', 'NFIU', 'NDIC'].includes(refPrefix)) {
@@ -61,8 +61,9 @@ export async function GET(req: NextRequest) {
       success: true,
       circulars: enrichedCirculars,
     });
-  } catch (err: any) {
-    logger.error({ err: err.message }, 'Error fetching radar circulars');
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error({ error: message }, 'Error fetching radar circulars');
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

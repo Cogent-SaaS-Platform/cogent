@@ -43,10 +43,11 @@ export async function POST(req: NextRequest) {
       success: true,
       data: exportResult,
     });
-  } catch (error: any) {
-    logger.error({ error: error.message }, 'Failed generating executive compliance export');
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ error: err.message }, 'Failed generating executive compliance export');
     return NextResponse.json(
-      { error: error.message || 'Failed generating executive compliance export' },
+      { error: err.message || 'Failed generating executive compliance export' },
       { status: 500 }
     );
   }

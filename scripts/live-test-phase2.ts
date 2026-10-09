@@ -76,7 +76,7 @@ async function runLiveTestPhase2() {
       'tenant_licenses',
       'tenant_payment_rails',
       'audit_logs',
-    ];
+    ] as const;
 
     for (const table of requiredTables) {
       const { error } = await db.from(table).select('count', { count: 'exact', head: true });

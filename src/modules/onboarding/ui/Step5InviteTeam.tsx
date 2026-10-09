@@ -47,8 +47,9 @@ export function Step5InviteTeam({
     setErrorMessage(null);
     try {
       await onFinish();
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Failed to complete workspace onboarding.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to complete workspace onboarding.';
+      setErrorMessage(msg);
     }
   };
 
@@ -101,7 +102,7 @@ export function Step5InviteTeam({
             <div className="w-full sm:w-36">
               <select
                 value={member.role}
-                onChange={(e) => updateMember(member.id, { role: e.target.value as any })}
+                onChange={(e) => updateMember(member.id, { role: e.target.value as InvitedTeamMember['role'] })}
                 className="w-full px-3 py-2 bg-white border border-[#DDE3EE] rounded-lg text-xs font-semibold text-[#0B0F1A] focus:outline-none focus:border-[#2A4BFF]"
               >
                 <option value="ADMIN">Admin</option>

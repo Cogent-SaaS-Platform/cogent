@@ -1,13 +1,15 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import { AppShell } from '@/shared/ui/AppShell';
-import { RadarCockpit } from '@/modules/radar';
+import { RadarCockpit } from '@/modules/radar/ui';
 
 export default function RadarPage() {
   return (
     <AppShell activePillarOverride="insight">
-      <RadarCockpit />
+      <Suspense fallback={<div className="p-8 text-[#4B5565] text-xs">Loading Regulatory Horizon Scanning...</div>}>
+        <RadarCockpit />
+      </Suspense>
     </AppShell>
   );
 }

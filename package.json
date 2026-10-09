@@ -7,6 +7,7 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run --no-isolate",
     "test:security": "vitest run tests/security",
     "test:e2e": "playwright test",

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PolicyIngestionService } from '@/modules/gap-matrix/services/policyIngestionService';
 import { getTenantContext } from '@/shared/auth';
+import { OrgDepartment } from '@/shared/types';
 import { logger } from '@/shared/logger';
 
 /**
@@ -13,7 +14,7 @@ export async function GET(req: NextRequest) {
     const organizationId = tenantCtx.organizationId;
     const dbClient = tenantCtx.dbClient;
 
-    const { data: policies, error } = await (dbClient as any)
+    const { data: policies, error } = await dbClient
       .from('policy_documents')
       .select(`
         id,
@@ -44,22 +45,24 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const formattedPolicies = (policies || []).map((p: any) => {
-      const clausesCount = Array.isArray(p.policy_clauses) && p.policy_clauses.length > 0
-        ? p.policy_clauses[0].count
+    const formattedPolicies = (policies || []).map((p: Record<string, unknown>) => {
+      const clauses = p.policy_clauses as Array<{ count?: number }> | null;
+      const clausesCount = Array.isArray(clauses) && clauses.length > 0
+        ? clauses[0].count ?? 0
         : 0;
-      const latestEvaluation = Array.isArray(p.gap_evaluations) && p.gap_evaluations.length > 0
-        ? p.gap_evaluations[0]
+      const evals = p.gap_evaluations as Array<Record<string, unknown>> | null;
+      const latestEvaluation = Array.isArray(evals) && evals.length > 0
+        ? evals[0]
         : null;
 
       return {
-        id: p.id,
-        title: p.title,
-        department: p.department,
-        versionTag: p.version_tag,
-        sourceFileHash: p.source_file_hash,
-        storagePath: p.storage_path,
-        createdAt: p.created_at,
+        id: p.id as string,
+        title: p.title as string,
+        department: p.department as string,
+        versionTag: p.version_tag as string,
+        sourceFileHash: p.source_file_hash as string,
+        storagePath: p.storage_path as string,
+        createdAt: p.created_at as string,
         clausesCount,
         latestEvaluation,
       };
@@ -69,10 +72,11 @@ export async function GET(req: NextRequest) {
       success: true,
       data: formattedPolicies,
     });
-  } catch (error: any) {
-    logger.error({ error: error.message }, 'Error in GET /api/gap-matrix/policies');
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ error: err.message }, 'Error in GET /api/gap-matrix/policies');
     return NextResponse.json(
-      { error: error.message || 'Failed retrieving policy documents' },
+      { error: err.message || 'Failed retrieving policy documents' },
       { status: 500 }
     );
   }
@@ -132,7 +136,7 @@ export async function POST(req: NextRequest) {
     const document = await policyIngestionService.ingestPolicy({
       organizationId,
       title,
-      department: department as any,
+      department: department as OrgDepartment,
       versionTag,
       fileName,
       mimeType,
@@ -140,7 +144,7 @@ export async function POST(req: NextRequest) {
       rawText: rawText || undefined,
     });
 
-    const isDeduplicated = Boolean((document as any).deduplicated);
+    const isDeduplicated = Boolean((document as { deduplicated?: boolean }).deduplicated);
     const statusCode = isDeduplicated ? 409 : 201;
 
     return NextResponse.json({
@@ -151,10 +155,11 @@ export async function POST(req: NextRequest) {
         : 'Policy document ingested and indexed successfully',
       data: document,
     }, { status: statusCode });
-  } catch (error: any) {
-    logger.error({ error: error.message }, 'Failed ingesting internal policy document');
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ error: err.message }, 'Failed ingesting internal policy document');
     return NextResponse.json(
-      { error: error.message || 'Internal ingestion error' },
+      { error: err.message || 'Internal ingestion error' },
       { status: 500 }
     );
   }

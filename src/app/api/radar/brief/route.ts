@@ -62,12 +62,47 @@ export async function POST(req: NextRequest) {
         'X-Document-Hash': documentHash,
       },
     });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Failed to generate board brief' }, { status: 500 });
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    return NextResponse.json({ error: error.message || 'Failed to generate board brief' }, { status: 500 });
   }
 }
 
-function generateExecutiveBriefMarkdown(params: any): string {
+interface ActionItemBrief {
+  targetDepartment: string;
+  actionTitle: string;
+  actionDescription: string;
+  suggestedDeadline?: string;
+  isCompleted?: boolean;
+}
+
+interface ExecutiveBriefParams {
+  circular: {
+    regulatorCode: string;
+    circularNumber: string;
+    subject: string;
+    publicationDate: string;
+    statutoryDeadline?: string;
+    priority: string;
+  };
+  applicability: {
+    isApplicable: boolean;
+    reason: string;
+  };
+  roleBriefs: {
+    actionBriefCoo?: string;
+    executiveBriefCco?: string;
+    technicalBriefProductEng?: string;
+    financialBriefCfo?: string;
+  };
+  actionItems?: ActionItemBrief[];
+  ccoSignatoryName: string;
+  ccoSignatoryTitle: string;
+  exportTimestamp: string;
+  documentHash: string;
+}
+
+function generateExecutiveBriefMarkdown(params: ExecutiveBriefParams): string {
   const { circular, applicability, roleBriefs, actionItems, ccoSignatoryName, ccoSignatoryTitle, exportTimestamp, documentHash } = params;
 
   return `# CONFIDENTIAL EXECUTIVE BOARD BRIEF: REGULATORY IMPACT ASSESSMENT
@@ -112,7 +147,7 @@ ${roleBriefs.financialBriefCfo || 'Pending financial brief.'}
 | :--- | :--- | :--- | :--- | :--- |
 ${(actionItems || [])
   .map(
-    (item: any) =>
+    (item: ActionItemBrief) =>
       `| **${item.targetDepartment}** | ${item.actionTitle} | ${item.actionDescription} | ${item.suggestedDeadline || 'Immediate'} | ${item.isCompleted ? 'COMPLETED' : 'PENDING'} |`
   )
   .join('\n')}
@@ -130,7 +165,7 @@ I hereby attest that this Regulatory Impact Assessment and Board Brief has been 
 `;
 }
 
-function generateExecutiveBriefHtml(params: any): string {
+function generateExecutiveBriefHtml(params: ExecutiveBriefParams): string {
   const { circular, applicability, roleBriefs, actionItems, ccoSignatoryName, ccoSignatoryTitle, exportTimestamp, documentHash } = params;
 
   return `<!DOCTYPE html>
@@ -199,7 +234,7 @@ function generateExecutiveBriefHtml(params: any): string {
     <tbody>
       ${(actionItems || [])
         .map(
-          (item: any) => `
+          (item: ActionItemBrief) => `
         <tr>
           <td><strong>${item.targetDepartment}</strong></td>
           <td>${item.actionTitle}</td>

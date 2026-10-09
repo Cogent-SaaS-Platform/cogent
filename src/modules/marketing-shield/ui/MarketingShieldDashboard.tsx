@@ -510,9 +510,9 @@ export const MarketingShieldDashboard: React.FC<MarketingShieldDashboardProps> =
       } else {
         throw new Error(json.error || 'Scan API returned unsuccessful status');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.warn('API call encountered error, using deterministic client synthesis fallback:', err);
-      setScanError(err.message || 'Error processing scan. Loaded simulated evaluation.');
+      setScanError(err instanceof Error ? err.message : 'Error processing scan. Loaded simulated evaluation.');
     } finally {
       setIsScanning(false);
     }
@@ -611,9 +611,9 @@ export const MarketingShieldDashboard: React.FC<MarketingShieldDashboardProps> =
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('ARCON Dossier export failed:', err);
-      alert('Failed to export ARCON Dossier: ' + err.message);
+      alert('Failed to export ARCON Dossier: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setIsExporting(false);
     }

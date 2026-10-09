@@ -226,7 +226,7 @@ export class CircularIngestionService {
     }
 
     try {
-      const client = this.dbClient as any;
+      const client = this.dbClient;
 
       // Deduplication Check: Check if circular already exists by checksum or reference code
       const { data: existingCirculars } = await client
@@ -254,7 +254,7 @@ export class CircularIngestionService {
       }
 
       // 1. Find or create regulatory instrument
-      let instrumentId = crypto.randomUUID();
+      let instrumentId: string = crypto.randomUUID();
       const { data: existingBodies } = await client
         .from('regulatory_bodies')
         .select('id')

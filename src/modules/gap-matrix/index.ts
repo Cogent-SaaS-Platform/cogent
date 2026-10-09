@@ -13,6 +13,4 @@ export * from './services/statutoryBenchmarkService';
 export * from './services/concordanceEngine';
 export * from './services/gapSynthesisService';
 export * from './services/dossierExportService';
-export * from './inngest/client';
-export * from './inngest/policyIngestionHandler';
 export * from './ui';

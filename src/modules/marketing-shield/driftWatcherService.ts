@@ -82,7 +82,7 @@ export interface LiveAssetRecord {
   originalApprovedHash: string;
   lastCheckedAt: string;
   driftStatus: DriftStatus;
-  driftFindings: any;
+  driftFindings: Record<string, unknown> | Array<unknown> | null;
   createdAt: string;
 }
 
@@ -167,8 +167,9 @@ export class DriftWatcherService {
 
       const html = await response.text();
       return this.extractVisibleText(html);
-    } catch (err: any) {
-      logger.warn({ url, error: err.message }, 'Failed to fetch live URL text, using fallback');
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      logger.warn({ url, error: errMsg }, 'Failed to fetch live URL text, using fallback');
       throw err;
     }
   }
@@ -221,8 +222,9 @@ export class DriftWatcherService {
     if (!liveText) {
       try {
         liveText = await this.fetchLiveText(liveUrl);
-      } catch (err: any) {
-        logger.error({ liveUrl, err: err.message }, 'Drift verification failed to fetch live text');
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        logger.error({ liveUrl, err: errMsg }, 'Drift verification failed to fetch live text');
         return {
           liveUrl,
           channel,
@@ -239,7 +241,7 @@ export class DriftWatcherService {
               id: 'err_fetch_fail',
               findingType: 'ALTERED_CLAIM',
               severity: 'HIGH',
-              description: `Live URL unreachable or timed out: ${err.message}`,
+              description: `Live URL unreachable or timed out: ${errMsg}`,
               regulatoryRisk: 'Inability to verify active promotional claims exposes institution to unmonitored publication penalties.',
               statutoryCitation: 'ARCON Advertising Standards Panel Guidelines',
             },
@@ -519,16 +521,16 @@ ${liveText}
       return [];
     }
 
-    return (data || []).map((r: any) => ({
+    return (data || []).map((r) => ({
       id: r.id,
       organizationId: r.organization_id,
       scanId: r.scan_id,
       liveUrl: r.live_url,
-      channel: r.channel,
+      channel: r.channel as MarketingChannel,
       originalApprovedHash: r.original_approved_hash,
       lastCheckedAt: r.last_checked_at,
-      driftStatus: r.drift_status,
-      driftFindings: r.drift_findings,
+      driftStatus: r.drift_status as DriftStatus,
+      driftFindings: r.drift_findings as Record<string, unknown> | Array<unknown> | null,
       createdAt: r.created_at,
     }));
   }

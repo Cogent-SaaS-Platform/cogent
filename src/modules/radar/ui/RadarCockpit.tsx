@@ -36,10 +36,16 @@ import {
   PlatformPillar,
   CrossPillarLinkContext,
   LicenseType,
+  PaymentRail,
+  RadarPriority,
   RegulatorCode,
   LineageStatus,
 } from '@/shared/types';
-import { RadarCircularPresentationCard, RadarActionItemPresentation } from '../types';
+import {
+  RadarCircularPresentationCard,
+  RadarActionItemPresentation,
+  CircularIngestResult,
+} from '../types';
 import { CircularCard } from './CircularCard';
 import { RoleBriefViewer } from './RoleBriefViewer';
 import { ActionItemTracker } from './ActionItemTracker';
@@ -518,7 +524,32 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
       if (!res.ok) return;
       const data = await res.json();
       if (data.success && Array.isArray(data.circulars) && data.circulars.length > 0) {
-        const liveCards: RadarCircularPresentationCard[] = data.circulars.map((c: any) => {
+        interface RawApiCircular {
+          id?: string;
+          circular_number?: string;
+          subject?: string;
+          summary?: string;
+          statutory_deadline?: string | null;
+          issuance_date?: string | null;
+          effective_date?: string | null;
+          priority?: RadarPriority;
+          enforcement_risk_level?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL_SANCTION_RISK';
+          lineage_status?: LineageStatus;
+          targeted_license_types?: LicenseType[];
+          affected_payment_rails?: PaymentRail[];
+          applies_universally?: boolean;
+          created_at?: string;
+          countdown?: ReturnType<typeof defaultCountdownCalculator.calculateCountdown>;
+          title?: string;
+          impact_score?: number;
+          applicability_tier?: string;
+          action_items_count?: number;
+          enforcement_date?: string;
+          affected_departments?: string[];
+          affected_rails?: string[];
+        }
+
+        const liveCards: RadarCircularPresentationCard[] = data.circulars.map((c: RawApiCircular) => {
           let regCode: RegulatorCode = 'CBN';
           const prefix = (c.circular_number || '').split('/')[0]?.toUpperCase();
           if (['CBN', 'SEC', 'ARCON', 'NDPC', 'FCCPC', 'NFIU', 'NDIC'].includes(prefix)) {
@@ -526,20 +557,23 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
           }
 
           const countdown = c.countdown || defaultCountdownCalculator.calculateCountdown({
-            statutoryDeadline: c.statutory_deadline,
+            statutoryDeadline: c.statutory_deadline || null,
             publicationDate: c.issuance_date || c.created_at,
             regulator: regCode,
           });
 
+          const circularId = c.id || `circ_${Date.now()}`;
+          const circNum = c.circular_number || 'CIRCULAR-UNKNOWN';
+
           return {
-            id: c.id,
-            circularNumber: c.circular_number,
+            id: circularId,
+            circularNumber: circNum,
             regulator: regCode,
-            subject: c.subject || 'Regulatory Directive',
+            subject: c.subject || c.title || 'Regulatory Directive',
             summary: c.summary || c.subject || 'Direct statutory directive issued by regulator.',
             publicationDate: c.issuance_date || c.created_at?.slice(0, 10) || new Date().toISOString().slice(0, 10),
-            effectiveDate: c.effective_date || c.issuance_date,
-            statutoryDeadline: c.statutory_deadline,
+            effectiveDate: c.effective_date || c.issuance_date || new Date().toISOString().slice(0, 10),
+            statutoryDeadline: c.statutory_deadline ?? null,
             daysRemaining: countdown.daysRemaining,
             businessDaysRemaining: countdown.businessDaysRemaining,
             countdownTier: countdown.tier,
@@ -567,9 +601,9 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
             governanceBriefCeoCro: 'Board monitoring of regulatory governance and enforcement exposures.',
             actionItems: [
               {
-                id: `act_${c.id.slice(0, 8)}`,
+                id: `act_${circularId.slice(0, 8)}`,
                 targetDepartment: 'COMPLIANCE_LEGAL',
-                actionTitle: `Statutory Compliance Review: ${c.circular_number}`,
+                actionTitle: `Statutory Compliance Review: ${circNum}`,
                 actionDescription: 'Conduct detailed gap analysis and ensure readiness for regulatory audit.',
                 suggestedDeadline: c.statutory_deadline,
                 isCompleted: false,
@@ -721,10 +755,13 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
     (c) => c.priority === 'CRITICAL_EMERGENCY' || c.priority === 'HIGH' || c.urgencyWindow === 'CRITICAL_EMERGENCY'
   ).length;
 
-  const handleIngestSuccess = (result: any) => {
-    const meta = result.metadata;
+  const handleIngestSuccess = (rawResult: unknown) => {
+    const result = rawResult as CircularIngestResult;
+    const meta = result?.metadata;
+    if (!meta) return;
+
     const countdown = defaultCountdownCalculator.calculateCountdown({
-      statutoryDeadline: meta.statutoryDeadline,
+      statutoryDeadline: meta.statutoryDeadline || null,
       publicationDate: meta.publicationDate,
       regulator: meta.regulatorCode,
     });
@@ -737,7 +774,7 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
       summary: meta.summary,
       publicationDate: meta.publicationDate,
       effectiveDate: meta.effectiveDate,
-      statutoryDeadline: meta.statutoryDeadline,
+      statutoryDeadline: meta.statutoryDeadline ?? null,
       daysRemaining: countdown.daysRemaining,
       businessDaysRemaining: countdown.businessDaysRemaining,
       countdownTier: countdown.tier,
@@ -752,12 +789,12 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
       deduplicated: result.deduplicated,
       applicability: {
         isApplicable: true,
-        reason: `Matched during live ingestion: targets [ ${meta.targetedLicenseTypes.join(', ')} ].`,
+        reason: `Matched during live ingestion: targets [ ${(meta.targetedLicenseTypes || []).join(', ')} ].`,
         matchedLicenses: meta.targetedLicenseTypes,
         matchedRails: meta.affectedPaymentRails,
       },
       executiveBriefCco: `Official directive from ${meta.regulatorCode}. Full compliance required by ${meta.statutoryDeadline || 'statutory timeline'}.`,
-      actionBriefCoo: `Verify rail continuity for ${meta.affectedPaymentRails.join(', ')}.`,
+      actionBriefCoo: `Verify rail continuity for ${(meta.affectedPaymentRails || []).join(', ')}.`,
       technicalBriefProductEng: 'Implement required schema and authentication limit adjustments.',
       technicalBriefCto: 'Audit microservice APIs and database models to support statutory compliance.',
       financialBriefCfo: 'Verify reserve adequacy and transaction fee allocations.',
@@ -826,8 +863,8 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       }
-    } catch (err: any) {
-      alert('Error exporting brief: ' + err.message);
+    } catch (err: unknown) {
+      alert('Error exporting brief: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setIsExporting(false);
       setShowExportMenu(false);
@@ -1737,7 +1774,7 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
                               onClick={() =>
                                 onSwitchPillar('marketing', {
                                   targetPillar: 'marketing',
-                                  regulatorCode: selectedCircular.regulator as any,
+                                  regulatorCode: selectedCircular.regulator,
                                   action: 'pre-vet',
                                 })
                               }

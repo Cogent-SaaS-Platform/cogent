@@ -79,7 +79,7 @@ export class GapSynthesisService {
 
     if (this.dbClient) {
       try {
-        const { data: policyDoc } = await (this.dbClient as any)
+        const { data: policyDoc } = await this.dbClient
           .from('policy_documents')
           .select('title, department')
           .eq('id', policyId)
@@ -222,7 +222,7 @@ export class GapSynthesisService {
       totalPotentialPenaltyNaira += appliedPenalty;
 
       const draftLanguage = synthesized.draftReplacementPolicyLanguage ||
-        (synthesized as any).draftReplacementLanguage ||
+        (synthesized as { draftReplacementLanguage?: string }).draftReplacementLanguage ||
         `Section ${synthesized.matchedPolicySection || '4.1'} (Remediated Clause): The institution shall strictly enforce ${synthesized.regulatoryClauseReference} in accordance with ${meta.statutoryLegalCitation}. Operational procedures and reporting deadlines must be maintained without deviation.`;
 
       evaluatedItems.push({
@@ -263,7 +263,7 @@ export class GapSynthesisService {
 
     if (this.dbClient) {
       try {
-        const client = this.dbClient as any;
+        const client = this.dbClient;
         analysisRunId = crypto.randomUUID();
         await client.from('ai_analysis_runs').insert({
           id: analysisRunId,

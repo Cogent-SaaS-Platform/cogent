@@ -15,7 +15,12 @@ const upstashRedisToken: string = process.env.UPSTASH_REDIS_REST_TOKEN || '';
  * Enforces production presence of credentials without crashing module loads in build/test harnesses.
  */
 export function getUpstashRedisClient(): Redis {
-  if (process.env.NODE_ENV === 'production' && (!upstashRedisUrl || !upstashRedisToken)) {
+  const isBuildPhase =
+    process.env.NEXT_PHASE === 'phase-production-build' ||
+    process.env.npm_lifecycle_event === 'build' ||
+    Boolean(process.env.CI);
+
+  if (process.env.NODE_ENV === 'production' && !isBuildPhase && (!upstashRedisUrl || !upstashRedisToken)) {
     throw new ConfigurationError(
       'UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are required in production'
     );

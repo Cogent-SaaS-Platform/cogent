@@ -46,7 +46,12 @@ export function createR2Client(options?: {
   const accessKeyId = options?.accessKeyId ?? R2_ACCESS_KEY_ID;
   const secretAccessKey = options?.secretAccessKey ?? R2_SECRET_ACCESS_KEY;
 
-  if (process.env.NODE_ENV === 'production' && (!accessKeyId || !secretAccessKey)) {
+  const isBuildPhase =
+    process.env.NEXT_PHASE === 'phase-production-build' ||
+    process.env.npm_lifecycle_event === 'build' ||
+    Boolean(process.env.CI);
+
+  if (process.env.NODE_ENV === 'production' && !isBuildPhase && (!accessKeyId || !secretAccessKey)) {
     throw new ConfigurationError('R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY are required in production');
   }
 

@@ -127,9 +127,10 @@ export class AuditService {
         metadata: data.metadata,
         createdAt: data.created_at,
       };
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
       logger.warn(
-        { err: err.message, action: params.action },
+        { err: error.message, action: params.action },
         'Failed to commit to audit_logs table; continuing with local cryptographic entry'
       );
       return entry;
@@ -167,7 +168,7 @@ export class AuditService {
         return [];
       }
 
-      return data.map((d: any) => ({
+      return data.map((d) => ({
         id: d.id,
         organizationId: d.organization_id,
         userId: d.user_id,
@@ -176,11 +177,12 @@ export class AuditService {
         entityId: d.entity_id,
         sha256InputHash: d.sha256_input_hash,
         sha256OutputHash: d.sha256_output_hash,
-        metadata: d.metadata || {},
+        metadata: (d.metadata as Record<string, unknown>) || {},
         createdAt: d.created_at,
       }));
-    } catch (err: any) {
-      logger.warn({ err: err.message }, 'Failed to query audit trail');
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      logger.warn({ err: error.message }, 'Failed to query audit trail');
       return [];
     }
   }

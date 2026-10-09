@@ -266,7 +266,7 @@ Generate the structured role briefings and action checklist.`;
     if (!this.dbClient) return;
 
     try {
-      const client = this.dbClient as any;
+      const client = this.dbClient;
       await client.from('ai_analysis_runs').insert({
         id: params.analysisRunId,
         organization_id: params.organizationId,
@@ -296,7 +296,7 @@ Generate the structured role briefings and action checklist.`;
     if (!this.dbClient) return undefined;
 
     try {
-      const client = this.dbClient as any;
+      const client = this.dbClient;
 
       // Check if impact record already exists for this tenant & circular to preserve ID and foreign keys
       const { data: existingImpact } = await client

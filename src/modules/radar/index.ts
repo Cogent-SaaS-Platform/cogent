@@ -7,8 +7,6 @@ export * from './services/deadlineCountdownCalculator';
 export * from './services/roleSynthesisService';
 export * from './services/radarNotificationService';
 export * from './services/cascadeTriggerService';
-export * from './inngest/client';
-export * from './inngest/circularIngestionHandler';
 export * from './ui/RadarCockpit';
 export * from './ui/CircularCard';
 export * from './ui/RoleBriefViewer';

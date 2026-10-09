@@ -179,7 +179,7 @@ export class EntitlementEngine {
     const rawStatus = params.status || 'trialing';
     const now = new Date();
 
-    let status = rawStatus as TenantSubscriptionSummary['status'];
+    const status = rawStatus as TenantSubscriptionSummary['status'];
     let isInGracePeriod = false;
     let isReadOnly = false;
 

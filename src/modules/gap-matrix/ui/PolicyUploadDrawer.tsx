@@ -117,8 +117,9 @@ export function PolicyUploadDrawer({
 
       onUploadSuccess(result);
       onClose();
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Policy document ingestion failed. Please try again.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Policy document ingestion failed. Please try again.';
+      setErrorMessage(msg);
     } finally {
       setIsIngesting(false);
     }

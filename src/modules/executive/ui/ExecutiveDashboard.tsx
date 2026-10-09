@@ -69,8 +69,15 @@ export function ExecutiveDashboard({
   const [simulatorCircularName, setSimulatorCircularName] = useState('PSM/DIR/CON/CWS/08/014 - Contactless Payment Limits');
   const [isSimulating, setIsSimulating] = useState(false);
   const [cascadeResult, setCascadeResult] = useState<{
-    gapCascade?: any;
-    marketingCascade?: any;
+    gapCascade?: {
+      impactedPoliciesCount?: number;
+    };
+    marketingCascade?: {
+      simulationMode?: boolean;
+      invalidatedCampaignsCount?: number;
+      invalidatedClaimsCount?: number;
+      totalStatutoryFineExposureNaira?: number;
+    };
   } | null>(null);
 
   // Board Export Modal State

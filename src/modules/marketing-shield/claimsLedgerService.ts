@@ -204,7 +204,7 @@ export class ClaimsLedgerService {
       if (error) {
         logger.warn({ error, organizationId }, 'Failed to query tenant_claims_ledger table');
       } else if (data && data.length > 0) {
-        claims = data.map((r: any) => ({
+        claims = data.map((r) => ({
           id: r.id,
           organizationId: r.organization_id,
           productCategory: r.product_category as ProductCategoryCode,

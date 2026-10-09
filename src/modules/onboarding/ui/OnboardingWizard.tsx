@@ -102,9 +102,10 @@ export function OnboardingWizard() {
       }
 
       router.push('/overview');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Onboarding failed:', err);
-      alert(err?.message || 'Onboarding failed. Please try again.');
+      const errorMsg = err instanceof Error ? err.message : 'Onboarding failed. Please try again.';
+      alert(errorMsg);
     } finally {
       setIsSubmitting(false);
     }

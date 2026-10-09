@@ -2,10 +2,9 @@ import { defineConfig } from 'vitest/config';
 import path from 'path';
 
 try {
-  // @ts-ignore
-  if (typeof process.loadEnvFile === 'function') {
-    // @ts-ignore
-    process.loadEnvFile('.env.local');
+  const proc = process as unknown as { loadEnvFile?: (path?: string) => void };
+  if (typeof proc.loadEnvFile === 'function') {
+    proc.loadEnvFile('.env.local');
   }
 } catch {
   // Ignore if .env.local is missing

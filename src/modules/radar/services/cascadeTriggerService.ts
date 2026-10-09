@@ -222,7 +222,7 @@ export class CascadeTriggerService {
 
     if (this.dbClient) {
       try {
-        const { data: circularRow } = await (this.dbClient as any)
+        const { data: circularRow } = await this.dbClient
           .from('radar_circulars')
           .select('id, circular_number, subject, summary, raw_text, document_version_id')
           .eq('id', circularId)
@@ -271,7 +271,7 @@ export class CascadeTriggerService {
 
     if (this.dbClient) {
       try {
-        const { data: policyRows } = await (this.dbClient as any)
+        const { data: policyRows } = await this.dbClient
           .from('policy_documents')
           .select('id, organization_id, title, department, raw_text')
           .eq('organization_id', organizationId);
@@ -360,7 +360,7 @@ export class CascadeTriggerService {
         let effectiveVersionId = documentVersionId;
         if (!effectiveVersionId && this.dbClient) {
           try {
-            const { data: verRow } = await (this.dbClient as any)
+            const { data: verRow } = await this.dbClient
               .from('regulatory_document_versions')
               .select('id')
               .limit(1)
@@ -378,7 +378,7 @@ export class CascadeTriggerService {
 
         if (this.dbClient && effectiveVersionId) {
           try {
-            await (this.dbClient as any).from('gap_evaluations').insert({
+            await this.dbClient.from('gap_evaluations').insert({
               id: evaluationId,
               organization_id: organizationId,
               policy_id: policy.id,
@@ -401,7 +401,7 @@ export class CascadeTriggerService {
 
         if (this.dbClient) {
           try {
-            await (this.dbClient as any).from('radar_notifications').insert({
+            await this.dbClient.from('radar_notifications').insert({
               id: notificationId,
               organization_id: organizationId,
               user_id: safeUserId,
@@ -417,7 +417,7 @@ export class CascadeTriggerService {
             });
 
             // Mirror into standard notifications table
-            await (this.dbClient as any).from('notifications').insert({
+            await this.dbClient.from('notifications').insert({
               id: crypto.randomUUID(),
               organization_id: organizationId,
               user_id: safeUserId,

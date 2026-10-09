@@ -57,10 +57,11 @@ export async function GET(req: NextRequest) {
         'Content-Disposition': `inline; filename="DEFENSE_PACK_${regulator}_${scanId.substring(0, 8)}.html"`,
       },
     });
-  } catch (error: any) {
-    logger.error({ error: error.message }, 'Failed to fetch audit defense pack');
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ error: err.message }, 'Failed to fetch audit defense pack');
     return NextResponse.json(
-      { success: false, error: error.message || 'Error generating defense pack' },
+      { success: false, error: err.message || 'Error generating defense pack' },
       { status: 500 }
     );
   }
@@ -190,10 +191,11 @@ export async function POST(req: NextRequest) {
         'X-Audit-Hash': contentHash,
       },
     });
-  } catch (error: any) {
-    logger.error({ error: error.message }, 'Failed to export audit defense pack');
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ error: err.message }, 'Failed to export audit defense pack');
     return NextResponse.json(
-      { success: false, error: error.message || 'Internal error exporting defense pack' },
+      { success: false, error: err.message || 'Internal error exporting defense pack' },
       { status: 500 }
     );
   }

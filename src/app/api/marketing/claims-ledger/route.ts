@@ -42,10 +42,11 @@ export async function GET(req: NextRequest) {
         claims,
       },
     });
-  } catch (error: any) {
-    logger.error({ error: error.message }, 'Failed to fetch tenant claims ledger');
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ error: err.message }, 'Failed to fetch tenant claims ledger');
     return NextResponse.json(
-      { success: false, error: error.message || 'Failed to fetch claims' },
+      { success: false, error: err.message || 'Failed to fetch claims' },
       { status: 500 }
     );
   }
@@ -98,10 +99,11 @@ export async function POST(req: NextRequest) {
       },
       { status: 201 }
     );
-  } catch (error: any) {
-    logger.error({ error: error.message }, 'Failed to save claim to ledger');
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ error: err.message }, 'Failed to save claim to ledger');
     return NextResponse.json(
-      { success: false, error: error.message || 'Failed to save claim' },
+      { success: false, error: err.message || 'Failed to save claim' },
       { status: 500 }
     );
   }

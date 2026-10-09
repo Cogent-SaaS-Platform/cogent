@@ -42,10 +42,11 @@ export async function POST(req: NextRequest) {
       success: true,
       data: result,
     });
-  } catch (error: any) {
-    logger.error({ error: error.message }, 'Failed triggering cascade gap re-evaluation');
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ error: err.message }, 'Failed triggering cascade gap re-evaluation');
     return NextResponse.json(
-      { error: error.message || 'Failed triggering cascade gap re-evaluation' },
+      { error: err.message || 'Failed triggering cascade gap re-evaluation' },
       { status: 500 }
     );
   }

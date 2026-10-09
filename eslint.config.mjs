@@ -7,12 +7,26 @@ const eslintConfig = defineConfig([
   ...nextTs,
   // Override default ignores of eslint-config-next.
   globalIgnores([
-    // Default ignores of eslint-config-next:
+    // Default ignores and non-application source roots:
+    "node_modules/**",
     ".next/**",
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "tests/**",
+    "scripts/**",
+    "ref/**",
+    "ui_ref/**",
+    "vitest.config.mts",
+    "playwright.config.ts",
+    "*.mjs",
   ]),
+  {
+    rules: {
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/purity": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

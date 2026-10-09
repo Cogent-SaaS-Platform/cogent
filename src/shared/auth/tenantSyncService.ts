@@ -34,10 +34,10 @@ export interface SyncTenantResult {
 }
 
 export class TenantSyncService {
-  private adminClient: SupabaseClient<any>;
+  private adminClient: SupabaseClient<Database>;
 
-  constructor(adminClient?: SupabaseClient<any>) {
-    this.adminClient = adminClient || (createAdminClient() as any);
+  constructor(adminClient?: SupabaseClient<Database>) {
+    this.adminClient = adminClient || createAdminClient();
   }
 
   /**
@@ -156,9 +156,10 @@ export class TenantSyncService {
         userId: userRow.id,
         isNewOrganization,
       };
-    } catch (error: any) {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       logger.error(
-        { error: error.message, clerkOrgId, clerkUserId },
+        { error: message, clerkOrgId, clerkUserId },
         'Failed to synchronize tenant identity'
       );
       throw error;
@@ -207,7 +208,8 @@ export class TenantSyncService {
         },
       ]);
     } catch (err) {
-      logger.warn({ err, organizationId }, 'Failed to bootstrap tenant default licenses/rails/subscriptions');
+      const message = err instanceof Error ? err.message : String(err);
+      logger.warn({ error: message, organizationId }, 'Failed to bootstrap tenant default licenses/rails/subscriptions');
     }
   }
 }

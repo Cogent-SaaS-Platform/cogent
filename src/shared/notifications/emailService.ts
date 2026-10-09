@@ -9,7 +9,12 @@ import { ConfigurationError } from '@/shared/errors';
 const resendApiKey: string = process.env.RESEND_API_KEY || '';
 
 export function getResendClient(): Resend {
-  if (process.env.NODE_ENV === 'production' && !resendApiKey) {
+  const isBuildPhase =
+    process.env.NEXT_PHASE === 'phase-production-build' ||
+    process.env.npm_lifecycle_event === 'build' ||
+    Boolean(process.env.CI);
+
+  if (process.env.NODE_ENV === 'production' && !isBuildPhase && !resendApiKey) {
     throw new ConfigurationError('RESEND_API_KEY is required in production environment');
   }
   return new Resend(resendApiKey || 're_mock_api_key_placeholder');

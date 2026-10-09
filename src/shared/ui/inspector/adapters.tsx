@@ -10,6 +10,7 @@ import {
 } from './types';
 import { RadarCircularPresentationCard } from '@/modules/radar/types';
 import { FindingPresentationCard } from '@/shared/types/presentation';
+import { RegulatorCode } from '@/shared/types';
 import { Sparkles, ArrowRight, ShieldCheck, FileText, CheckCircle2, AlertTriangle, Scale, Lock, BookOpen } from 'lucide-react';
 
 /**
@@ -318,7 +319,7 @@ export function gapItemToInspectorItem(gapItem: {
   statutoryCitation: string;
   statutoryVerbatimText: string;
   concordanceScore: number;
-  regulatorCode: any;
+  regulatorCode: string;
   statutoryPenaltyNaira?: number;
   gapSummary: string;
   boardAdoptedReplacement?: string;
@@ -370,7 +371,7 @@ export function gapItemToInspectorItem(gapItem: {
     id: `ref-${gapItem.id}`,
     statutoryInstrumentTitle: gapItem.governingFramework,
     citationClause: gapItem.statutoryCitation,
-    regulatorCode: gapItem.regulatorCode,
+    regulatorCode: gapItem.regulatorCode as RegulatorCode,
     verbatimLegalText: gapItem.statutoryVerbatimText,
     statutoryPenaltyNaira: gapItem.statutoryPenaltyNaira,
     highlightedPhrase: gapItem.clauseNumber,
@@ -418,7 +419,7 @@ export function gapItemToInspectorItem(gapItem: {
       : undefined,
     statutoryPenaltyNaira: gapItem.statutoryPenaltyNaira,
     departmentOwners: [gapItem.department],
-    regulatorCode: gapItem.regulatorCode,
+    regulatorCode: gapItem.regulatorCode as RegulatorCode,
     statutoryReference: statutoryRef,
     customSections,
     tags: [gapItem.regulatorCode, 'GAP_MATRIX'],
@@ -518,7 +519,7 @@ export function obligationToInspectorItem(
       ? `Non-compliance with this obligation exposes the entity to statutory sanctions of up to ₦${penalty.baselineFineNaira.toLocaleString('en-NG')} under ${penalty.statutoryCitation}.`
       : undefined,
     statutoryPenaltyNaira: penalty?.totalProjectedExposureNaira,
-    departmentOwners: [actionItem.targetDepartment as any],
+    departmentOwners: [actionItem.targetDepartment],
     suggestedDeadlineDays: parentCircular.daysRemaining ?? undefined,
     statutoryDeadline: actionItem.suggestedDeadline ?? parentCircular.statutoryDeadline ?? undefined,
     regulatorCode: parentCircular.regulator,

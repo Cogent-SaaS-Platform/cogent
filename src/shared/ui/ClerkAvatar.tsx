@@ -18,72 +18,18 @@ const SIZE_MAP = {
   xl: 'w-20 h-20 text-xl',
 };
 
-const PIXEL_SIZES = {
-  xs: 24,
-  sm: 32,
-  md: 40,
-  lg: 56,
-  xl: 80,
-};
-
-/**
- * Reusable Avatar component that reflects the Clerk Customization Dashboard:
- * Background: Marble gradient with #6C47FF and #2A4BFF accents
- * Foreground: Crisp White Silhouette or Initials
- *
- * If Clerk is configured and signed in, reads user.imageUrl or organization.imageUrl directly.
- * Otherwise, generates an authentic marble SVG avatar matching the Clerk Customization preset.
- */
-export function ClerkAvatar({
-  type = 'user',
-  size = 'md',
-  fallbackName,
-  className = '',
-}: ClerkAvatarProps) {
-  let isClerkAvailable = false;
-  let imageUrl: string | null | undefined = null;
-  let displayName = fallbackName || (type === 'user' ? 'Folake Adeyemi' : 'Apex FinTech');
-
-  try {
-    const isConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
-    if (isConfigured) {
-      if (type === 'user') {
-        // eslint-disable-next-line react-hooks/rules-of-hooks
-        const { user, isLoaded } = useUser();
-        if (isLoaded && user) {
-          isClerkAvailable = true;
-          imageUrl = user.imageUrl;
-          if (user.fullName) displayName = user.fullName;
-        }
-      } else {
-        // eslint-disable-next-line react-hooks/rules-of-hooks
-        const { organization, isLoaded } = useOrganization();
-        if (isLoaded && organization) {
-          isClerkAvailable = true;
-          imageUrl = organization.imageUrl;
-          if (organization.name) displayName = organization.name;
-        }
-      }
-    }
-  } catch {
-    // If rendered outside ClerkProvider or in test environments, safely fall back
-  }
-
+function MarbleFallback({
+  type,
+  size,
+  displayName,
+  className,
+}: {
+  type: 'user' | 'organization';
+  size: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  displayName: string;
+  className: string;
+}) {
   const dimensionClass = SIZE_MAP[size];
-  const px = PIXEL_SIZES[size];
-
-  // If live Clerk image exists, render it
-  if (imageUrl) {
-    return (
-      <img
-        src={imageUrl}
-        alt={displayName}
-        className={`${dimensionClass} rounded-full object-cover ring-1 ring-[#DDE3EE] shadow-2xs ${className}`}
-      />
-    );
-  }
-
-  // Marble gradient SVG matching user's Clerk Dashboard settings (Marble #6C47FF + Silhouette #FFFFFF)
   return (
     <div
       className={`relative inline-flex items-center justify-center rounded-full overflow-hidden shrink-0 shadow-2xs select-none ${dimensionClass} ${className}`}
@@ -143,6 +89,85 @@ export function ClerkAvatar({
       )}
     </div>
   );
+}
+
+function LiveUserAvatar({
+  size,
+  fallbackName,
+  className,
+}: {
+  size: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  fallbackName?: string;
+  className: string;
+}) {
+  const { user, isLoaded } = useUser();
+  const dimensionClass = SIZE_MAP[size];
+  const displayName = user?.fullName || fallbackName || 'Folake Adeyemi';
+
+  if (isLoaded && user?.imageUrl) {
+    return (
+      <img
+        src={user.imageUrl}
+        alt={displayName}
+        className={`${dimensionClass} rounded-full object-cover ring-1 ring-[#DDE3EE] shadow-2xs ${className}`}
+      />
+    );
+  }
+
+  return <MarbleFallback type="user" size={size} displayName={displayName} className={className} />;
+}
+
+function LiveOrgAvatar({
+  size,
+  fallbackName,
+  className,
+}: {
+  size: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  fallbackName?: string;
+  className: string;
+}) {
+  const { organization, isLoaded } = useOrganization();
+  const dimensionClass = SIZE_MAP[size];
+  const displayName = organization?.name || fallbackName || 'Apex FinTech';
+
+  if (isLoaded && organization?.imageUrl) {
+    return (
+      <img
+        src={organization.imageUrl}
+        alt={displayName}
+        className={`${dimensionClass} rounded-full object-cover ring-1 ring-[#DDE3EE] shadow-2xs ${className}`}
+      />
+    );
+  }
+
+  return <MarbleFallback type="organization" size={size} displayName={displayName} className={className} />;
+}
+
+/**
+ * Reusable Avatar component that reflects the Clerk Customization Dashboard:
+ * Background: Marble gradient with #6C47FF and #2A4BFF accents
+ * Foreground: Crisp White Silhouette or Initials
+ *
+ * If Clerk is configured and signed in, reads user.imageUrl or organization.imageUrl directly.
+ * Otherwise, generates an authentic marble SVG avatar matching the Clerk Customization preset.
+ */
+export function ClerkAvatar({
+  type = 'user',
+  size = 'md',
+  fallbackName,
+  className = '',
+}: ClerkAvatarProps) {
+  const isConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+
+  if (isConfigured) {
+    if (type === 'user') {
+      return <LiveUserAvatar size={size} fallbackName={fallbackName} className={className} />;
+    }
+    return <LiveOrgAvatar size={size} fallbackName={fallbackName} className={className} />;
+  }
+
+  const displayName = fallbackName || (type === 'user' ? 'Folake Adeyemi' : 'Apex FinTech');
+  return <MarbleFallback type={type} size={size} displayName={displayName} className={className} />;
 }
 
 export function UserAvatar(props: Omit<ClerkAvatarProps, 'type'>) {

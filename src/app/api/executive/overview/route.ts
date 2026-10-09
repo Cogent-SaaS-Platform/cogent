@@ -27,10 +27,11 @@ export async function GET(req: NextRequest) {
     );
 
     return NextResponse.json({ success: true, data });
-  } catch (error: any) {
-    logger.error({ error: error.message }, 'Failed to generate executive overview data');
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ error: err.message }, 'Failed to generate executive overview data');
     return NextResponse.json(
-      { error: error.message || 'Failed fetching executive overview' },
+      { error: err.message || 'Failed fetching executive overview' },
       { status: 500 }
     );
   }

@@ -126,7 +126,34 @@ export class MarketingShieldService {
         `);
 
       if (!error && dbTerms && dbTerms.length > 0) {
-        const terms: ProhibitedTermDefinition[] = dbTerms.map((t: any) => {
+        interface JoinedDbTerm {
+          id: string;
+          obligation_id: string;
+          exact_pattern: string;
+          is_regex: boolean;
+          severity: string;
+          statutory_rationale: string;
+          mandatory_disclosure_required: string | null;
+          regulatory_obligations?: {
+            clause_id?: string;
+            regulatory_clauses?: {
+              section_reference?: string;
+              regulatory_document_versions?: {
+                regulatory_instruments?: {
+                  regulatory_bodies?: {
+                    code?: string;
+                  } | null;
+                } | null;
+              } | null;
+            } | null;
+            statutory_penalties?: Array<{
+              penalty_legal_citation?: string;
+              penalty_min_naira?: number | string | null;
+            }> | null;
+          } | null;
+        }
+
+        const terms: ProhibitedTermDefinition[] = (dbTerms as unknown as JoinedDbTerm[]).map((t) => {
           const obl = t.regulatory_obligations;
           const clause = obl?.regulatory_clauses;
           const regBodyCode = clause?.regulatory_document_versions?.regulatory_instruments?.regulatory_bodies?.code as RegulatorCode;
@@ -222,7 +249,7 @@ export class MarketingShieldService {
         .eq('is_active', true);
 
       if (licenseRows && licenseRows.length > 0) {
-        activeLicenses = licenseRows.map((r: any) => `${r.issuing_regulator}:${r.license_type}`);
+        activeLicenses = licenseRows.map((r) => `${r.issuing_regulator}:${r.license_type}`);
       }
     } catch {
       // In standalone or test mode, proceed with default profile

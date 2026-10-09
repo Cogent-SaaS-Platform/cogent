@@ -108,11 +108,12 @@ export class UnauthorizedError extends AuthenticationError {
 }
 
 export class AuthorizationError extends AppError {
-  constructor(message = 'Access denied: insufficient organization permissions') {
+  constructor(message = 'Access denied: insufficient organization permissions', details?: Record<string, unknown>) {
     super({
       message,
       code: 'FORBIDDEN',
       statusCode: 403,
+      details,
     });
   }
 }
@@ -128,14 +129,10 @@ export class SubscriptionRequiredError extends AuthorizationError {
     message = 'SUBSCRIPTION_REQUIRED: Active subscription or trial required to perform this action',
     details?: Record<string, unknown>
   ) {
-    super(message);
-    // Explicitly set code and details for subscription gate responses
-    (this as any).code = 'FORBIDDEN';
-    (this as any).statusCode = 403;
-    (this as any).details = {
+    super(message, {
       gate: 'SUBSCRIPTION_REQUIRED',
       ...details,
-    };
+    });
   }
 }
 

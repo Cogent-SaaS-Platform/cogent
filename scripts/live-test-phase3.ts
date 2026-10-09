@@ -76,7 +76,7 @@ async function runLiveTestPhase3() {
       'policy_clauses',
       'gap_evaluations',
       'gap_matrix_items',
-    ];
+    ] as const;
 
     for (const table of pillar3Tables) {
       const { error } = await db.from(table).select('count', { count: 'exact', head: true });

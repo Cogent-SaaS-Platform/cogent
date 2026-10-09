@@ -201,7 +201,7 @@ export class MarketingCascadeListener {
 
     if (this.dbClient) {
       try {
-        const { data: circularRow } = await (this.dbClient as any)
+        const { data: circularRow } = await this.dbClient
           .from('radar_circulars')
           .select('id, circular_number, subject, summary, raw_text')
           .eq('id', circularId)
@@ -257,7 +257,7 @@ export class MarketingCascadeListener {
 
     if (this.dbClient) {
       try {
-        const { data: scanRows } = await (this.dbClient as any)
+        const { data: scanRows } = await this.dbClient
           .from('marketing_scans')
           .select('id, campaign_name, channel, raw_copy, approval_status, verdict, deterministic_penalty_naira')
           .eq('organization_id', organizationId)
@@ -290,7 +290,7 @@ export class MarketingCascadeListener {
       id: string;
       product_category: string;
       approved_text: string;
-      prohibited_counterpart?: string;
+      prohibited_counterpart?: string | null;
       governing_regulator: RegulatorCode;
       is_active: boolean;
     }
@@ -299,7 +299,7 @@ export class MarketingCascadeListener {
 
     if (this.dbClient) {
       try {
-        const { data: claimRows } = await (this.dbClient as any)
+        const { data: claimRows } = await this.dbClient
           .from('tenant_claims_ledger')
           .select('id, product_category, approved_text, prohibited_counterpart, governing_regulator, is_active')
           .eq('organization_id', organizationId)
@@ -360,7 +360,7 @@ export class MarketingCascadeListener {
         if (!simulate && this.dbClient) {
           try {
             // Mutate marketing_scans approval_status to NEEDS_RE_REVIEW
-            await (this.dbClient as any)
+            await this.dbClient
               .from('marketing_scans')
               .update({
                 approval_status: 'NEEDS_RE_REVIEW',
@@ -369,7 +369,7 @@ export class MarketingCascadeListener {
               .eq('id', scan.id);
 
             // Flag associated marketing_live_assets
-            await (this.dbClient as any)
+            await this.dbClient
               .from('marketing_live_assets')
               .update({
                 drift_status: 'DRIFT_DETECTED',
@@ -388,7 +388,7 @@ export class MarketingCascadeListener {
             const isUserUuid = Boolean(userId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId));
             const safeUserId = isUserUuid ? userId : null;
 
-            await (this.dbClient as any).from('radar_notifications').insert({
+            await this.dbClient.from('radar_notifications').insert({
               id: crypto.randomUUID(),
               organization_id: organizationId,
               user_id: safeUserId,
@@ -407,7 +407,7 @@ export class MarketingCascadeListener {
               },
             });
 
-            await (this.dbClient as any).from('notifications').insert({
+            await this.dbClient.from('notifications').insert({
               id: crypto.randomUUID(),
               organization_id: organizationId,
               user_id: safeUserId,
@@ -475,7 +475,7 @@ export class MarketingCascadeListener {
 
         if (!simulate && this.dbClient) {
           try {
-            await (this.dbClient as any)
+            await this.dbClient
               .from('tenant_claims_ledger')
               .update({
                 is_active: false,

@@ -73,7 +73,7 @@ export class PolicyIngestionService {
     // 1.1 Check for duplicate document via SHA-256 checksum for this tenant
     if (this.dbClient) {
       try {
-        const { data: existingDoc } = await (this.dbClient as any)
+        const { data: existingDoc } = await this.dbClient
           .from('policy_documents')
           .select(`
             id,
@@ -145,7 +145,7 @@ export class PolicyIngestionService {
 
     // 4. Database persistence into policy_documents
     if (this.dbClient) {
-      const { error: docError } = await (this.dbClient as any).from('policy_documents').insert({
+      const { error: docError } = await this.dbClient.from('policy_documents').insert({
         id: policyId,
         organization_id: organizationId,
         title: extracted.title,

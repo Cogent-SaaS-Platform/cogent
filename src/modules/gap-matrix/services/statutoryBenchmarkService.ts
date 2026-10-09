@@ -6,11 +6,57 @@ import {
   StatutoryBenchmarkFramework,
   StatutoryClauseWithObligations,
 } from '../types';
-import { OrgDepartment, RegulatorCode } from '@/shared/types';
+import { OrgDepartment, RegulatorCode, SeverityLevel } from '@/shared/types';
 import {
   REGULATORY_INSTRUMENTS_SEED,
   REGULATORY_BODIES_SEED,
 } from '@/shared/db/regulatoryCorpusData';
+
+interface BenchmarkRow {
+  id: string;
+  reference_code: string;
+  publication_date?: string;
+  effective_date?: string;
+  instrument?: {
+    title?: string;
+    short_name?: string;
+    body?: {
+      code?: RegulatorCode;
+    } | null;
+  } | null;
+  clauses?: Array<{ count?: number }> | null;
+}
+
+interface ClauseDbRow {
+  id: string;
+  document_version_id: string;
+  section_reference: string;
+  section_heading?: string | null;
+  clause_text: string;
+  page_number?: number | null;
+  regulatory_obligations?: Array<{
+    id: string;
+    obligation_type: string;
+    summary: string;
+    severity_floor: SeverityLevel;
+    statutory_timeline_days?: number | null;
+    mandatory_disclosure_text?: string | null;
+    statutory_penalties?: Array<{
+      penalty_min_naira?: number | null;
+      penalty_max_naira?: number | null;
+      daily_fine_naira?: number | null;
+      carries_personal_criminal_liability?: boolean | null;
+      carries_license_suspension_risk?: boolean | null;
+      penalty_legal_citation?: string | null;
+    }>;
+  }>;
+}
+
+type SeedInstrument = (typeof REGULATORY_INSTRUMENTS_SEED)[number];
+type SeedVersion = SeedInstrument['versions'][number];
+type SeedClause = SeedVersion['clauses'][number];
+type SeedObligation = SeedClause['obligations'][number];
+type SeedPenalty = SeedObligation['penalties'][number];
 
 /**
  * Statutory Benchmark Pairing Engine (Epic 16 / Task 16.1)
@@ -55,7 +101,7 @@ export class StatutoryBenchmarkService {
           .eq('is_active', true);
 
         if (!error && data && data.length > 0) {
-          const benchmarks: StatutoryBenchmarkFramework[] = (data as any[]).map((row) => {
+          const benchmarks: StatutoryBenchmarkFramework[] = (data as unknown as BenchmarkRow[]).map((row) => {
             const bodyCode: RegulatorCode = row.instrument?.body?.code || 'CBN';
             const suggestedDepts = this.mapRegulatorToDepartments(bodyCode);
             const clausesCount = Array.isArray(row.clauses) && row.clauses.length > 0
@@ -68,8 +114,8 @@ export class StatutoryBenchmarkService {
               shortName: row.instrument?.short_name || 'Statutory Regulation',
               referenceCode: row.reference_code,
               regulatorCode: bodyCode,
-              publicationDate: row.publication_date,
-              effectiveDate: row.effective_date,
+              publicationDate: row.publication_date || '',
+              effectiveDate: row.effective_date || '',
               suggestedDepartments: suggestedDepts,
               clausesCount: Number(clausesCount) || 1,
             };
@@ -132,21 +178,21 @@ export class StatutoryBenchmarkService {
           .eq('document_version_id', documentVersionId);
 
         if (!error && data && data.length > 0) {
-          return (data as any[]).map((c) => ({
+          return (data as unknown as ClauseDbRow[]).map((c) => ({
             clauseId: c.id,
             documentVersionId: c.document_version_id,
             sectionReference: c.section_reference,
             sectionHeading: c.section_heading || c.section_reference,
             clauseText: c.clause_text,
             pageNumber: c.page_number,
-            obligations: (c.regulatory_obligations || []).map((o: any) => ({
+            obligations: (c.regulatory_obligations || []).map((o) => ({
               obligationId: o.id,
               obligationType: o.obligation_type,
               summary: o.summary,
-              severityFloor: o.severity_floor,
-              statutoryTimelineDays: o.statutory_timeline_days,
-              mandatoryDisclosureText: o.mandatory_disclosure_text,
-              penalties: (o.statutory_penalties || []).map((p: any) => ({
+              severityFloor: (o.severity_floor || 'MEDIUM') as SeverityLevel,
+              statutoryTimelineDays: o.statutory_timeline_days ?? null,
+              mandatoryDisclosureText: o.mandatory_disclosure_text ?? null,
+              penalties: (o.statutory_penalties || []).map((p) => ({
                 penaltyMinNaira: Number(p.penalty_min_naira) || 0,
                 penaltyMaxNaira: Number(p.penalty_max_naira) || 0,
                 dailyFineNaira: Number(p.daily_fine_naira) || 0,
@@ -248,25 +294,25 @@ export class StatutoryBenchmarkService {
   }
 
   private mapVersionToStatutoryClauses(
-    instrument: any,
-    version: any,
+    instrument: SeedInstrument,
+    version: SeedVersion,
     documentVersionId: string
   ): StatutoryClauseWithObligations[] {
-    return version.clauses.map((cl: any, i: number) => ({
+    return version.clauses.map((cl: SeedClause, i: number) => ({
       clauseId: `clause-${i + 1}-${instrument.body_code}`,
       documentVersionId,
       sectionReference: cl.section_reference,
       sectionHeading: cl.section_heading,
       clauseText: cl.clause_text,
       pageNumber: cl.page_number || 1,
-      obligations: cl.obligations.map((o: any, oIdx: number) => ({
+      obligations: cl.obligations.map((o: SeedObligation, oIdx: number) => ({
         obligationId: `ob-${oIdx + 1}-${i}`,
         obligationType: o.obligation_type,
         summary: o.summary,
         severityFloor: o.severity_floor,
         statutoryTimelineDays: o.statutory_timeline_days,
         mandatoryDisclosureText: o.mandatory_disclosure_text,
-        penalties: o.penalties.map((p: any) => ({
+        penalties: o.penalties.map((p: SeedPenalty) => ({
           penaltyMinNaira: p.penalty_min_naira,
           penaltyMaxNaira: p.penalty_max_naira,
           dailyFineNaira: p.daily_fine_naira,

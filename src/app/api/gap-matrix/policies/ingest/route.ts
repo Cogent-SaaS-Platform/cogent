@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PolicyIngestionService } from '@/modules/gap-matrix/services/policyIngestionService';
 import { getTenantContext } from '@/shared/auth';
+import { OrgDepartment } from '@/shared/types';
 import { logger } from '@/shared/logger';
 
 export async function POST(req: NextRequest) {
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
     const document = await policyIngestionService.ingestPolicy({
       organizationId,
       title,
-      department: department as any,
+      department: department as OrgDepartment,
       versionTag,
       fileName,
       mimeType,
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
       rawText: rawText || undefined,
     });
 
-    const isDeduplicated = Boolean((document as any).deduplicated);
+    const isDeduplicated = Boolean((document as { deduplicated?: boolean }).deduplicated);
     const statusCode = isDeduplicated ? 409 : 201;
 
     return NextResponse.json(
@@ -76,10 +77,11 @@ export async function POST(req: NextRequest) {
       },
       { status: statusCode }
     );
-  } catch (error: any) {
-    logger.error({ error: error.message }, 'Failed ingesting internal policy document');
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ error: err.message }, 'Failed ingesting internal policy document');
     return NextResponse.json(
-      { error: error.message || 'Internal ingestion error' },
+      { error: err.message || 'Internal ingestion error' },
       { status: 500 }
     );
   }

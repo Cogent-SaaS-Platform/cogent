@@ -121,8 +121,8 @@ export const ClaimsLedgerTab: React.FC<ClaimsLedgerTabProps> = ({
       } else {
         alert(json.error || 'Failed to save claim');
       }
-    } catch (err: any) {
-      alert('Error: ' + err.message);
+    } catch (err: unknown) {
+      alert('Error: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setIsSubmitting(false);
     }

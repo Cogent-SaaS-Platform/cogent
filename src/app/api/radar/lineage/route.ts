@@ -24,10 +24,11 @@ export async function GET(req: NextRequest) {
       success: true,
       data: lineageGraph,
     });
-  } catch (error: any) {
-    logger.error({ error: error.message }, 'Failed to resolve circular lineage graph');
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ error: err.message }, 'Failed to resolve circular lineage graph');
     return NextResponse.json(
-      { success: false, error: error.message || 'Failed to resolve lineage' },
+      { success: false, error: err.message || 'Failed to resolve lineage' },
       { status: 500 }
     );
   }
@@ -83,10 +84,11 @@ export async function POST(req: NextRequest) {
       },
       { status: 201 }
     );
-  } catch (error: any) {
-    logger.error({ error: error.message }, 'Failed to create circular supersession link');
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ error: err.message }, 'Failed to create circular supersession link');
     return NextResponse.json(
-      { success: false, error: error.message || 'Failed to create supersession link' },
+      { success: false, error: err.message || 'Failed to create supersession link' },
       { status: 500 }
     );
   }

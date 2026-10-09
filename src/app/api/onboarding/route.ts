@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     // Update organization details in Supabase if db client is available
     if (dbClient) {
       try {
-        await (dbClient as any)
+        await dbClient
           .from('organizations')
           .update({
             name: companyName,
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
 
         // Insert primary license if selected
         if (licenseType && primaryRegulators && primaryRegulators.length > 0) {
-          await (dbClient as any)
+          await dbClient
             .from('tenant_licenses')
             .upsert(
               {
@@ -57,14 +57,13 @@ export async function POST(req: NextRequest) {
                 is_active: true,
               },
               { onConflict: 'organization_id,license_type' }
-            )
-            .catch(() => {});
+            );
         }
 
         // Insert payment rails if selected
         if (Array.isArray(paymentRails) && paymentRails.length > 0) {
           for (const rail of paymentRails) {
-            await (dbClient as any)
+            await dbClient
               .from('tenant_payment_rails')
               .upsert(
                 {
@@ -74,12 +73,12 @@ export async function POST(req: NextRequest) {
                   is_active: true,
                 },
                 { onConflict: 'organization_id,rail_type' }
-              )
-              .catch(() => {});
+              );
           }
         }
-      } catch (dbErr: any) {
-        logger.warn({ err: dbErr.message }, 'Non-blocking database sync note during onboarding');
+      } catch (dbErr: unknown) {
+        const err = dbErr instanceof Error ? dbErr : new Error(String(dbErr));
+        logger.warn({ err: err.message }, 'Non-blocking database sync note during onboarding');
       }
     }
 
@@ -90,10 +89,11 @@ export async function POST(req: NextRequest) {
       workspaceName: companyName,
       nextUrl: '/overview',
     });
-  } catch (error: any) {
-    logger.error({ error: error?.message }, 'Onboarding setup failed');
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ error: err.message }, 'Onboarding setup failed');
     return NextResponse.json(
-      { error: error?.message || 'Failed to complete tenant onboarding' },
+      { error: err.message || 'Failed to complete tenant onboarding' },
       { status: 500 }
     );
   }

@@ -43,10 +43,10 @@ export const DEFAULT_DEV_USER_ID = '00000000-0000-0000-0000-000000000010';
  */
 export async function requireRole(
   context: TenantContext,
-  allowedRoles: ('org:admin' | 'org:compliance_officer' | 'org:viewer')[]
+  allowedRoles: UserOrgRole[]
 ): Promise<void> {
   const userRole = context.userOrgRole;
-  if (!userRole || !allowedRoles.includes(userRole as any)) {
+  if (!userRole || !allowedRoles.includes(userRole)) {
     throw new ForbiddenError(
       `User role '${userRole || 'unassigned'}' is not authorized. Required: ${allowedRoles.join(', ')}`
     );
@@ -197,7 +197,7 @@ export async function getTenantContext(options?: TenantContextOptions): Promise<
       };
 
       if (options?.requiredRole) {
-        await requireRole(context, [options.requiredRole as any]);
+        await requireRole(context, [options.requiredRole]);
       }
 
       return context;
@@ -263,7 +263,7 @@ export async function getTenantContext(options?: TenantContextOptions): Promise<
   };
 
   if (options?.requiredRole) {
-    await requireRole(context, [options.requiredRole as any]);
+    await requireRole(context, [options.requiredRole]);
   }
 
   return context;

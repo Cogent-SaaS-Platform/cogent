@@ -2,7 +2,7 @@
 
 import React, { Suspense } from 'react';
 import { AppShell } from '@/shared/ui/AppShell';
-import { RadarCockpit } from '@/modules/radar';
+import { RadarCockpit } from '@/modules/radar/ui';
 
 export default function InsightPage() {
   return (

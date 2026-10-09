@@ -53,10 +53,11 @@ export async function POST(req: NextRequest) {
       success: true,
       data: report,
     });
-  } catch (error: any) {
-    logger.error({ error: error.message }, 'Live asset drift verification failed');
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ error: err.message }, 'Live asset drift verification failed');
     return NextResponse.json(
-      { success: false, error: error.message || 'Drift check failed' },
+      { success: false, error: err.message || 'Drift check failed' },
       { status: 500 }
     );
   }

@@ -80,7 +80,8 @@ export async function POST(req: NextRequest) {
     // Update approval status on marketing_scans record if scanId provided
     if (scanId) {
       try {
-        await (tenantCtx.dbClient.from('marketing_scans') as any)
+        await tenantCtx.dbClient
+          .from('marketing_scans')
           .update({
             approval_status: status,
             approved_by_user_id: tenantCtx.userId,
@@ -159,10 +160,11 @@ export async function POST(req: NextRequest) {
         savedClaim,
       },
     });
-  } catch (error: any) {
-    logger.error({ error: error.message }, 'Failed to record CCO sign-off');
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ error: err.message }, 'Failed to record CCO sign-off');
     return NextResponse.json(
-      { success: false, error: error.message || 'Failed to record sign-off' },
+      { success: false, error: err.message || 'Failed to record sign-off' },
       { status: 500 }
     );
   }

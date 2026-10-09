@@ -33,10 +33,11 @@ export async function GET() {
         assets,
       },
     });
-  } catch (error: any) {
-    logger.error({ error: error.message }, 'Failed to fetch tracked live assets');
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ error: err.message }, 'Failed to fetch tracked live assets');
     return NextResponse.json(
-      { success: false, error: error.message || 'Failed to list assets' },
+      { success: false, error: err.message || 'Failed to list assets' },
       { status: 500 }
     );
   }
@@ -77,10 +78,11 @@ export async function POST(req: NextRequest) {
       },
       { status: 201 }
     );
-  } catch (error: any) {
-    logger.error({ error: error.message }, 'Failed to register live asset');
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ error: err.message }, 'Failed to register live asset');
     return NextResponse.json(
-      { success: false, error: error.message || 'Failed to register asset' },
+      { success: false, error: err.message || 'Failed to register asset' },
       { status: 500 }
     );
   }

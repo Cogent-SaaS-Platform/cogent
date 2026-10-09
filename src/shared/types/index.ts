@@ -172,7 +172,7 @@ export interface AuditLogEntry {
   entityId: string;
   sha256InputHash: string;
   sha256OutputHash: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   createdAt: string;
 }
 
@@ -184,7 +184,7 @@ export interface CreateAuditLogParams {
   entityId: string;
   sha256InputHash: string;
   sha256OutputHash: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // Functional Result Type for clean railway-oriented error handling

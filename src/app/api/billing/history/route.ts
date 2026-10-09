@@ -33,7 +33,14 @@ export async function GET(): Promise<NextResponse> {
     }
 
     const formattedHistory = (events || []).map((evt) => {
-      const payload = evt.payload as Record<string, any>;
+      const payload = evt.payload as {
+        data?: {
+          amount?: number;
+          status?: string;
+          reference?: string;
+          channel?: string;
+        };
+      } | null;
       const amount = payload?.data?.amount
         ? `₦${(payload.data.amount / 100).toLocaleString()}`
         : '₦0';

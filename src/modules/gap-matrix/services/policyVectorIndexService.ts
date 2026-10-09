@@ -82,7 +82,7 @@ export class PolicyVectorIndexService {
     // Bulk insert into policy_clauses with denormalized organization_id
     const { data, error } = await this.dbClient
       .from('policy_clauses')
-      .insert(clauseRecords as any)
+      .insert(clauseRecords as Database['public']['Tables']['policy_clauses']['Insert'][])
       .select('id');
 
     if (error) {
@@ -90,7 +90,7 @@ export class PolicyVectorIndexService {
       throw new Error(`Policy clauses indexing failed: ${error.message}`);
     }
 
-    const clauseIds = (data || []).map((row: any) => row.id);
+    const clauseIds = (data || []).map((row) => row.id);
     logger.info(
       { organizationId, policyId, indexedCount: clauseIds.length },
       'Policy clauses indexed successfully'
@@ -140,7 +140,17 @@ export class PolicyVectorIndexService {
     }
 
     try {
-      const { data, error } = await (this.dbClient as any).rpc('match_policy_clauses', {
+      const { data, error } = await (this.dbClient as unknown as {
+        rpc: (fn: string, args: Record<string, unknown>) => Promise<{
+          data: Array<{
+            id: string;
+            section_number: string;
+            clause_text: string;
+            similarity: number;
+          }> | null;
+          error: { message: string } | null;
+        }>;
+      }).rpc('match_policy_clauses', {
         p_organization_id: organizationId,
         p_policy_id: policyId,
         query_embedding: queryEmbedding,
@@ -153,7 +163,7 @@ export class PolicyVectorIndexService {
         return this.fallbackKeywordSearch(organizationId, policyId, queryText || '', matchCount);
       }
 
-      return (data || []).map((row: any) => ({
+      return (data || []).map((row) => ({
         policyClauseId: row.id,
         sectionNumber: row.section_number,
         clauseText: row.clause_text,
@@ -180,7 +190,7 @@ export class PolicyVectorIndexService {
       .eq('policy_id', policyId)
       .limit(limit);
 
-    return (data || []).map((row: any) => ({
+    return (data || []).map((row) => ({
       policyClauseId: row.id,
       sectionNumber: row.section_number,
       clauseText: row.clause_text,

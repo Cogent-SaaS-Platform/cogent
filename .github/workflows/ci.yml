@@ -1,0 +1,56 @@
+name: Cogent CI Pipeline
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Lint, Typecheck, Test & Build Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NODE_ENV: test
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: ESLint Hygiene Gate
+        run: npm run lint
+
+      - name: TypeScript Static Typecheck
+        run: npx tsc --noEmit
+
+      - name: Vitest Unit & Integration Suite
+        run: npm run test
+
+      - name: Next.js Production Build Validation
+        run: npm run build
+        env:
+          NEXT_PUBLIC_APP_URL: "https://ci-test.internal"
+          NEXT_PUBLIC_SUPABASE_URL: "https://ci-test.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "ey-ci-mock-anon-key"
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: "pk_test_ci_mock"
+          CLERK_SECRET_KEY: "sk_test_ci_mock_secret_key"
+          SUPABASE_SERVICE_ROLE_KEY: "ey-ci-mock-service-role-key"
+          RESEND_API_KEY: "re_mock_ci_key"
+          UPSTASH_REDIS_REST_URL: "https://mock-redis.upstash.io"
+          UPSTASH_REDIS_REST_TOKEN: "mock-token"
+          R2_ACCESS_KEY_ID: "mock-r2-access-key"
+          R2_SECRET_ACCESS_KEY: "mock-r2-secret-key"

@@ -690,11 +690,10 @@ export function GapMatrixDashboard({
           `Live 5-W synthesis completed via Gemini AI. Evaluated ${result.items.length} statutory obligations with deterministic penalty calculation.`
         );
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.warn('Evaluation fallback notice:', err);
-      setEvaluationNotice(
-        `Evaluation note: ${err?.message || 'Synthesis completed with local benchmark matching'}`
-      );
+      const msg = err instanceof Error ? err.message : 'Synthesis completed with local benchmark matching';
+      setEvaluationNotice(`Evaluation note: ${msg}`);
     } finally {
       setIsEvaluating(false);
     }

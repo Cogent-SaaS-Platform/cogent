@@ -82,8 +82,8 @@ export const DriftWatcherTab: React.FC<DriftWatcherTabProps> = ({
       } else {
         alert(json.error || 'Failed to verify live asset drift');
       }
-    } catch (err: any) {
-      alert('Error during drift verification: ' + err.message);
+    } catch (err: unknown) {
+      alert('Error during drift verification: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setIsVerifying(false);
     }

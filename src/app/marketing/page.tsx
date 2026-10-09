@@ -2,7 +2,7 @@
 
 import React, { Suspense } from 'react';
 import { AppShell } from '@/shared/ui/AppShell';
-import { MarketingShieldDashboard } from '@/modules/marketing-shield';
+import { MarketingShieldDashboard } from '@/modules/marketing-shield/ui';
 
 export default function MarketingPage() {
   return (

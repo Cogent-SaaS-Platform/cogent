@@ -16,7 +16,7 @@ import { RegulatorCode } from '@/shared/types';
 export interface CircularUploadDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  onIngestSuccess: (result: any) => void;
+  onIngestSuccess: (result: unknown) => void;
 }
 
 export function CircularUploadDrawer({
@@ -83,8 +83,9 @@ export function CircularUploadDrawer({
 
       onIngestSuccess(json.data);
       onClose();
-    } catch (err: any) {
-      setErrorMessage(err.message || 'Error uploading circular document');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error uploading circular document';
+      setErrorMessage(msg);
     } finally {
       setIsLoading(false);
     }

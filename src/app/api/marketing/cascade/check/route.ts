@@ -42,10 +42,11 @@ export async function POST(req: NextRequest) {
       success: true,
       data: result,
     });
-  } catch (error: any) {
-    logger.error({ error: error.message }, 'Failed checking marketing cascade drift');
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ error: err.message }, 'Failed checking marketing cascade drift');
     return NextResponse.json(
-      { error: error.message || 'Failed checking marketing cascade drift' },
+      { error: err.message || 'Failed checking marketing cascade drift' },
       { status: 500 }
     );
   }

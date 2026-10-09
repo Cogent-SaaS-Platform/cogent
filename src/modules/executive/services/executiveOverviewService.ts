@@ -43,10 +43,10 @@ export class ExecutiveOverviewService {
 
     // Default robust baselines
     let marketingFineAvoided = 16500000;
-    let marketingHealth = 94;
-    let radarFineAvoided = 25000000;
+    const marketingHealth = 94;
+    const radarFineAvoided = 25000000;
     let radarHealth = 88;
-    let gapFineAvoided = 45000000;
+    const gapFineAvoided = 45000000;
     let gapHealth = 82;
 
     let totalMarketingScans = 18;
@@ -66,7 +66,7 @@ export class ExecutiveOverviewService {
     if (this.dbClient) {
       try {
         // 1. Pillar 1 Live Telemetry: marketing_scans & marketing_live_assets
-        const { data: scanRows } = await (this.dbClient as any)
+        const { data: scanRows } = await this.dbClient
           .from('marketing_scans')
           .select('id, approval_status, verdict, deterministic_penalty_naira')
           .eq('organization_id', organizationId);
@@ -74,14 +74,14 @@ export class ExecutiveOverviewService {
         if (scanRows && scanRows.length > 0) {
           totalMarketingScans = scanRows.length;
           approvedMarketingScans = scanRows.filter(
-            (s: any) => s.approval_status === 'APPROVED_BY_CCO' || s.approval_status === 'MODIFIED_AND_APPROVED'
+            (s) => s.approval_status === 'APPROVED_BY_CCO' || s.approval_status === 'MODIFIED_AND_APPROVED'
           ).length;
           needsReReviewMarketingScans = scanRows.filter(
-            (s: any) => s.approval_status === 'NEEDS_RE_REVIEW'
+            (s) => s.approval_status === 'NEEDS_RE_REVIEW'
           ).length;
 
           const scanFines = scanRows.reduce(
-            (sum: number, s: any) => sum + (Number(s.deterministic_penalty_naira) || 0),
+            (sum: number, s) => sum + (Number(s.deterministic_penalty_naira) || 0),
             0
           );
           if (scanFines > 0) {
@@ -89,7 +89,7 @@ export class ExecutiveOverviewService {
           }
         }
 
-        const { count: driftCount } = await (this.dbClient as any)
+        const { count: driftCount } = await this.dbClient
           .from('marketing_live_assets')
           .select('id', { count: 'exact', head: true })
           .eq('organization_id', organizationId)
@@ -100,7 +100,7 @@ export class ExecutiveOverviewService {
         }
 
         // 2. Pillar 2 Live Telemetry: radar_circulars
-        const { count: totalCircCount } = await (this.dbClient as any)
+        const { count: totalCircCount } = await this.dbClient
           .from('radar_circulars')
           .select('id', { count: 'exact', head: true });
 
@@ -109,7 +109,7 @@ export class ExecutiveOverviewService {
           radarHealth = Math.min(100, Math.max(70, 75 + Math.round(totalCircCount * 1.5)));
         }
 
-        const { count: highPriorityCount } = await (this.dbClient as any)
+        const { count: highPriorityCount } = await this.dbClient
           .from('radar_circulars')
           .select('id', { count: 'exact', head: true })
           .in('priority', ['HIGH', 'CRITICAL_EMERGENCY']);
@@ -118,7 +118,7 @@ export class ExecutiveOverviewService {
           unreadHighPriorityCount = highPriorityCount;
         }
 
-        const { count: supersededCount } = await (this.dbClient as any)
+        const { count: supersededCount } = await this.dbClient
           .from('radar_circulars')
           .select('id', { count: 'exact', head: true })
           .eq('lineage_status', 'SUPERSEDED');
@@ -128,7 +128,7 @@ export class ExecutiveOverviewService {
         }
 
         // 3. Pillar 3 Live Telemetry: policy_documents, gap_evaluations, gap_matrix_items
-        const { count: polCount } = await (this.dbClient as any)
+        const { count: polCount } = await this.dbClient
           .from('policy_documents')
           .select('id', { count: 'exact', head: true })
           .eq('organization_id', organizationId);
@@ -137,9 +137,9 @@ export class ExecutiveOverviewService {
           activePoliciesCount = polCount;
         }
 
-        const { data: gapEvals } = await (this.dbClient as any)
+        const { data: gapEvals } = await this.dbClient
           .from('gap_evaluations')
-          .select('overall_compliance_percentage, critical_gaps_count, partially_met_count, total_potential_penalty_naira')
+          .select('overall_compliance_percentage, critical_gaps_count, partially_met_count')
           .eq('organization_id', organizationId)
           .order('created_at', { ascending: false })
           .limit(1);
@@ -153,12 +153,9 @@ export class ExecutiveOverviewService {
           if (latestEval.partially_met_count !== undefined) {
             partiallyMetCount = Number(latestEval.partially_met_count);
           }
-          if (latestEval.total_potential_penalty_naira) {
-            gapFineAvoided = Number(latestEval.total_potential_penalty_naira);
-          }
         }
 
-        const { data: gapItems } = await (this.dbClient as any)
+        const { data: gapItems } = await this.dbClient
           .from('gap_matrix_items')
           .select('statutory_penalty_naira, compliance_status')
           .eq('organization_id', organizationId)
@@ -166,7 +163,7 @@ export class ExecutiveOverviewService {
 
         if (gapItems && gapItems.length > 0) {
           unhedgedPenaltyRiskNaira = gapItems.reduce(
-            (sum: number, it: any) => sum + (Number(it.statutory_penalty_naira) || 0),
+            (sum: number, it) => sum + (Number(it.statutory_penalty_naira) || 0),
             0
           );
         }

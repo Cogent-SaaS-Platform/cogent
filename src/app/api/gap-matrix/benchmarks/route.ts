@@ -16,10 +16,11 @@ export async function GET(req: NextRequest) {
     );
 
     return NextResponse.json({ success: true, data: benchmarks });
-  } catch (error: any) {
-    logger.error({ error: error.message }, 'Failed fetching statutory benchmarks');
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error({ error: err.message }, 'Failed fetching statutory benchmarks');
     return NextResponse.json(
-      { error: error.message || 'Failed fetching benchmarks' },
+      { error: err.message || 'Failed fetching benchmarks' },
       { status: 500 }
     );
   }

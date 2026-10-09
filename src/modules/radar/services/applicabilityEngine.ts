@@ -145,7 +145,7 @@ export class ApplicabilityEngine {
     if (!this.dbClient) return null;
 
     try {
-      const client = this.dbClient as any;
+      const client = this.dbClient;
 
       // 1. Fetch organization details
       const { data: orgData } = await client
@@ -168,14 +168,14 @@ export class ApplicabilityEngine {
         .eq('organization_id', organizationId)
         .eq('is_active', true);
 
-      const licenses: RichTenantLicense[] = (licensesData || []).map((l: any) => ({
+      const licenses: RichTenantLicense[] = (licensesData || []).map((l) => ({
         licenseType: l.license_type,
         licenseNumber: l.license_number,
         issuingRegulator: l.issuing_regulator,
         isActive: l.is_active,
       }));
 
-      const paymentRails: RichTenantPaymentRail[] = (railsData || []).map((r: any) => ({
+      const paymentRails: RichTenantPaymentRail[] = (railsData || []).map((r) => ({
         railType: r.rail_type,
         integrationStatus: r.integration_status,
         settlementBankCode: r.settlement_bank_code,
@@ -211,7 +211,7 @@ export class ApplicabilityEngine {
 
     if (this.dbClient) {
       try {
-        const client = this.dbClient as any;
+        const client = this.dbClient;
         await client.from('radar_tenant_impacts').upsert(
           {
             organization_id: organizationId,

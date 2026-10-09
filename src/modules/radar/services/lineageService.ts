@@ -74,7 +74,7 @@ export class LineageService {
     }
 
     try {
-      const client = this.dbClient as any;
+      const client = this.dbClient;
 
       // 1. Insert or update the supersession link
       const { data, error } = await client
@@ -120,8 +120,9 @@ export class LineageService {
           'Updated parent circular lineage_status in response to supersession edge'
         );
       }
-    } catch (err: any) {
-      logger.error({ err: err.message }, 'Error creating supersession link');
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      logger.error({ err: errMsg }, 'Error creating supersession link');
     }
 
     return resultEdge;
@@ -152,7 +153,7 @@ export class LineageService {
     }
 
     try {
-      const client = this.dbClient as any;
+      const client = this.dbClient;
 
       // 1. Fetch current circular
       const { data: currentData, error: currentError } = await client
@@ -181,11 +182,21 @@ export class LineageService {
         relationshipToCurrent: 'SELF',
       };
 
+      interface SupersessionJoinedLink {
+        id: string;
+        parent_circular_id: string;
+        child_circular_id: string;
+        amendment_type: string;
+        affected_clause_references?: string | null;
+        radar_circulars?: Database['public']['Tables']['radar_circulars']['Row'] | null;
+      }
+
       // 2. Fetch parents (ancestors that this circular amends/replaces/cites)
-      const { data: parentLinks } = await client
+      const { data: parentLinksData } = await client
         .from('circular_supersession_links')
-        .select('*, radar_circulars!circular_supersession_links_parent_circular_id_fkey(*)')
+        .select('*, radar_circulars!circular_supersession_links_parent_circular_id_fkey(*)' as '*')
         .eq('child_circular_id', circularId);
+      const parentLinks = parentLinksData as unknown as SupersessionJoinedLink[] | null;
 
       const ancestors: CircularLineageNode[] = [];
       const allEdges: Array<{ fromId: string; toId: string; type: AmendmentType; clauseRef?: string | null }> = [];
@@ -215,10 +226,11 @@ export class LineageService {
       }
 
       // 3. Fetch children (descendants that amend/replace this circular)
-      const { data: childLinks } = await client
+      const { data: childLinksData } = await client
         .from('circular_supersession_links')
-        .select('*, radar_circulars!circular_supersession_links_child_circular_id_fkey(*)')
+        .select('*, radar_circulars!circular_supersession_links_child_circular_id_fkey(*)' as '*')
         .eq('parent_circular_id', circularId);
+      const childLinks = childLinksData as unknown as SupersessionJoinedLink[] | null;
 
       const descendants: CircularLineageNode[] = [];
 
@@ -273,8 +285,9 @@ export class LineageService {
         descendants,
         allEdges,
       };
-    } catch (err: any) {
-      logger.error({ err: err.message }, 'Error resolving lineage graph');
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      logger.error({ err: errMsg }, 'Error resolving lineage graph');
       return {
         currentNode: defaultNode,
         activeGoverningCircular: defaultNode,
@@ -297,7 +310,7 @@ export class LineageService {
     if (!this.dbClient || !rawText) return createdEdges;
 
     try {
-      const client = this.dbClient as any;
+      const client = this.dbClient;
 
       // Regex patterns for Nigerian circular supersession and amendment language
       const patterns = [
@@ -345,8 +358,9 @@ export class LineageService {
           }
         }
       }
-    } catch (err: any) {
-      logger.warn({ err: err.message }, 'Automated lineage text detection encountered warning');
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      logger.warn({ err: errMsg }, 'Automated lineage text detection encountered warning');
     }
 
     return createdEdges;
