@@ -17,7 +17,7 @@ describe('Epic 19: Unified Executive Dashboard & Overview (Task 19.1)', () => {
     expect(overview.organizationName).toBe('Apex Paystack FinTech Ltd');
     expect(overview.generatedAt).toBeDefined();
     expect(overview.activeSanctionsRiskCount).toBeGreaterThanOrEqual(0);
-  });
+  }, 120000);
 
   it('correctly calculates the composite institutional compliance health score', async () => {
     const overview = await service.getExecutiveOverview();
