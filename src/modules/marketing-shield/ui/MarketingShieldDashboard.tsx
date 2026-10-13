@@ -807,40 +807,13 @@ export const MarketingShieldDashboard: React.FC<MarketingShieldDashboardProps> =
                   onClick={() => setViewMode('table')}
                   className="text-[#4B5565] hover:text-[#0B0F1A] font-medium transition-colors"
                 >
-                  Pillar 2: Marketing Shield
+                  Marketing Shield
                 </button>
                 <ChevronRight className="h-3.5 w-3.5 text-[#8D99AE]" />
                 <span className="font-semibold text-[#0B0F1A] truncate max-w-[200px] sm:max-w-xs">
                   {viewMode === 'workspace' ? viewModel.title : 'Promotional Assets Scanning Feed'}
                 </span>
               </div>
-
-              {/* Pillar Switcher */}
-              {onSwitchPillar && (
-                <div className="hidden lg:flex items-center gap-1 rounded-xl border border-[#DDE3EE] bg-[#F5F6FA] p-0.5 text-xs">
-                  <button
-                    onClick={() => onSwitchPillar('executive')}
-                    className="rounded-lg px-2.5 py-1 text-[#4B5565] hover:text-[#0B0F1A] transition-colors"
-                  >
-                    Overview
-                  </button>
-                  <button
-                    onClick={() => onSwitchPillar('radar')}
-                    className="rounded-lg px-2.5 py-1 text-[#4B5565] hover:text-[#0B0F1A] transition-colors"
-                  >
-                    Insight
-                  </button>
-                  <button className="rounded-lg bg-white text-[#2A4BFF] font-bold px-2.5 py-1 shadow-xs border border-[#DDE3EE]">
-                    Marketing
-                  </button>
-                  <button
-                    onClick={() => onSwitchPillar('gap-matrix')}
-                    className="rounded-lg px-2.5 py-1 text-[#4B5565] hover:text-[#0B0F1A] transition-colors"
-                  >
-                    Policy Gap
-                  </button>
-                </div>
-              )}
             </div>
 
             {/* View Mode Switcher & Tools */}

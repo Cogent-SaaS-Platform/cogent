@@ -3,8 +3,6 @@
 import React, { useState } from 'react';
 import {
   FileText,
-  Zap,
-  Cpu,
   Clock,
   Copy,
   Check,
@@ -98,28 +96,16 @@ export const ExecutiveSummaryCard: React.FC<ExecutiveSummaryCardProps> = ({
           </div>
         )}
 
-        {/* Telemetry & Audit Verification Strip */}
+        {/* Cryptographic Audit Verification Seal */}
         <div className="mt-2 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#F9FAFC] border border-[#DDE3EE] px-4 py-2.5 text-xs text-[#4B5565]">
-          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
-            <div className="flex items-center gap-1.5">
-              <Zap className="h-3.5 w-3.5 text-amber-600" />
-              <span className="font-medium">{telemetry.latencyMs}ms Latency</span>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <Cpu className="h-3.5 w-3.5 text-[#2A4BFF]" />
-              <span className="font-mono text-[#0B0F1A]">{telemetry.modelIdentifier}</span>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <Clock className="h-3.5 w-3.5 text-[#4B5565]" />
-              <span>{new Date(telemetry.verifiedAt).toLocaleTimeString()} WAT</span>
-            </div>
+          <div className="flex items-center gap-1.5">
+            <Clock className="h-3.5 w-3.5 text-[#8D99AE]" />
+            <span className="text-[11px] text-[#4B5565]">Verified {new Date(telemetry.verifiedAt).toLocaleTimeString()} WAT</span>
           </div>
 
           {/* Cryptographic SHA-256 Audit Hash */}
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-mono text-[#8D99AE]">SHA-256:</span>
+            <span className="text-[11px] font-mono text-[#8D99AE]">SHA-256 Seal:</span>
             <span className="font-mono text-[11px] text-[#0B0F1A] font-semibold">{truncatedHash}</span>
             <button
               onClick={handleCopyHash}

@@ -189,7 +189,7 @@ export function ExecutiveDashboard({
         <div className="space-y-1">
           <div className="flex items-center gap-2.5">
             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#EEF2FF] text-[#2A4BFF] border border-[#C7D2FE]">
-              Pillar 4: Overview
+              Executive Overview
             </span>
             <div className="flex items-center gap-1.5 text-xs text-[#10B981] font-semibold">
               <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
@@ -376,7 +376,7 @@ export function ExecutiveDashboard({
 
             <div>
               <span className="text-[11px] font-bold text-[#2A4BFF] uppercase tracking-wider block">
-                Pillar 1
+                Marketing Shield
               </span>
               <h3 className="text-base font-bold text-[#0B0F1A] group-hover:text-[#2A4BFF] transition-colors">
                 Marketing Pre-Vetting Shield
@@ -425,7 +425,7 @@ export function ExecutiveDashboard({
 
             <div>
               <span className="text-[11px] font-bold text-[#2A4BFF] uppercase tracking-wider block">
-                Pillar 2
+                Regulatory Radar
               </span>
               <h3 className="text-base font-bold text-[#0B0F1A] group-hover:text-[#2A4BFF] transition-colors">
                 Insight & Horizon Scanner
@@ -474,7 +474,7 @@ export function ExecutiveDashboard({
 
             <div>
               <span className="text-[11px] font-bold text-[#2A4BFF] uppercase tracking-wider block">
-                Pillar 3
+                Policy Gap Matrix
               </span>
               <h3 className="text-base font-bold text-[#0B0F1A] group-hover:text-[#2A4BFF] transition-colors">
                 Gap Matrix & Policy Concordance
@@ -604,7 +604,7 @@ export function ExecutiveDashboard({
           <div className="flex items-center gap-2">
             <Layers className="w-4 h-4 text-[#2A4BFF]" />
             <h2 className="text-sm font-bold text-[#0B0F1A] uppercase tracking-wider">
-              Cross-Pillar Supervisory Breakdown
+              Supervisory Vector Breakdown
             </h2>
           </div>
 
@@ -905,7 +905,7 @@ export function ExecutiveDashboard({
 
                   <div className="text-xs space-y-1">
                     <span className="font-semibold text-[#2A4BFF] block">
-                      Pillar 3 (Gap Matrix Concordance Impact):
+                      Policy Gap Matrix Concordance Impact:
                     </span>
                     <p className="text-[#4B5565] text-[11px]">
                       Triggered downstream re-audit for{' '}
@@ -916,7 +916,7 @@ export function ExecutiveDashboard({
 
                   <div className="text-xs space-y-1 pt-1 border-t border-[#E8EDF5]">
                     <span className="font-semibold text-[#F59E0B] block">
-                      Pillar 1 (Marketing Shield Drift Impact):
+                      Marketing Shield Drift Impact:
                     </span>
                     <p className="text-[#4B5565] text-[11px]">
                       Invalidated{' '}

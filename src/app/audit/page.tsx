@@ -87,7 +87,7 @@ export default function AuditLedgerPage() {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="px-2 py-0.5 rounded text-[11px] font-mono font-bold bg-[#EEF2FF] text-[#2A4BFF] border border-[#C7D2FE]">
-                PILLAR 6
+                AUDIT LEDGER
               </span>
               <span className="text-xs text-[#8D99AE]">CAMA 2020 & BOFIA 2020 Section 5.2</span>
             </div>

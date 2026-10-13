@@ -120,7 +120,7 @@ export const COGENT_PLANS: Record<SubscriptionTier, PlanMetadata> = {
       remediationDrafting: 'UNLIMITED_CUSTOM',
     },
     features: [
-      'Unlimited usage across all 3 Cogent Pillars',
+      'Unlimited usage across all Cogent compliance engines',
       'Unlimited corporate policy uploads & Gap Matrix assessments',
       'Bank Examiner Audit Defense Pack with SHA-256 evidence chain',
       'Multi-entity & holding company license architectures',

@@ -1000,7 +1000,7 @@ export function GapMatrixDashboard({
                     5-W Policy Gap Matrix & Audit Defense Pack
                   </h1>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#EEF2FF] text-[#2A4BFF] border border-[#C7D2FE]">
-                    Pillar 3
+                    Policy Gap Matrix
                   </span>
                 </div>
                 <p className="text-xs text-[#4B5565] mt-0.5">

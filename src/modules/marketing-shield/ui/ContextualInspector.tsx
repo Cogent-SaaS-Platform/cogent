@@ -279,7 +279,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
           {onSwitchPillar && (
             <div className="rounded-xl border border-[#DDE3EE] bg-[#F9FAFC] p-3.5 space-y-2">
               <span className="text-[10px] font-bold text-[#4B5565] uppercase tracking-wider block">
-                Cross-Pillar Traceability
+                Regulatory Lineage Traceability
               </span>
               <div className="grid grid-cols-2 gap-2">
                 <button

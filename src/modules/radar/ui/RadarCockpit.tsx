@@ -1063,7 +1063,7 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
                   onClick={() => setViewMode('table')}
                   className="text-[#4B5565] hover:text-[#0B0F1A] font-medium transition-colors"
                 >
-                  Pillar 1: Insight
+                  Regulatory Radar
                 </button>
                 <ChevronRight className="h-3.5 w-3.5 text-[#8D99AE]" />
                 {viewMode === 'dossier' ? (
@@ -1078,44 +1078,10 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
                   <span className="font-semibold text-[#0B0F1A]">Horizon Scanning Feed</span>
                 )}
               </div>
-
-              {/* Cross-Pillar Quick Switcher */}
-              {onSwitchPillar && (
-                <div className="hidden xl:flex items-center gap-1 rounded-xl border border-[#DDE3EE] bg-[#F5F6FA] p-1 text-xs">
-                  <button
-                    onClick={() => onSwitchPillar('executive')}
-                    className="rounded-lg px-2.5 py-1 text-[#4B5565] hover:text-[#0B0F1A] hover:bg-white transition-colors"
-                  >
-                    Unified Executive
-                  </button>
-                  <button
-                    className="rounded-lg bg-white text-[#2A4BFF] font-bold px-2.5 py-1 shadow-xs border border-[#DDE3EE]"
-                  >
-                    Pillar 1: Insight
-                  </button>
-                  <button
-                    onClick={() => onSwitchPillar('marketing')}
-                    className="rounded-lg px-2.5 py-1 text-[#4B5565] hover:text-[#0B0F1A] hover:bg-white transition-colors"
-                  >
-                    Pillar 2: Marketing Shield
-                  </button>
-                  <button
-                    onClick={() => onSwitchPillar('gap-matrix')}
-                    className="rounded-lg px-2.5 py-1 text-[#4B5565] hover:text-[#0B0F1A] hover:bg-white transition-colors"
-                  >
-                    Pillar 3: Gap Matrix
-                  </button>
-                </div>
-              )}
             </div>
 
             {/* Actions Bar */}
             <div className="flex items-center gap-2.5">
-              {/* Regulator Badge List */}
-              <div className="hidden lg:flex items-center gap-2 rounded-full border border-[#DDE3EE] bg-[#F9FAFC] px-3 py-1 text-[11px] text-[#4B5565]">
-                <span className="h-2 w-2 rounded-full bg-[#10B981] animate-pulse" />
-                <span>CBN • SEC • NDIC • FCCPC • NFIU • ARCON • NDPC</span>
-              </div>
 
               {/* View Switcher Pills */}
               <div className="inline-flex rounded-lg border border-[#DDE3EE] bg-[#F5F6FA] p-0.5">
@@ -1767,7 +1733,7 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
                               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#EEF2FF] hover:bg-[#2A4BFF] text-[#2A4BFF] hover:text-white border border-[#2A4BFF]/30 text-xs font-semibold transition-all shadow-xs"
                             >
                               <Scale className="w-3.5 h-3.5" />
-                              <span>Evaluate Policy Gap Concordance in Pillar 3</span>
+                              <span>Evaluate Policy Gap Concordance</span>
                               <ExternalLink className="w-3 h-3 ml-0.5" />
                             </button>
                             <button
