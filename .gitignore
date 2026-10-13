@@ -49,3 +49,9 @@ next-env.d.ts
 # Internal references not intended for repo release
 /ref/
 /ui_ref/
+
+# Temporary audit evidence screenshots in root
+/*.JPG
+/*.png
+!public/*.png
+!src/app/*.png

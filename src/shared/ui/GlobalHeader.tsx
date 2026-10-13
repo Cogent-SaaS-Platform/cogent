@@ -116,11 +116,6 @@ export function GlobalHeader({
           </kbd>
         </button>
 
-        {/* Regulatory Enclaves Status Pill */}
-        <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#ECFDF5] border border-[#A7F3D0] text-[#065F46] text-[11px] font-medium">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] animate-pulse shrink-0" />
-          <span>CBN · SEC · NDPC Enclaves</span>
-        </div>
 
         {/* AI Smart Insight Notification Trigger */}
         <button

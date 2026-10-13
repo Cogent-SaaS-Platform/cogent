@@ -30,7 +30,6 @@ export const COGENT_NAV_ITEMS: NavItemDef[] = [
     label: 'Overview',
     subtitle: 'Executive Cockpit',
     href: '/overview',
-    aliases: ['/'],
     icon: OverviewIcon,
   },
   {
@@ -91,27 +90,32 @@ export function NavigationRail({
   onNavigateOverride,
 }: NavigationRailProps) {
   const pathname = usePathname();
-  const [isExpanded, setIsExpanded] = useState<boolean>(false);
+  const [isPinnedExpanded, setIsPinnedExpanded] = useState<boolean>(true);
+  const [isHovered, setIsHovered] = useState<boolean>(false);
   const [isMounted, setIsMounted] = useState<boolean>(false);
 
-  // Restore collapsed/expanded state from localStorage
+  // Restore collapsed/expanded state from localStorage, default to true (expanded)
   useEffect(() => {
     setIsMounted(true);
     try {
       const stored = localStorage.getItem('cogent_rail_expanded');
       if (stored !== null) {
         const val = JSON.parse(stored);
-        setIsExpanded(Boolean(val));
+        setIsPinnedExpanded(Boolean(val));
         onToggleExpand?.(Boolean(val));
+      } else {
+        setIsPinnedExpanded(true);
+        onToggleExpand?.(true);
       }
     } catch {
-      // Ignore localStorage errors
+      setIsPinnedExpanded(true);
+      onToggleExpand?.(true);
     }
   }, [onToggleExpand]);
 
   const handleToggle = () => {
-    const nextVal = !isExpanded;
-    setIsExpanded(nextVal);
+    const nextVal = !isPinnedExpanded;
+    setIsPinnedExpanded(nextVal);
     onToggleExpand?.(nextVal);
     try {
       localStorage.setItem('cogent_rail_expanded', JSON.stringify(nextVal));
@@ -119,6 +123,8 @@ export function NavigationRail({
       // Ignore localStorage errors
     }
   };
+
+  const isExpanded = isPinnedExpanded || isHovered;
 
   const isItemActive = (item: NavItemDef): boolean => {
     if (activePillarOverride) {
@@ -145,8 +151,14 @@ export function NavigationRail({
     <aside
       id="cogent-navigation-rail"
       aria-label="Primary Navigation"
-      className={`fixed inset-y-0 left-0 z-30 flex flex-col bg-white border-r border-[#DDE3EE] transition-all duration-200 ease-in-out select-none ${
-        isExpanded ? 'w-60 shadow-lg' : 'w-16'
+      onMouseEnter={() => {
+        if (!isPinnedExpanded) setIsHovered(true);
+      }}
+      onMouseLeave={() => {
+        setIsHovered(false);
+      }}
+      className={`fixed inset-y-0 left-0 flex flex-col bg-white border-r border-[#DDE3EE] transition-all duration-200 ease-in-out select-none ${
+        isExpanded ? 'w-60 shadow-xl z-40' : 'w-16 z-30'
       }`}
     >
       {/* 1. Brand Monogram Header */}
@@ -254,12 +266,14 @@ export function NavigationRail({
               ? 'w-full px-3 py-1.5 justify-between text-xs font-medium'
               : 'w-11 h-9 mx-auto justify-center'
           }`}
-          title={isExpanded ? 'Collapse Navigation (64px)' : 'Expand Navigation (240px)'}
-          aria-label={isExpanded ? 'Collapse Navigation' : 'Expand Navigation'}
+          title={isPinnedExpanded ? 'Collapse Navigation (64px)' : 'Stick / Pin Navigation Open (240px)'}
+          aria-label={isPinnedExpanded ? 'Collapse Navigation' : 'Stick / Pin Navigation Open'}
         >
           {isExpanded ? (
             <>
-              <span className="text-[11px] font-medium text-[#8D99AE]">Collapse Rail</span>
+              <span className="text-[11px] font-medium text-[#8D99AE]">
+                {isPinnedExpanded ? 'Collapse Rail' : 'Stick / Pin Open'}
+              </span>
               <ChevronLeft className="w-4 h-4 text-[#8D99AE]" />
             </>
           ) : (

@@ -16,6 +16,16 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Cogent | Enterprise RegTech & Compliance Cockpit",
   description: "AI-powered regulatory intelligence and compliance governance platform for Nigerian financial institutions.",
+  icons: {
+    icon: [
+      { url: '/icon.png', sizes: '32x32', type: 'image/png' },
+      { url: '/icon.png', sizes: '192x192', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/icon.png' },
+    ],
+    shortcut: '/icon.png',
+  },
 };
 
 export default function RootLayout({

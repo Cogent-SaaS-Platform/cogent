@@ -19,7 +19,7 @@ export function AppShell({
   activePillarOverride,
   onNavigateOverride,
 }: AppShellProps) {
-  const [isRailExpanded, setIsRailExpanded] = useState<boolean>(false);
+  const [isRailExpanded, setIsRailExpanded] = useState<boolean>(true);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState<boolean>(false);
 

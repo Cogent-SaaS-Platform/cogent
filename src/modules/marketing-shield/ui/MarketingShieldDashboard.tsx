@@ -1373,20 +1373,6 @@ export const MarketingShieldDashboard: React.FC<MarketingShieldDashboardProps> =
           )}
         </main>
 
-        {/* Global Footer */}
-        <footer className="border-t border-[#DDE3EE] bg-white py-6 text-center text-xs text-[#4B5565]">
-          <div className="mx-auto max-w-7xl px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
-            <span className="font-semibold text-[#0B0F1A]">
-              Cogent AI — Nigerian Regulatory Moat Platform
-            </span>
-            <span className="font-mono text-[11px] text-[#8D99AE]">
-              SHA-256 Audit Seal: {viewModel.telemetry.auditHash.substring(0, 16)}...
-            </span>
-            <span className="text-[#4B5565]">
-              Regulator Corpi: ARCON • CBN • FCCPC • SEC • NDPC
-            </span>
-          </div>
-        </footer>
       </div>
     </MultiPaneContainer>
   );

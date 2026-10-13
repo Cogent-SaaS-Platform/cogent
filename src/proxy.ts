@@ -28,6 +28,14 @@ const handler = isClerkConfigured
         return;
       }
 
+      // If user is already authenticated and visits the public landing page '/', redirect to '/overview'
+      if (req.nextUrl.pathname === '/') {
+        const { userId } = await auth();
+        if (userId) {
+          return NextResponse.redirect(new URL('/overview', req.url));
+        }
+      }
+
       if (!isPublicRoute(req)) {
         const isApiRoute = req.nextUrl.pathname.startsWith('/api/');
 
