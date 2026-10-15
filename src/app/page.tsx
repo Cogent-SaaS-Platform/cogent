@@ -1,638 +1,558 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@clerk/nextjs';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuth, SignIn, SignUp } from '@clerk/nextjs';
+import { AuthShowcasePanel } from '@/shared/ui/AuthShowcasePanel';
 import {
-  ShieldCheck,
-  Scale,
-  Radio,
-  FileText,
+  Mail,
   Lock,
-  ArrowRight,
-  Sparkles,
-  CheckCircle2,
-  AlertTriangle,
-  Building,
-  Check,
-  Zap,
-  Play,
-  Clock,
-  ChevronRight,
-  ExternalLink,
+  Eye,
+  EyeOff,
+  Building2,
+  KeyRound,
+  ShieldCheck,
 } from 'lucide-react';
 
-interface DemoPreset {
-  id: string;
-  name: string;
-  badge: string;
-  category: string;
-  copy: string;
-  verdict: 'VIOLATION' | 'COMPLIANT';
-  fineExposureNaira: number;
-  infractions: {
-    excerpt: string;
-    rule: string;
-    citation: string;
-    fine: number;
-  }[];
-  rewrite: string;
-}
-
-const DEMO_PRESETS: DemoPreset[] = [
-  {
-    id: 'loan',
-    name: 'QuickKash Loan Promo',
-    badge: 'Digital Lending',
-    category: 'Nano-Loan (SMS)',
-    copy: 'Urgent Cash Alert! Get ₦250,000 instant loan in 5 mins directly to your account! Zero interest, 100% guaranteed approval, no collateral, no credit checks. Download QuickKash app now!',
-    verdict: 'VIOLATION',
-    fineExposureNaira: 11500000,
-    infractions: [
-      {
-        excerpt: '100% guaranteed approval',
-        rule: 'ARCON Code 2022 Art. 24(1)(b)',
-        citation: 'Advertising guaranteed loan disbursement without underwriting eligibility is strictly prohibited.',
-        fine: 5000000,
-      },
-      {
-        excerpt: 'Zero interest',
-        rule: 'CBN Consumer Protection Framework (CPF)',
-        citation: 'Deceptive zero-interest claims omitting statutory APR and fee disclosures carry mandatory sanctions.',
-        fine: 3500000,
-      },
-      {
-        excerpt: 'no credit checks',
-        rule: 'FCCPC Digital Lending Reg. Sec 5',
-        citation: 'Failure to perform statutory credit assessment and misleading borrowers on credit reporting.',
-        fine: 3000000,
-      },
-    ],
-    rewrite:
-      'Access transparent digital credit up to ₦250,000 subject to eligibility verification. Annual Percentage Rate (APR) from 18% to 24%. Licensed by CBN as a Finance Company. Terms & statutory fees apply. Visit quickkash.ng/terms.',
-  },
-  {
-    id: 'invest',
-    name: 'PrimeYield Investment Ad',
-    badge: 'WealthTech',
-    category: 'Investment (Social Media)',
-    copy: 'Tired of inflation? Invest your Naira in PrimeYield and earn 35% risk-free annual return guaranteed! Your capital is 100% safe and backed by the government. Limited slots available.',
-    verdict: 'VIOLATION',
-    fineExposureNaira: 7500000,
-    infractions: [
-      {
-        excerpt: '35% risk-free annual return guaranteed',
-        rule: 'SEC Nigeria Rule 322 (Unregistered Yields)',
-        citation: 'Capital market operators are prohibited from promising guaranteed returns on speculative market assets.',
-        fine: 5000000,
-      },
-      {
-        excerpt: 'backed by the government',
-        rule: 'ARCON Code 2022 Art. 18(3)',
-        citation: 'Falsely claiming direct government guarantee or sovereign backing for private investments is prohibited.',
-        fine: 2500000,
-      },
-    ],
-    rewrite:
-      'Grow your wealth with PrimeYield Fund Management. Historical annualized returns up to 22%. Capital is subject to market risks. PrimeYield is registered with the Securities and Exchange Commission (SEC) Nigeria as a Portfolio Manager.',
-  },
-  {
-    id: 'compliant',
-    name: 'KoraPay Cross-Border Remittance',
-    badge: 'IMTO / FX',
-    category: 'Remittance (Clean Baseline)',
-    copy: 'Send money home to Nigeria with KoraPay. Licensed by the Central Bank of Nigeria (CBN) as an International Money Transfer Operator. Transparent exchange rates and zero hidden charges. Terms and statutory fees apply. Visit korapay.ng/terms.',
-    verdict: 'COMPLIANT',
-    fineExposureNaira: 0,
-    infractions: [],
-    rewrite:
-      'Copy satisfies all statutory disclosure thresholds. Validated against CBN IMTO Regulatory Guidelines and ARCON registered advertiser standards.',
-  },
-];
-
-export default function LandingPage() {
+function UnifiedAuthGatewayContent() {
   const router = useRouter();
-  const { isSignedIn, isLoaded } = useAuth();
+  const searchParams = useSearchParams();
+  const modeParam = searchParams.get('mode');
 
-  // If already logged in, seamlessly redirect to overview cockpit
+  const { isLoaded, isSignedIn } = useAuth();
+  const isClerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+
+  const [authMode, setAuthMode] = useState<'SIGN_IN' | 'SIGN_UP'>(
+    modeParam === 'signup' ? 'SIGN_UP' : 'SIGN_IN'
+  );
+
+  // Sync mode from URL search params if changed
+  useEffect(() => {
+    if (modeParam === 'signup') {
+      setAuthMode('SIGN_UP');
+    } else if (modeParam === 'signin') {
+      setAuthMode('SIGN_IN');
+    }
+  }, [modeParam]);
+
+  // If already authenticated, redirect straight to /overview
   useEffect(() => {
     if (isLoaded && isSignedIn) {
       router.push('/overview');
     }
   }, [isLoaded, isSignedIn, router]);
 
-  // Interactive Live Demo State
-  const [selectedPresetId, setSelectedPresetId] = useState<string>('loan');
-  const [demoInput, setDemoInput] = useState<string>(DEMO_PRESETS[0].copy);
-  const [demoResult, setDemoResult] = useState<DemoPreset | null>(DEMO_PRESETS[0]);
-  const [isScanning, setIsScanning] = useState<boolean>(false);
+  // Demo Sandbox State (Used when user prefers instant demo access or Clerk is unconfigured)
+  const [showDemoForm, setShowDemoForm] = useState(false);
+  const [demoEmail, setDemoEmail] = useState('compliance.officer@apexfintech.ng');
+  const [demoPassword, setDemoPassword] = useState('DemoPassword2026!');
+  const [institutionName, setInstitutionName] = useState('Apex FinTech Nigeria Limited');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+  const [agreeTerms, setAgreeTerms] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSelectPreset = (preset: DemoPreset) => {
-    setSelectedPresetId(preset.id);
-    setDemoInput(preset.copy);
-    setDemoResult(preset);
+  const handleSignInSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setTimeout(() => {
+      router.push('/overview');
+    }, 400);
   };
 
-  const handleRunDemoScan = () => {
-    setIsScanning(true);
+  const handleSignUpSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
     setTimeout(() => {
-      // Find matching preset or evaluate custom input
-      const matched = DEMO_PRESETS.find((p) => p.copy === demoInput);
-      if (matched) {
-        setDemoResult(matched);
-      } else {
-        // Simple client evaluation for custom copy
-        const hasGuaranteed = /guaranteed|100%|instant|risk-free/i.test(demoInput);
-        const hasZeroInterest = /zero interest|no interest|free money/i.test(demoInput);
-        const infractions = [];
-        let fine = 0;
-
-        if (hasGuaranteed) {
-          infractions.push({
-            excerpt: 'Prohibited absolute promise / guarantee detected',
-            rule: 'ARCON Code 2022 Art. 24 & SEC Rule 322',
-            citation: 'Absolute guarantees without underwriting disclosures are prohibited under Nigerian law.',
-            fine: 5000000,
-          });
-          fine += 5000000;
-        }
-
-        if (hasZeroInterest) {
-          infractions.push({
-            excerpt: 'Misleading fee / interest representation',
-            rule: 'CBN Consumer Protection Framework 2019',
-            citation: 'Financial promotions must clearly disclose APR, statutory levies, and repayment terms.',
-            fine: 3500000,
-          });
-          fine += 3500000;
-        }
-
-        setDemoResult({
-          id: 'custom',
-          name: 'Custom Ad Evaluation',
-          badge: 'Live Evaluation',
-          category: 'Promotional Broadcast',
-          copy: demoInput,
-          verdict: infractions.length > 0 ? 'VIOLATION' : 'COMPLIANT',
-          fineExposureNaira: fine,
-          infractions,
-          rewrite:
-            infractions.length > 0
-              ? 'Ensure all statutory APR figures, licensing credentials, and underwriting disclaimers are appended prior to public dissemination.'
-              : 'Submitted copy satisfies preliminary statutory pre-screening requirements.',
-        });
-      }
-      setIsScanning(false);
-    }, 450);
+      router.push('/onboarding');
+    }, 400);
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F6FA] text-[#0B0F1A] font-sans selection:bg-[#2A4BFF]/20 selection:text-[#2A4BFF]">
-      {/* 1. Global Navigation Bar */}
-      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-[#DDE3EE]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          {/* Brand Logo */}
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-9 h-9 rounded-xl bg-[#2A4BFF] flex items-center justify-center shadow-sm shadow-[#2A4BFF]/30 transition-transform group-hover:scale-105">
-              <span className="font-extrabold text-white text-base tracking-wider">C</span>
+    <div className="min-h-screen bg-white flex flex-col lg:flex-row antialiased selection:bg-[#2A4BFF] selection:text-white">
+      {/* ───────────────────────────────────────────────────────────────────
+          LEFT HALF: AUTH GATEWAY (Faithful reproduction of ui_ref/sign.JPG)
+          ─────────────────────────────────────────────────────────────────── */}
+      <div className="w-full lg:w-1/2 flex flex-col justify-between p-8 sm:p-12 lg:p-16 xl:p-20 bg-white">
+        {/* Brand Header */}
+        <div className="flex items-center justify-between">
+          <Link href="/" className="inline-flex items-center gap-2.5 group">
+            <div className="w-8 h-8 rounded-lg bg-[#2A4BFF] flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
+              <span className="font-extrabold text-white text-base leading-none">C</span>
             </div>
-            <div className="flex flex-col">
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-base tracking-wide text-[#0B0F1A]">COGENT</span>
-                <span className="text-[9px] uppercase font-mono px-1 py-0.2 rounded bg-[#EEF2FF] text-[#2A4BFF] border border-[#C7D2FE] font-semibold">
-                  RegTech OS
-                </span>
-              </div>
-              <span className="text-[10px] text-[#4B5565] -mt-0.5 font-medium">Nigerian Sovereign Moat</span>
-            </div>
+            <span className="font-bold text-xl tracking-tight text-[#0B0F1A]">COGENT</span>
           </Link>
 
-          {/* Center Navigation Links */}
-          <nav className="hidden md:flex items-center gap-8 text-xs font-semibold text-[#4B5565]">
-            <a href="#capabilities" className="hover:text-[#2A4BFF] transition-colors">
-              Core Capabilities
-            </a>
-            <a href="#demo" className="hover:text-[#2A4BFF] transition-colors">
-              Interactive Scanner
-            </a>
-            <a href="#coverage" className="hover:text-[#2A4BFF] transition-colors">
-              Regulatory Coverage
-            </a>
-            <a href="#governance" className="hover:text-[#2A4BFF] transition-colors">
-              CAMA 2020 Audit
-            </a>
-          </nav>
-
-          {/* Right Action CTAs */}
-          <div className="flex items-center gap-3">
-            <Link
-              href="/sign-in"
-              className="px-4 py-2 text-xs font-semibold text-[#0B0F1A] hover:text-[#2A4BFF] hover:bg-[#F5F6FA] rounded-xl transition-colors"
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/overview"
-              className="px-4 py-2 text-xs font-semibold text-white bg-[#2A4BFF] hover:bg-[#1E3AE5] rounded-xl shadow-sm transition-all hover:shadow-md flex items-center gap-1.5"
-            >
-              <span>Launch Workspace</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      {/* 2. Hero Section */}
-      <section className="relative overflow-hidden pt-12 pb-20 md:pt-20 md:pb-28 border-b border-[#DDE3EE] bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
-          {/* Sovereign Enclave Badge */}
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-[#EEF2FF] text-[#2A4BFF] border border-[#C7D2FE] shadow-xs">
-            <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
-            <span>Sovereign RegTech Intelligence Enclave</span>
-            <span className="text-[#8D99AE]">•</span>
-            <span className="text-[#4B5565]">CBN • ARCON • SEC • NDPC • FCCPC</span>
-          </div>
-
-          {/* Main Title */}
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-[#0B0F1A] tracking-tight max-w-4xl mx-auto leading-tight">
-            Enterprise Compliance Defense for{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#2A4BFF] to-[#4F46E5]">
-              Nigerian Financial Institutions
+          <div className="flex items-center gap-2">
+            {isClerkConfigured && (
+              <button
+                type="button"
+                onClick={() => setShowDemoForm(!showDemoForm)}
+                className="text-[11px] font-semibold text-[#2A4BFF] hover:underline cursor-pointer"
+              >
+                {showDemoForm ? 'Use Clerk Authentication' : 'One-Click Demo'}
+              </button>
+            )}
+            <span className="text-[11px] font-mono text-[#8D99AE] bg-[#F5F6FA] border border-[#DDE3EE] px-2.5 py-1 rounded-full">
+              NDPA 2023 Compliant
             </span>
-          </h1>
-
-          {/* Subtitle */}
-          <p className="text-sm sm:text-base text-[#4B5565] max-w-2xl mx-auto leading-relaxed">
-            Eliminate statutory fine exposures. Pre-vet financial ad campaigns under ARCON 2022, track Central Bank
-            circular enforcement deadlines with automated cascading, and seal immutable board audit dossiers.
-          </p>
-
-          {/* CTA Group */}
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link
-              href="/overview"
-              className="w-full sm:w-auto px-6 py-3 text-sm font-semibold text-white bg-[#2A4BFF] hover:bg-[#1E3AE5] rounded-xl shadow-md transition-all hover:shadow-lg flex items-center justify-center gap-2"
-            >
-              <span>Enter Enterprise Cockpit</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-            <a
-              href="#demo"
-              className="w-full sm:w-auto px-6 py-3 text-sm font-semibold text-[#0B0F1A] bg-[#F5F6FA] hover:bg-[#EEF2FF] hover:text-[#2A4BFF] border border-[#DDE3EE] rounded-xl transition-colors flex items-center justify-center gap-2"
-            >
-              <Zap className="w-4 h-4 text-[#2A4BFF]" />
-              <span>Test Ad Copy Live</span>
-            </a>
-          </div>
-
-          {/* Trust Strip */}
-          <div className="pt-10 border-t border-[#F5F6FA] max-w-3xl mx-auto">
-            <p className="text-[11px] uppercase tracking-wider text-[#8D99AE] font-semibold mb-4">
-              Built for Regulated Financial Ecosystems Across Nigeria
-            </p>
-            <div className="flex flex-wrap justify-center items-center gap-6 sm:gap-10 text-xs font-semibold text-[#4B5565]">
-              <span className="flex items-center gap-1.5">
-                <Building className="w-3.5 h-3.5 text-[#2A4BFF]" /> Commercial & Merchant Banks
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Building className="w-3.5 h-3.5 text-[#2A4BFF]" /> PSSPs & Payment Gateways
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Building className="w-3.5 h-3.5 text-[#2A4BFF]" /> Microfinance Banks (MFBs)
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Building className="w-3.5 h-3.5 text-[#2A4BFF]" /> Digital Lenders & WealthTech
-              </span>
-            </div>
           </div>
         </div>
-      </section>
 
-      {/* 3. Interactive Live Scanner Demo Section (Day One Value Proof) */}
-      <section id="demo" className="py-16 md:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center space-y-3 mb-10">
-          <div className="inline-flex items-center gap-1.5 text-xs font-bold text-[#2A4BFF] uppercase tracking-wider">
-            <Zap className="w-3.5 h-3.5" />
-            <span>Interactive Demonstration</span>
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-[#0B0F1A] tracking-tight">
-            See Cogent Pre-Vet Compliance in Real Time
-          </h2>
-          <p className="text-xs sm:text-sm text-[#4B5565] max-w-xl mx-auto">
-            Select a sample promotional campaign or paste your own copy below to see our deterministic engine flag
-            prohibitions and calculate statutory fine exposures.
-          </p>
-        </div>
-
-        {/* Demo Studio Box */}
-        <div className="bg-white rounded-2xl border border-[#DDE3EE] shadow-sm overflow-hidden grid grid-cols-1 lg:grid-cols-12">
-          {/* Left Column: Preset Selector & Input */}
-          <div className="lg:col-span-7 p-6 sm:p-8 space-y-5 border-b lg:border-b-0 lg:border-r border-[#DDE3EE]">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#0B0F1A] uppercase tracking-wider">
-                Select Sample Campaign
-              </span>
-              <span className="text-[11px] text-[#4B5565]">Click to test instantly</span>
-            </div>
-
-            {/* Preset Buttons */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              {DEMO_PRESETS.map((preset) => (
-                <button
-                  key={preset.id}
-                  onClick={() => handleSelectPreset(preset)}
-                  className={`p-3 rounded-xl border text-left transition-all ${
-                    selectedPresetId === preset.id
-                      ? 'border-[#2A4BFF] bg-[#EEF2FF] shadow-xs'
-                      : 'border-[#DDE3EE] hover:border-[#C7D2FE] bg-white'
-                  }`}
-                >
-                  <span className="block text-xs font-bold text-[#0B0F1A] truncate">{preset.name}</span>
-                  <span className="block text-[10px] text-[#4B5565] mt-0.5">{preset.badge}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Textarea Input */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[#0B0F1A] flex items-center justify-between">
-                <span>Ad Copy / Broadcast Draft</span>
-                <span className="text-[10px] text-[#8D99AE]">{demoInput.length} chars</span>
-              </label>
-              <textarea
-                value={demoInput}
-                onChange={(e) => setDemoInput(e.target.value)}
-                rows={5}
-                className="w-full p-3.5 rounded-xl border border-[#DDE3EE] focus:border-[#2A4BFF] focus:ring-2 focus:ring-[#2A4BFF]/20 text-xs sm:text-sm text-[#0B0F1A] transition-all resize-none font-sans"
-                placeholder="Type or paste SMS, Instagram caption, or Google ad copy to test..."
-              />
-            </div>
-
-            {/* Run Button */}
+        {/* Center Auth Card */}
+        <div className="my-auto py-8 max-w-md w-full mx-auto">
+          {/* Segmented Tab Switcher (Log In / Create Account) */}
+          <div className="flex p-1 bg-[#F5F6FA] border border-[#DDE3EE] rounded-xl mb-6 shadow-2xs">
             <button
-              onClick={handleRunDemoScan}
-              disabled={isScanning || !demoInput.trim()}
-              className="w-full py-3 bg-[#2A4BFF] hover:bg-[#1E3AE5] text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              type="button"
+              onClick={() => setAuthMode('SIGN_IN')}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                authMode === 'SIGN_IN'
+                  ? 'bg-white text-[#0B0F1A] shadow-xs'
+                  : 'text-[#8D99AE] hover:text-[#0B0F1A]'
+              }`}
             >
-              {isScanning ? (
-                <>
-                  <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Evaluating Against ARCON & CBN Standards...</span>
-                </>
-              ) : (
-                <>
-                  <Play className="w-3.5 h-3.5 fill-current" />
-                  <span>Run Pre-Vet Scan</span>
-                </>
-              )}
+              Log In
+            </button>
+            <button
+              type="button"
+              onClick={() => setAuthMode('SIGN_UP')}
+              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                authMode === 'SIGN_UP'
+                  ? 'bg-white text-[#0B0F1A] shadow-xs'
+                  : 'text-[#8D99AE] hover:text-[#0B0F1A]'
+              }`}
+            >
+              Create Account
             </button>
           </div>
 
-          {/* Right Column: Live Diagnostic Output */}
-          <div className="lg:col-span-5 p-6 sm:p-8 bg-[#F5F6FA] space-y-5 flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between pb-3 border-b border-[#DDE3EE]">
-                <span className="text-xs font-bold text-[#0B0F1A] uppercase tracking-wider">
-                  Diagnostic Findings
-                </span>
-                {demoResult && (
-                  <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      demoResult.verdict === 'VIOLATION'
-                        ? 'bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA]'
-                        : 'bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0]'
-                    }`}
+          {/* ─────────────────────────────────────────────────────────────
+              TAB 1: LOG IN TO YOUR ACCOUNT
+              ───────────────────────────────────────────────────────────── */}
+          {authMode === 'SIGN_IN' ? (
+            isClerkConfigured && !showDemoForm ? (
+              <div className="space-y-4">
+                <div className="space-y-1 mb-4">
+                  <h1 className="text-3xl font-extrabold text-[#0B0F1A] tracking-tight">
+                    Log in to your Account
+                  </h1>
+                  <p className="text-xs text-[#4B5565]">
+                    Welcome back! Select method to log in:
+                  </p>
+                </div>
+
+                <SignIn
+                  routing="path"
+                  path="/sign-in"
+                  signUpUrl="/sign-up"
+                  appearance={{
+                    elements: {
+                      card: 'shadow-none border-none p-0 bg-transparent w-full',
+                      rootBox: 'w-full',
+                      headerTitle: 'hidden',
+                      headerSubtitle: 'hidden',
+                      socialButtonsBlockButton:
+                        'border-[#DDE3EE] bg-white hover:bg-[#F9FAFC] text-[#0B0F1A] font-semibold text-xs rounded-xl py-2.5 transition-colors shadow-2xs',
+                      formButtonPrimary:
+                        'bg-[#2A4BFF] hover:bg-[#1E3AE5] text-white font-semibold text-xs rounded-xl py-3 shadow-md shadow-[#2A4BFF]/20 transition-all cursor-pointer',
+                      formFieldInput:
+                        'bg-white border-[#DDE3EE] text-[#0B0F1A] focus:border-[#2A4BFF] focus:ring-2 focus:ring-[#2A4BFF]/10 rounded-xl text-xs placeholder-[#8D99AE] transition-all',
+                      formFieldLabel: 'text-[#0B0F1A] text-xs font-semibold',
+                      footerActionLink: 'text-[#2A4BFF] hover:underline font-bold text-xs',
+                      dividerLine: 'bg-[#DDE3EE]',
+                      dividerText: 'text-[#8D99AE] text-xs font-medium uppercase',
+                      identityPreviewText: 'text-[#0B0F1A] font-medium text-xs',
+                      identityPreviewEditButton: 'text-[#2A4BFF] hover:underline text-xs',
+                    },
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="space-y-1.5">
+                  <h1 className="text-3xl font-extrabold text-[#0B0F1A] tracking-tight">
+                    Log in to your Account
+                  </h1>
+                  <p className="text-xs text-[#4B5565]">
+                    Welcome back! Select method to log in:
+                  </p>
+                </div>
+
+                {/* Social Login Buttons Row */}
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => router.push('/overview')}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-[#DDE3EE] hover:bg-[#F9FAFC] text-xs font-semibold text-[#0B0F1A] shadow-2xs transition-colors cursor-pointer"
                   >
-                    {demoResult.verdict === 'VIOLATION' ? 'BLOCKING VIOLATIONS' : 'CLEAN CLEARANCE'}
+                    <svg className="w-4 h-4" viewBox="0 0 24 24">
+                      <path
+                        fill="#4285F4"
+                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                      />
+                      <path
+                        fill="#34A853"
+                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                      />
+                      <path
+                        fill="#FBBC05"
+                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                      />
+                      <path
+                        fill="#EA4335"
+                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                      />
+                    </svg>
+                    <span>Google</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => router.push('/overview')}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-[#DDE3EE] hover:bg-[#F9FAFC] text-xs font-semibold text-[#0B0F1A] shadow-2xs transition-colors cursor-pointer"
+                  >
+                    <KeyRound className="w-3.5 h-3.5 text-[#2A4BFF]" />
+                    <span>Sandbox SSO</span>
+                  </button>
+                </div>
+
+                {/* Divider */}
+                <div className="relative flex items-center justify-center">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-[#DDE3EE]" />
+                  </div>
+                  <span className="relative px-3 bg-white text-[11px] text-[#8D99AE]">
+                    or continue with email
                   </span>
-                )}
-              </div>
+                </div>
 
-              {demoResult ? (
-                <div className="mt-4 space-y-4">
-                  {/* Fine Exposure Metric */}
-                  <div className="p-3.5 rounded-xl bg-white border border-[#DDE3EE] flex items-center justify-between">
-                    <div>
-                      <span className="text-[10px] text-[#4B5565] uppercase font-semibold block">
-                        Statutory Fine Exposure
-                      </span>
-                      <span
-                        className={`text-xl font-extrabold ${
-                          demoResult.fineExposureNaira > 0 ? 'text-[#DC2626]' : 'text-[#10B981]'
-                        }`}
+                {/* Email & Password Form */}
+                <form onSubmit={handleSignInSubmit} className="space-y-4">
+                  <div>
+                    <div className="relative">
+                      <Mail className="w-4 h-4 text-[#8D99AE] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="email"
+                        required
+                        value={demoEmail}
+                        onChange={(e) => setDemoEmail(e.target.value)}
+                        placeholder="Email"
+                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#DDE3EE] rounded-xl text-xs text-[#0B0F1A] placeholder-[#8D99AE] focus:outline-none focus:border-[#2A4BFF] focus:ring-2 focus:ring-[#2A4BFF]/10 shadow-2xs font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-[#8D99AE] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        value={demoPassword}
+                        onChange={(e) => setDemoPassword(e.target.value)}
+                        placeholder="Password"
+                        className="w-full pl-10 pr-10 py-2.5 bg-white border border-[#DDE3EE] rounded-xl text-xs text-[#0B0F1A] placeholder-[#8D99AE] focus:outline-none focus:border-[#2A4BFF] focus:ring-2 focus:ring-[#2A4BFF]/10 shadow-2xs font-medium"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#8D99AE] hover:text-[#0B0F1A] cursor-pointer"
                       >
-                        ₦{demoResult.fineExposureNaira.toLocaleString()}
-                      </span>
+                        {showPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
                     </div>
-                    <span className="text-[11px] text-[#8D99AE] font-mono">
-                      {demoResult.infractions.length} Flags
+                  </div>
+
+                  {/* Remember Me & Forgot Password */}
+                  <div className="flex items-center justify-between text-xs pt-1">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={rememberMe}
+                        onChange={(e) => setRememberMe(e.target.checked)}
+                        className="w-4 h-4 rounded text-[#2A4BFF] focus:ring-[#2A4BFF] border-[#DDE3EE]"
+                      />
+                      <span className="text-[#0B0F1A] font-medium text-xs">Remember me</span>
+                    </label>
+
+                    <span className="text-[#2A4BFF] hover:underline font-semibold text-xs cursor-pointer">
+                      Forgot Password?
                     </span>
                   </div>
 
-                  {/* Infraction Flags */}
-                  {demoResult.infractions.length > 0 ? (
-                    <div className="space-y-2">
-                      <span className="text-[11px] font-bold text-[#0B0F1A]">Prohibited Excerpts:</span>
-                      {demoResult.infractions.map((inf, idx) => (
-                        <div
-                          key={idx}
-                          className="p-2.5 rounded-lg bg-white border border-[#FECACA] text-xs space-y-1"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="font-semibold text-[#DC2626]">"{inf.excerpt}"</span>
-                            <span className="text-[10px] font-mono text-[#DC2626]">
-                              ₦{inf.fine.toLocaleString()}
-                            </span>
-                          </div>
-                          <span className="text-[10px] text-[#4B5565] block font-medium">
-                            {inf.rule} — {inf.citation}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="p-3 rounded-lg bg-white border border-[#A7F3D0] text-xs space-y-1 text-[#065F46]">
-                      <div className="flex items-center gap-1.5 font-bold">
-                        <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
-                        <span>No Statutory Infractions Detected</span>
-                      </div>
-                      <p className="text-[11px] text-[#047857]">
-                        Copy contains all required regulatory disclosures and avoids deceptive yield or loan claims.
-                      </p>
-                    </div>
-                  )}
+                  {/* Primary Log In Button */}
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full py-3 rounded-xl bg-[#2A4BFF] hover:bg-[#1E3AE5] text-white text-xs font-bold shadow-md shadow-[#2A4BFF]/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
+                  >
+                    {isLoading ? (
+                      <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <span>Log In</span>
+                    )}
+                  </button>
+                </form>
 
-                  {/* Compliant Rewrite Block */}
-                  <div className="p-3 rounded-xl bg-white border border-[#DDE3EE] space-y-1">
-                    <span className="text-[11px] font-bold text-[#2A4BFF] flex items-center gap-1">
-                      <Sparkles className="w-3 h-3" />
-                      <span>Compliant Rewrite Suggestion:</span>
-                    </span>
-                    <p className="text-xs text-[#0B0F1A] leading-relaxed italic">{demoResult.rewrite}</p>
+                {/* Bottom Toggle to Create Account */}
+                <div className="text-center text-xs text-[#4B5565] pt-2">
+                  <span>Don&apos;t have an account? </span>
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode('SIGN_UP')}
+                    className="text-[#2A4BFF] hover:underline font-bold cursor-pointer"
+                  >
+                    Create an account
+                  </button>
+                </div>
+              </div>
+            )
+          ) : (
+            /* ─────────────────────────────────────────────────────────────
+                TAB 2: CREATE YOUR ACCOUNT
+                ───────────────────────────────────────────────────────────── */
+            isClerkConfigured && !showDemoForm ? (
+              <div className="space-y-4">
+                <div className="space-y-1 mb-4">
+                  <h1 className="text-3xl font-extrabold text-[#0B0F1A] tracking-tight">
+                    Create your Account
+                  </h1>
+                  <p className="text-xs text-[#4B5565]">
+                    Register your financial institution for sovereign compliance:
+                  </p>
+                </div>
+
+                <SignUp
+                  routing="path"
+                  path="/sign-up"
+                  signInUrl="/sign-in"
+                  appearance={{
+                    elements: {
+                      card: 'shadow-none border-none p-0 bg-transparent w-full',
+                      rootBox: 'w-full',
+                      headerTitle: 'hidden',
+                      headerSubtitle: 'hidden',
+                      socialButtonsBlockButton:
+                        'border-[#DDE3EE] bg-white hover:bg-[#F9FAFC] text-[#0B0F1A] font-semibold text-xs rounded-xl py-2.5 transition-colors shadow-2xs',
+                      formButtonPrimary:
+                        'bg-[#2A4BFF] hover:bg-[#1E3AE5] text-white font-semibold text-xs rounded-xl py-3 shadow-md shadow-[#2A4BFF]/20 transition-all cursor-pointer',
+                      formFieldInput:
+                        'bg-white border-[#DDE3EE] text-[#0B0F1A] focus:border-[#2A4BFF] focus:ring-2 focus:ring-[#2A4BFF]/10 rounded-xl text-xs placeholder-[#8D99AE] transition-all',
+                      formFieldLabel: 'text-[#0B0F1A] text-xs font-semibold',
+                      footerActionLink: 'text-[#2A4BFF] hover:underline font-bold text-xs',
+                      dividerLine: 'bg-[#DDE3EE]',
+                      dividerText: 'text-[#8D99AE] text-xs font-medium uppercase',
+                      identityPreviewText: 'text-[#0B0F1A] font-medium text-xs',
+                      identityPreviewEditButton: 'text-[#2A4BFF] hover:underline text-xs',
+                    },
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="space-y-1.5">
+                  <h1 className="text-3xl font-extrabold text-[#0B0F1A] tracking-tight">
+                    Create your Account
+                  </h1>
+                  <p className="text-xs text-[#4B5565]">
+                    Register your financial institution for sovereign compliance:
+                  </p>
+                </div>
+
+                {/* Social Login Buttons Row */}
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => router.push('/onboarding')}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-[#DDE3EE] hover:bg-[#F9FAFC] text-xs font-semibold text-[#0B0F1A] shadow-2xs transition-colors cursor-pointer"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24">
+                      <path
+                        fill="#4285F4"
+                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                      />
+                      <path
+                        fill="#34A853"
+                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                      />
+                      <path
+                        fill="#FBBC05"
+                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                      />
+                      <path
+                        fill="#EA4335"
+                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                      />
+                    </svg>
+                    <span>Google</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => router.push('/onboarding')}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-[#DDE3EE] hover:bg-[#F9FAFC] text-xs font-semibold text-[#0B0F1A] shadow-2xs transition-colors cursor-pointer"
+                  >
+                    <KeyRound className="w-3.5 h-3.5 text-[#2A4BFF]" />
+                    <span>Sandbox SSO</span>
+                  </button>
+                </div>
+
+                {/* Divider */}
+                <div className="relative flex items-center justify-center">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-[#DDE3EE]" />
                   </div>
+                  <span className="relative px-3 bg-white text-[11px] text-[#8D99AE]">
+                    or register with email
+                  </span>
                 </div>
-              ) : (
-                <div className="py-12 text-center text-xs text-[#8D99AE]">
-                  Select a preset or click Run Pre-Vet Scan to preview evaluation.
+
+                {/* Registration Form */}
+                <form onSubmit={handleSignUpSubmit} className="space-y-4">
+                  <div>
+                    <div className="relative">
+                      <Building2 className="w-4 h-4 text-[#8D99AE] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="text"
+                        required
+                        value={institutionName}
+                        onChange={(e) => setInstitutionName(e.target.value)}
+                        placeholder="Financial Institution / FinTech Name"
+                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#DDE3EE] rounded-xl text-xs text-[#0B0F1A] placeholder-[#8D99AE] focus:outline-none focus:border-[#2A4BFF] focus:ring-2 focus:ring-[#2A4BFF]/10 shadow-2xs font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="relative">
+                      <Mail className="w-4 h-4 text-[#8D99AE] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="email"
+                        required
+                        value={demoEmail}
+                        onChange={(e) => setDemoEmail(e.target.value)}
+                        placeholder="Work Email"
+                        className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#DDE3EE] rounded-xl text-xs text-[#0B0F1A] placeholder-[#8D99AE] focus:outline-none focus:border-[#2A4BFF] focus:ring-2 focus:ring-[#2A4BFF]/10 shadow-2xs font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-[#8D99AE] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        value={demoPassword}
+                        onChange={(e) => setDemoPassword(e.target.value)}
+                        placeholder="Password (12+ characters)"
+                        className="w-full pl-10 pr-10 py-2.5 bg-white border border-[#DDE3EE] rounded-xl text-xs text-[#0B0F1A] placeholder-[#8D99AE] focus:outline-none focus:border-[#2A4BFF] focus:ring-2 focus:ring-[#2A4BFF]/10 shadow-2xs font-medium"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#8D99AE] hover:text-[#0B0F1A] cursor-pointer"
+                      >
+                        {showPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Terms Agreement Checkbox */}
+                  <div className="flex items-start gap-2 pt-1">
+                    <input
+                      type="checkbox"
+                      id="terms-gateway"
+                      required
+                      checked={agreeTerms}
+                      onChange={(e) => setAgreeTerms(e.target.checked)}
+                      className="w-4 h-4 mt-0.5 rounded text-[#2A4BFF] focus:ring-[#2A4BFF] border-[#DDE3EE]"
+                    />
+                    <label htmlFor="terms-gateway" className="text-[11px] text-[#4B5565] leading-tight select-none">
+                      I agree to the{' '}
+                      <span className="text-[#0B0F1A] font-semibold">Institutional Compliance Terms</span>{' '}
+                      and data protection governance under NDPA 2023.
+                    </label>
+                  </div>
+
+                  {/* Primary Create Account Button */}
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full py-3 rounded-xl bg-[#2A4BFF] hover:bg-[#1E3AE5] text-white text-xs font-bold shadow-md shadow-[#2A4BFF]/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
+                  >
+                    {isLoading ? (
+                      <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <span>Create Account</span>
+                    )}
+                  </button>
+                </form>
+
+                {/* Bottom Toggle to Log In */}
+                <div className="text-center text-xs text-[#4B5565] pt-2">
+                  <span>Already have an account? </span>
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode('SIGN_IN')}
+                    className="text-[#2A4BFF] hover:underline font-bold cursor-pointer"
+                  >
+                    Log in
+                  </button>
                 </div>
-              )}
-            </div>
-
-            {/* Direct Link to Full Platform */}
-            <Link
-              href="/overview"
-              className="mt-4 pt-3 border-t border-[#DDE3EE] text-xs font-semibold text-[#2A4BFF] hover:underline flex items-center justify-between"
-            >
-              <span>Access full compliance workspace</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* 4. Core Capabilities Section */}
-      <section id="capabilities" className="py-16 md:py-24 border-t border-[#DDE3EE] bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
-          <div className="text-center space-y-3 max-w-2xl mx-auto">
-            <h2 className="text-2xl sm:text-3xl font-bold text-[#0B0F1A] tracking-tight">
-              A Complete Sovereign RegTech Suite
-            </h2>
-            <p className="text-xs sm:text-sm text-[#4B5565]">
-              Unified supervisory intelligence protecting commercial banks, PSSPs, and MFBs across every compliance
-              vector.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {/* Card 1 */}
-            <div className="p-6 rounded-2xl bg-[#F5F6FA] border border-[#DDE3EE] space-y-4 hover:border-[#C7D2FE] transition-colors">
-              <div className="w-10 h-10 rounded-xl bg-[#EEF2FF] text-[#2A4BFF] flex items-center justify-center">
-                <ShieldCheck className="w-5 h-5" />
               </div>
-              <h3 className="text-base font-bold text-[#0B0F1A]">Marketing Shield</h3>
-              <p className="text-xs text-[#4B5565] leading-relaxed">
-                Sub-second deterministic regex and Gemini vector analysis preventing ARCON Code 2022 and CBN CPF
-                sanctions before broadcast.
-              </p>
-            </div>
-
-            {/* Card 2 */}
-            <div className="p-6 rounded-2xl bg-[#F5F6FA] border border-[#DDE3EE] space-y-4 hover:border-[#C7D2FE] transition-colors">
-              <div className="w-10 h-10 rounded-xl bg-[#EEF2FF] text-[#2A4BFF] flex items-center justify-center">
-                <Radio className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-[#0B0F1A]">Regulatory Radar</h3>
-              <p className="text-xs text-[#4B5565] leading-relaxed">
-                Continuous ingestion of gazettes, guidelines, and circulars with real countdown timers to enforcement
-                deadlines.
-              </p>
-            </div>
-
-            {/* Card 3 */}
-            <div className="p-6 rounded-2xl bg-[#F5F6FA] border border-[#DDE3EE] space-y-4 hover:border-[#C7D2FE] transition-colors">
-              <div className="w-10 h-10 rounded-xl bg-[#EEF2FF] text-[#2A4BFF] flex items-center justify-center">
-                <Scale className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-[#0B0F1A]">5-W Policy Concordance</h3>
-              <p className="text-xs text-[#4B5565] leading-relaxed">
-                Vector gap matrix matching internal operating policies against BOFIA 2020, NDPA 2023, and AML/CFT
-                regulations.
-              </p>
-            </div>
-
-            {/* Card 4 */}
-            <div className="p-6 rounded-2xl bg-[#F5F6FA] border border-[#DDE3EE] space-y-4 hover:border-[#C7D2FE] transition-colors">
-              <div className="w-10 h-10 rounded-xl bg-[#EEF2FF] text-[#2A4BFF] flex items-center justify-center">
-                <Lock className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-[#0B0F1A]">CAMA 2020 Audit Ledger</h3>
-              <p className="text-xs text-[#4B5565] leading-relaxed">
-                Tamper-evident cryptographic SHA-256 evidence chain preserving six-year institutional defense records for
-                bank examiners.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 5. Statutory Corpus Coverage Section */}
-      <section id="coverage" className="py-16 md:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
-        <div className="text-center space-y-3 max-w-2xl mx-auto">
-          <h2 className="text-2xl sm:text-3xl font-bold text-[#0B0F1A] tracking-tight">
-            Comprehensive Nigerian Statutory Coverage
-          </h2>
-          <p className="text-xs sm:text-sm text-[#4B5565]">
-            Engineered specifically for Nigerian financial law and supervisory oversight bodies.
-          </p>
+            )
+          )}
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          {[
-            { name: 'CBN', full: 'Central Bank of Nigeria', acts: 'BOFIA 2020 & CPF' },
-            { name: 'ARCON', full: 'Advertising Regulatory Council', acts: 'Act No. 23 of 2022' },
-            { name: 'SEC', full: 'Securities & Exchange Commission', acts: 'ISA 2007 & Rule 322' },
-            { name: 'NDPC', full: 'Nigeria Data Protection Commission', acts: 'NDPA 2023' },
-            { name: 'FCCPC', full: 'Federal Competition & Consumer Protection', acts: 'FCCPA 2018' },
-            { name: 'NFIU', full: 'Nigerian Financial Intelligence Unit', acts: 'AML/CFT/CPF 2022' },
-          ].map((reg, i) => (
-            <div
-              key={i}
-              className="p-4 rounded-xl bg-white border border-[#DDE3EE] text-center space-y-1 shadow-2xs"
-            >
-              <span className="text-base font-extrabold text-[#2A4BFF] block">{reg.name}</span>
-              <span className="text-[11px] font-semibold text-[#0B0F1A] block truncate">{reg.full}</span>
-              <span className="text-[10px] text-[#4B5565] block font-mono">{reg.acts}</span>
-            </div>
-          ))}
+        {/* Bottom Institutional Micro-Footer */}
+        <div className="text-[11px] text-[#8D99AE] flex items-center justify-between pt-4 border-t border-[#F1F5F9]">
+          <span>© 2026 Cogent Regulatory Systems</span>
+          <span className="flex items-center gap-1 text-[#10B981]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+            Sovereign Enclave Ready · CBN · NDPC · ARCON Active
+          </span>
         </div>
-      </section>
+      </div>
 
-      {/* 6. Bottom Call to Action */}
-      <section className="py-16 bg-[#0B0F1A] text-white">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 text-center space-y-6">
-          <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight">
-            Protect Your Financial Institution Today
-          </h2>
-          <p className="text-xs sm:text-sm text-[#8D99AE] max-w-xl mx-auto leading-relaxed">
-            Eliminate non-compliance risks, safeguard brand trust, and maintain seamless board-level governance across all
-            Nigerian financial regulators.
-          </p>
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link
-              href="/overview"
-              className="w-full sm:w-auto px-6 py-3 text-xs font-bold text-[#0B0F1A] bg-white hover:bg-[#F5F6FA] rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
-            >
-              <span>Launch Cogent Workspace</span>
-              <ArrowRight className="w-4 h-4 text-[#2A4BFF]" />
-            </Link>
-            <Link
-              href="/sign-in"
-              className="w-full sm:w-auto px-6 py-3 text-xs font-bold text-white bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl transition-all flex items-center justify-center"
-            >
-              <span>Sign In to Existing Account</span>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* 7. Footer */}
-      <footer className="border-t border-[#DDE3EE] bg-white py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#4B5565]">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-[#2A4BFF] flex items-center justify-center text-white font-bold text-xs">
-              C
-            </div>
-            <span className="font-semibold text-[#0B0F1A]">COGENT RegTech OS</span>
-            <span>© {new Date().getFullYear()} All Rights Reserved.</span>
-          </div>
-          <div className="flex items-center gap-6 text-[11px]">
-            <span>Sovereign Enclave Security</span>
-            <span>CAMA 2020 Compliant</span>
-            <span>Encrypted SHA-256 Audit Trail</span>
-          </div>
-        </div>
-      </footer>
+      {/* ───────────────────────────────────────────────────────────────────
+          RIGHT HALF: ELECTRIC COBALT SHOWCASE PANEL (ui_ref/sign.JPG)
+          ─────────────────────────────────────────────────────────────────── */}
+      <div className="w-full lg:w-1/2 hidden lg:block">
+        <AuthShowcasePanel
+          title={
+            authMode === 'SIGN_IN'
+              ? 'Connect with every regulator.'
+              : 'Connect with every application.'
+          }
+          subtitle="Everything you need in an easily customizable regulatory intelligence dashboard."
+          activeDotIndex={authMode === 'SIGN_IN' ? 0 : 1}
+        />
+      </div>
     </div>
+  );
+}
+
+export default function UnifiedAuthGateway() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-white flex items-center justify-center">
+          <div className="w-6 h-6 border-2 border-[#2A4BFF] border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <UnifiedAuthGatewayContent />
+    </Suspense>
   );
 }

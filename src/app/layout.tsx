@@ -1,17 +1,6 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Cogent | Enterprise RegTech & Compliance Cockpit",
@@ -38,9 +27,9 @@ export default function RootLayout({
   const htmlContent = (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased bg-[#F5F6FA] text-[#0B0F1A]`}
+      className="h-full antialiased bg-[#F5F6FA] text-[#0B0F1A]"
     >
-      <body className="min-h-full flex flex-col bg-[#F5F6FA] text-[#0B0F1A]">{children}</body>
+      <body className="min-h-full flex flex-col bg-[#F5F6FA] text-[#0B0F1A] font-sans">{children}</body>
     </html>
   );
 
