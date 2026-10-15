@@ -41,27 +41,27 @@ export class ExecutiveOverviewService {
   ): Promise<ExecutiveOverviewData> {
     const timestamp = new Date().toISOString();
 
-    // Default robust baselines
-    let marketingFineAvoided = 16500000;
-    const marketingHealth = 94;
-    const radarFineAvoided = 25000000;
-    let radarHealth = 88;
-    const gapFineAvoided = 45000000;
-    let gapHealth = 82;
+    // Honest Production Telemetry Baselines (Zero-State by Default)
+    let marketingFineAvoided = 0;
+    let marketingHealth = 100;
+    let radarFineAvoided = 0;
+    let radarHealth = 100;
+    let gapFineAvoided = 0;
+    let gapHealth = 100;
 
-    let totalMarketingScans = 18;
-    let approvedMarketingScans = 17;
-    let needsReReviewMarketingScans = 1;
-    let activeDriftAlertsCount = 1;
+    let totalMarketingScans = 0;
+    let approvedMarketingScans = 0;
+    let needsReReviewMarketingScans = 0;
+    let activeDriftAlertsCount = 0;
 
-    let activeCircularsCount = 12;
-    let unreadHighPriorityCount = 2;
-    let supersededCircularsCount = 1;
+    let activeCircularsCount = 0;
+    let unreadHighPriorityCount = 0;
+    let supersededCircularsCount = 0;
 
-    let activePoliciesCount = 4;
-    let criticalGapsCount = 1;
-    let partiallyMetCount = 2;
-    let unhedgedPenaltyRiskNaira = 15000000;
+    let activePoliciesCount = 0;
+    let criticalGapsCount = 0;
+    let partiallyMetCount = 0;
+    let unhedgedPenaltyRiskNaira = 0;
 
     if (this.dbClient) {
       try {
@@ -176,10 +176,11 @@ export class ExecutiveOverviewService {
     }
 
     // Composite Institutional Score: weighted average across the 3 pillars
-    // Pillar 1 (Marketing): 30%, Pillar 2 (Radar): 35%, Pillar 3 (Gap Matrix): 35%
-    const compositeHealthScore = Math.round(
-      marketingHealth * 0.3 + radarHealth * 0.35 + gapHealth * 0.35
-    );
+    // If organization has no activity yet, default to clean 100% baseline (Zero-State)
+    const hasActivity = totalMarketingScans > 0 || activePoliciesCount > 0;
+    const compositeHealthScore = hasActivity
+      ? Math.round(marketingHealth * 0.3 + radarHealth * 0.35 + gapHealth * 0.35)
+      : 100;
 
     // Categorize health grade
     let healthGrade: ComplianceHealthGrade = 'SATISFACTORY';
@@ -195,25 +196,25 @@ export class ExecutiveOverviewService {
 
     const totalFinesAvoidedNaira = marketingFineAvoided + radarFineAvoided + gapFineAvoided;
 
-    // Pillar 1 Snapshot
+    // Pillar 1 Snapshot (Marketing Shield)
     const marketingSnapshot: PillarComplianceSnapshot = {
       pillar: 'marketing',
-      name: 'Pillar 1: Marketing Shield',
+      name: 'Marketing Shield',
       tagline: 'Pre-Vetting & Advertising Compliance',
       healthPercentage: marketingHealth,
       status: marketingHealth >= 90 ? 'OPTIMAL' : 'ATTENTION_REQUIRED',
       primaryMetricLabel: 'Campaigns Pre-Cleared',
-      primaryMetricValue: `${approvedMarketingScans} / ${totalMarketingScans}`,
+      primaryMetricValue: totalMarketingScans > 0 ? `${approvedMarketingScans} / ${totalMarketingScans}` : '0 Scans',
       secondaryMetricLabel: 'ARCON ASP Clearances',
-      secondaryMetricValue: `${Math.round((approvedMarketingScans / Math.max(1, totalMarketingScans)) * 100)}% Pass Rate`,
+      secondaryMetricValue: totalMarketingScans > 0 ? `${Math.round((approvedMarketingScans / Math.max(1, totalMarketingScans)) * 100)}% Pass Rate` : 'Pending First Scan',
       fineExposureAvoidedNaira: marketingFineAvoided,
       openItemsCount: needsReReviewMarketingScans + activeDriftAlertsCount,
     };
 
-    // Pillar 2 Snapshot
+    // Pillar 2 Snapshot (Regulatory Radar)
     const radarSnapshot: PillarComplianceSnapshot = {
       pillar: 'radar',
-      name: 'Pillar 2: Regulatory Radar',
+      name: 'Regulatory Radar',
       tagline: 'Circular Ingestion & Multi-Role Impact',
       healthPercentage: radarHealth,
       status: radarHealth >= 85 ? 'OPTIMAL' : 'ATTENTION_REQUIRED',
@@ -225,17 +226,17 @@ export class ExecutiveOverviewService {
       openItemsCount: unreadHighPriorityCount,
     };
 
-    // Pillar 3 Snapshot
+    // Pillar 3 Snapshot (Policy Gap Matrix)
     const gapMatrixSnapshot: PillarComplianceSnapshot = {
       pillar: 'gap-matrix',
-      name: 'Pillar 3: 5-W Gap Matrix',
+      name: 'Policy Gap Matrix',
       tagline: 'Statutory Defense & Board Dossier Pack',
       healthPercentage: gapHealth,
       status: gapHealth >= 80 ? 'OPTIMAL' : 'ATTENTION_REQUIRED',
       primaryMetricLabel: 'Statutory Policy Alignment',
-      primaryMetricValue: `${gapHealth}% Compliant`,
+      primaryMetricValue: activePoliciesCount > 0 ? `${gapHealth}% Compliant` : 'Concordance Pending',
       secondaryMetricLabel: 'Bank Examiner Dossier',
-      secondaryMetricValue: 'SHA-256 Sealed',
+      secondaryMetricValue: activePoliciesCount > 0 ? 'SHA-256 Sealed' : 'Awaiting Policy Ingestion',
       fineExposureAvoidedNaira: gapFineAvoided,
       openItemsCount: criticalGapsCount,
     };
@@ -326,51 +327,51 @@ export class ExecutiveOverviewService {
       },
     ];
 
-    // Departmental Readiness Breakdown
+    // Departmental Readiness Breakdown (Dynamically scaled from live telemetry)
     const departmentalReadiness: DepartmentalReadinessItem[] = [
       {
         department: 'COMPLIANCE_LEGAL',
         departmentLabel: 'Compliance & Legal',
-        overallRisk: 'MEDIUM',
-        openObligationsCount: 4,
-        imminentDeadlinesCount: 1,
-        finesAvoidedNaira: 35000000,
+        overallRisk: unreadHighPriorityCount > 0 ? 'HIGH' : criticalGapsCount > 0 ? 'MEDIUM' : 'LOW',
+        openObligationsCount: unreadHighPriorityCount + criticalGapsCount,
+        imminentDeadlinesCount: unreadHighPriorityCount,
+        finesAvoidedNaira: totalFinesAvoidedNaira > 0 ? Math.round(totalFinesAvoidedNaira * 0.4) : 0,
         leadRole: 'Chief Compliance Officer',
       },
       {
         department: 'OPERATIONS',
         departmentLabel: 'Operations & Customer Experience',
         overallRisk: 'LOW',
-        openObligationsCount: 2,
+        openObligationsCount: activeCircularsCount > 0 ? 1 : 0,
         imminentDeadlinesCount: 0,
-        finesAvoidedNaira: 15000000,
+        finesAvoidedNaira: totalFinesAvoidedNaira > 0 ? Math.round(totalFinesAvoidedNaira * 0.15) : 0,
         leadRole: 'Head of Operations & Support',
       },
       {
         department: 'GROWTH_MARKETING',
         departmentLabel: 'Growth & Marketing',
-        overallRisk: 'LOW',
-        openObligationsCount: 1,
+        overallRisk: needsReReviewMarketingScans > 0 || activeDriftAlertsCount > 0 ? 'MEDIUM' : 'LOW',
+        openObligationsCount: needsReReviewMarketingScans + activeDriftAlertsCount,
         imminentDeadlinesCount: 0,
-        finesAvoidedNaira: 16500000,
+        finesAvoidedNaira: marketingFineAvoided,
         leadRole: 'VP of Growth & Marketing',
       },
       {
         department: 'ENGINEERING_TECH',
         departmentLabel: 'Engineering & Product',
-        overallRisk: 'MEDIUM',
-        openObligationsCount: 3,
-        imminentDeadlinesCount: 1,
-        finesAvoidedNaira: 10000000,
+        overallRisk: criticalGapsCount > 0 ? 'MEDIUM' : 'LOW',
+        openObligationsCount: criticalGapsCount,
+        imminentDeadlinesCount: 0,
+        finesAvoidedNaira: totalFinesAvoidedNaira > 0 ? Math.round(totalFinesAvoidedNaira * 0.2) : 0,
         leadRole: 'Chief Technology Officer',
       },
       {
         department: 'TREASURY_FINANCE',
         departmentLabel: 'Treasury & Finance',
         overallRisk: 'LOW',
-        openObligationsCount: 1,
+        openObligationsCount: 0,
         imminentDeadlinesCount: 0,
-        finesAvoidedNaira: 10000000,
+        finesAvoidedNaira: totalFinesAvoidedNaira > 0 ? Math.round(totalFinesAvoidedNaira * 0.15) : 0,
         leadRole: 'Chief Financial Officer',
       },
       {

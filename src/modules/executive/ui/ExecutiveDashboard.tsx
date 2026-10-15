@@ -178,9 +178,9 @@ export function ExecutiveDashboard({
     }
   };
 
-  const compositeScore = data?.compositeHealthScore ?? 88;
+  const compositeScore = data?.compositeHealthScore ?? 100;
   const healthGrade = data?.healthGrade ?? (compositeScore >= 90 ? 'EXEMPLARY' : compositeScore >= 75 ? 'SATISFACTORY' : 'SUPERVISORY_CONCERN');
-  const totalFineAvoided = data?.totalFinesAvoidedNaira ?? 86500000;
+  const totalFineAvoided = data?.totalFinesAvoidedNaira ?? 0;
 
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto text-[#0B0F1A]">
@@ -362,7 +362,7 @@ export function ExecutiveDashboard({
 
       {/* 3. 3-Pillar Operational Scorecard Grid */}
       <section className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* Card 1: Pillar 1 Marketing Shield */}
+        {/* Card 1: Marketing Shield */}
         <div className="group rounded-2xl bg-white border border-[#DDE3EE] p-5 hover:border-[#2A4BFF] transition-all shadow-xs flex flex-col justify-between">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -370,7 +370,7 @@ export function ExecutiveDashboard({
                 <Shield className="w-5 h-5" />
               </div>
               <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0]">
-                {data?.pillars.marketing.healthPercentage ?? 94}% Clean
+                {data?.pillars.marketing.healthPercentage ?? 100}% Clean
               </span>
             </div>
 
@@ -390,13 +390,15 @@ export function ExecutiveDashboard({
               <div>
                 <span className="text-[#8D99AE] block text-[10px] font-semibold uppercase">Pre-Cleared Rate</span>
                 <span className="font-bold text-[#0B0F1A] font-mono">
-                  {data?.pillars.marketing.primaryMetricValue ?? '18 / 18'}
+                  {data?.pillars.marketing.primaryMetricValue ?? '0 Scans'}
                 </span>
               </div>
               <div>
                 <span className="text-[#8D99AE] block text-[10px] font-semibold uppercase">Fines Prevented</span>
                 <span className="font-bold text-[#10B981] font-mono">
-                  ₦{((data?.pillars.marketing.fineExposureAvoidedNaira ?? 16500000) / 1000000).toFixed(1)}M
+                  {(data?.pillars.marketing.fineExposureAvoidedNaira ?? 0) > 0
+                    ? `₦${((data!.pillars.marketing.fineExposureAvoidedNaira) / 1000000).toFixed(1)}M`
+                    : '₦0'}
                 </span>
               </div>
             </div>
@@ -411,7 +413,7 @@ export function ExecutiveDashboard({
           </button>
         </div>
 
-        {/* Card 2: Pillar 2 Horizon Scanner / Insight */}
+        {/* Card 2: Regulatory Radar */}
         <div className="group rounded-2xl bg-white border border-[#DDE3EE] p-5 hover:border-[#2A4BFF] transition-all shadow-xs flex flex-col justify-between">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -419,7 +421,7 @@ export function ExecutiveDashboard({
                 <Radio className="w-5 h-5" />
               </div>
               <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0]">
-                {data?.pillars.radar.healthPercentage ?? 88}% Optimal
+                {data?.pillars.radar.healthPercentage ?? 100}% Optimal
               </span>
             </div>
 
@@ -439,13 +441,15 @@ export function ExecutiveDashboard({
               <div>
                 <span className="text-[#8D99AE] block text-[10px] font-semibold uppercase">Active Directives</span>
                 <span className="font-bold text-[#0B0F1A] font-mono">
-                  {data?.pillars.radar.primaryMetricValue ?? '12 Directives'}
+                  {data?.pillars.radar.primaryMetricValue ?? '0 Directives'}
                 </span>
               </div>
               <div>
                 <span className="text-[#8D99AE] block text-[10px] font-semibold uppercase">Fines Prevented</span>
                 <span className="font-bold text-[#10B981] font-mono">
-                  ₦{((data?.pillars.radar.fineExposureAvoidedNaira ?? 25000000) / 1000000).toFixed(1)}M
+                  {(data?.pillars.radar.fineExposureAvoidedNaira ?? 0) > 0
+                    ? `₦${((data!.pillars.radar.fineExposureAvoidedNaira) / 1000000).toFixed(1)}M`
+                    : '₦0'}
                 </span>
               </div>
             </div>
@@ -460,7 +464,7 @@ export function ExecutiveDashboard({
           </button>
         </div>
 
-        {/* Card 3: Pillar 3 Gap Matrix */}
+        {/* Card 3: Policy Gap Matrix */}
         <div className="group rounded-2xl bg-white border border-[#DDE3EE] p-5 hover:border-[#2A4BFF] transition-all shadow-xs flex flex-col justify-between">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -468,7 +472,7 @@ export function ExecutiveDashboard({
                 <Scale className="w-5 h-5" />
               </div>
               <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0]">
-                {data?.pillars.gapMatrix.healthPercentage ?? 82}% Aligned
+                {data?.pillars.gapMatrix.healthPercentage ?? 100}% Aligned
               </span>
             </div>
 
@@ -488,13 +492,15 @@ export function ExecutiveDashboard({
               <div>
                 <span className="text-[#8D99AE] block text-[10px] font-semibold uppercase">Concordance</span>
                 <span className="font-bold text-[#0B0F1A] font-mono">
-                  {data?.pillars.gapMatrix.primaryMetricValue ?? '82% Compliant'}
+                  {data?.pillars.gapMatrix.primaryMetricValue ?? 'Concordance Pending'}
                 </span>
               </div>
               <div>
                 <span className="text-[#8D99AE] block text-[10px] font-semibold uppercase">Fines Prevented</span>
                 <span className="font-bold text-[#10B981] font-mono">
-                  ₦{((data?.pillars.gapMatrix.fineExposureAvoidedNaira ?? 45000000) / 1000000).toFixed(1)}M
+                  {(data?.pillars.gapMatrix.fineExposureAvoidedNaira ?? 0) > 0
+                    ? `₦${((data!.pillars.gapMatrix.fineExposureAvoidedNaira) / 1000000).toFixed(1)}M`
+                    : '₦0'}
                 </span>
               </div>
             </div>

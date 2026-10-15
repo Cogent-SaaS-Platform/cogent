@@ -62,14 +62,17 @@ export class ApplicabilityEngine {
       };
     }
 
+    const targetedLicenses = circular.targetedLicenses || (circular as any).targetedLicenseTypes || [];
+    const affectedRails = circular.affectedRails || (circular as any).affectedPaymentRails || [];
+
     // 2. Relational License Matching
-    const matchedLicenses = tenant.activeLicenses.filter((lic) =>
-      circular.targetedLicenses.includes(lic)
+    const matchedLicenses = (tenant.activeLicenses || []).filter((lic) =>
+      targetedLicenses.includes(lic)
     );
 
     // 3. Relational Payment Rail Matching
-    const matchedRails = tenant.activeRails.filter((rail) =>
-      circular.affectedRails.includes(rail)
+    const matchedRails = (tenant.activeRails || []).filter((rail) =>
+      affectedRails.includes(rail)
     );
 
     const isApplicable = matchedLicenses.length > 0 || matchedRails.length > 0;

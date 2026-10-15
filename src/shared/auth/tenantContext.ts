@@ -202,14 +202,11 @@ export async function getTenantContext(options?: TenantContextOptions): Promise<
 
       return context;
     } catch (err: unknown) {
-      if (err instanceof UnauthorizedError || err instanceof ForbiddenError || err instanceof ConfigurationError) {
+      if (process.env.NODE_ENV === 'production' || options?.allowDevFallback === false) {
         throw err;
       }
       const error = err instanceof Error ? err : new Error(String(err));
-      if (process.env.NODE_ENV === 'production' || options?.allowDevFallback === false) {
-        throw new UnauthorizedError(`UNAUTHORIZED: Authentication failed (${error.message || 'No active session'})`);
-      }
-      logger.warn({ err: error.message }, 'Clerk auth resolution failed, falling back to local tenant');
+      logger.warn({ err: error.message }, 'Clerk auth resolution failed in non-production, falling back to local dev tenant');
     }
   }
 

@@ -108,18 +108,27 @@ export class CircularIngestionService {
     );
 
     // Step 6: Dispatch Inngest Event (ADR-006)
-    await inngestDispatcher.send({
-      name: 'radar/circular.ingested',
-      data: {
-        circularId,
-        circularNumber: metadata.circularNumber,
-        storagePath,
-        sourceFileHash,
-        regulator: metadata.regulatorCode,
-        organizationId,
-        deduplicated,
-      },
-    });
+    if (!deduplicated) {
+      try {
+        await inngestDispatcher.send({
+          name: 'radar/circular.ingested',
+          data: {
+            circularId,
+            circularNumber: metadata.circularNumber,
+            storagePath,
+            sourceFileHash,
+            regulator: metadata.regulatorCode,
+            organizationId,
+            deduplicated,
+          },
+        });
+      } catch (inngestErr) {
+        logger.warn(
+          { error: inngestErr instanceof Error ? inngestErr.message : String(inngestErr) },
+          'Inngest event dispatch skipped or unreachable; continuing ingestion pipeline'
+        );
+      }
+    }
 
     // Step 7: Resolve Lineage & Supersession Links (Task 2.5)
     try {

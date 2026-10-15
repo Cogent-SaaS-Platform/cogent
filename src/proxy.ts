@@ -39,8 +39,8 @@ const handler = isClerkConfigured
       if (!isPublicRoute(req)) {
         const isApiRoute = req.nextUrl.pathname.startsWith('/api/');
 
-        // In test mode, allow through unless explicitly testing edge proxy
-        if (process.env.NODE_ENV === 'test' && !process.env.TEST_EDGE_PROXY) {
+        // In non-production environments, allow through in test mode or with dev bypass header
+        if (process.env.NODE_ENV !== 'production' && (!process.env.TEST_EDGE_PROXY && (process.env.NODE_ENV === 'test' || req.headers.get('x-dev-bypass') === 'true'))) {
           return;
         }
 

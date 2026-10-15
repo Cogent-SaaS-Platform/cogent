@@ -60,445 +60,14 @@ import {
 } from '@/shared/ui/inspector/adapters';
 import { InspectorItemData, StatutoryReferenceData } from '@/shared/ui/inspector/types';
 
-// Preset Canonical Circular Data with Lineage Graphs & Penalty Escalations covering all 7 Regulators
-const PRESET_CIRCULARS: RadarCircularPresentationCard[] = [
-  {
-    id: 'circ_1',
-    circularNumber: 'PSM/DIR/CON/CWS/08/014',
-    regulator: 'CBN',
-    subject: 'Operational Guidelines for Contactless Payments in Nigeria',
-    summary:
-      'The Central Bank of Nigeria mandates transaction limits, offline contactless caps, and compulsory 2FA biometric/PIN validation for all contactless card acquiring and processing infrastructure.',
-    publicationDate: '2026-03-01',
-    effectiveDate: '2026-03-01',
-    statutoryDeadline: '2026-03-15',
-    daysRemaining: 11,
-    businessDaysRemaining: 9,
-    countdownTier: 'HIGH',
-    urgencyWindow: 'URGENT_ACTION',
-    priority: 'HIGH',
-    enforcementRiskLevel: 'CRITICAL_SANCTION_RISK',
-    lineageStatus: 'ACTIVE_LAW',
-    amends: ['BPS/DIR/GEN/CIR/05/011'],
-    targetedLicenses: ['PAYMENT_SOLUTION_SERVICES_PSSP', 'SWITCHING_AND_PROCESSING', 'COMMERCIAL_BANK'],
-    affectedRails: ['CARD_ACQUIRING_MASTERCARD_VISA', 'CARD_ACQUIRING_VERVE', 'NIBSS_NIP'],
-    appliesUniversally: false,
-    penaltyEscalationProjection: {
-      baselineFineNaira: 10_000_000,
-      dailyFineNaira: 2_000_000,
-      accruedDailyFineNaira: 0,
-      totalProjectedExposureNaira: 10_000_000,
-      statutoryCitation: 'BOFIA 2020 Section 57(2) & CBN Sanctions Grid',
-      carriesPersonalCriminalLiability: true,
-      carriesLicenseSuspensionRisk: true,
-    },
-    applicability: {
-      isApplicable: true,
-      reason:
-        'Directly impacts your organization because you hold: [ PAYMENT_SOLUTION_SERVICES_PSSP (CBN/PSD/PSSP/2023/044) ] operating [ CARD ACQUIRING MASTERCARD VISA, NIBSS NIP ] rails.',
-      matchedLicenses: ['PAYMENT_SOLUTION_SERVICES_PSSP'],
-      matchedRails: ['CARD_ACQUIRING_MASTERCARD_VISA', 'NIBSS_NIP'],
-    },
-    executiveBriefCco:
-      'The Central Bank of Nigeria has issued Circular PSM/DIR/CON/CWS/08/014 under Section 2(d) of the CBN Act 2007 and BOFIA 2020. This directive mandates compliance within 14 days. Failure to align processing systems with contactless transaction limits exposes the institution to administrative fines up to ₦10,000,000 and potential suspension from NIBSS interbank clearing.',
-    actionBriefCoo:
-      'Operational workflows on active Mastercard, Visa, and Verve contactless card acquiring channels must enforce cumulative limits. Ensure settlement reconciliation windows account for offline transaction verification. Coordinate with partner settlement banks (Access Bank, Zenith) to confirm automated cut-offs.',
-    technicalBriefProductEng:
-      'Engineering and Product teams must review API technical specifications and payload schemas for card acquiring rails. Implement mandatory PIN request prompts for contactless transactions exceeding ₦15,000. Update gateway error response codes for unsupported contactless limits.',
-    technicalBriefCto:
-      'System Architecture & Security (CTO): Deploy gateway rule engine requiring PIN/biometric challenge on contactless acquiring charges above ₦15,000. Ensure HSM keys and POS terminal configuration profiles are updated with contactless limits by March 10, 2026.',
-    financialBriefCfo:
-      'Treasury and Finance must evaluate transaction margin compression resulting from the 0.5% interchange cap on contactless payments. Ensure liquidity buffers and daily settlement reserves meet clearing bank collateral mandates.',
-    governanceBriefCeoCro:
-      'Enterprise Governance (CEO / CRO): High regulatory sanction exposure. Board Risk Committee must be notified of operational modifications. Executive attestation form must be filed with the Director of Payments System Management prior to deadline.',
-    actionItems: [
-      {
-        id: 'act_1',
-        targetDepartment: 'ENGINEERING_TECH',
-        actionTitle: 'Enforce Contactless ₦15,000 2FA Threshold in Gateway API',
-        actionDescription: 'Deploy logic requiring PIN or biometric verification on single transactions > ₦15,000.',
-        suggestedDeadline: '2026-03-10',
-        isCompleted: true,
-      },
-      {
-        id: 'act_2',
-        targetDepartment: 'OPERATIONS',
-        actionTitle: 'Partner Bank Clearing & Cut-Off Confirmation',
-        actionDescription: 'Verify contactless clearing parameters with NIBSS and settlement sponsor banks.',
-        suggestedDeadline: '2026-03-12',
-        isCompleted: false,
-      },
-      {
-        id: 'act_3',
-        targetDepartment: 'COMPLIANCE_LEGAL',
-        actionTitle: 'File CBN Supervisory Attestation Form',
-        actionDescription: 'Submit formal CCO compliance attestation to the Director of Payments System Policy.',
-        suggestedDeadline: '2026-03-15',
-        isCompleted: false,
-      },
-      {
-        id: 'act_4',
-        targetDepartment: 'TREASURY_FINANCE',
-        actionTitle: 'Interchange Fee Structure Reconciliation',
-        actionDescription: 'Reconcile interchange fee margins with merchant billing schedules.',
-        suggestedDeadline: '2026-03-14',
-        isCompleted: false,
-      },
-    ],
-  },
-  {
-    id: 'circ_2',
-    circularNumber: 'BPS/DIR/GEN/CIR/05/011',
-    regulator: 'CBN',
-    subject: 'Regulatory Framework for Mobile Money Services in Nigeria',
-    summary:
-      'CBN establishes revised operational standards for Mobile Money Operators (MMO), agent banking networks, and USSD financial session security. Partially amended by PSM/DIR/CON/CWS/08/014.',
-    publicationDate: '2026-02-15',
-    effectiveDate: '2026-02-15',
-    statutoryDeadline: '2026-03-17',
-    daysRemaining: 13,
-    businessDaysRemaining: 10,
-    countdownTier: 'HIGH',
-    urgencyWindow: 'URGENT_ACTION',
-    priority: 'HIGH',
-    enforcementRiskLevel: 'HIGH',
-    lineageStatus: 'AMENDED',
-    supersededBy: 'PSM/DIR/CON/CWS/08/014',
-    targetedLicenses: ['MOBILE_MONEY_OPERATOR_MMO', 'SUPER_AGENT'],
-    affectedRails: ['USSD', 'NIBSS_NIP', 'AGENT_BANKING_CASH_IN_OUT'],
-    appliesUniversally: false,
-    penaltyEscalationProjection: {
-      baselineFineNaira: 10_000_000,
-      dailyFineNaira: 2_000_000,
-      accruedDailyFineNaira: 0,
-      totalProjectedExposureNaira: 10_000_000,
-      statutoryCitation: 'BOFIA 2020 Section 57(2) & CBN MMO Framework',
-      carriesPersonalCriminalLiability: true,
-      carriesLicenseSuspensionRisk: true,
-    },
-    applicability: {
-      isApplicable: false,
-      reason:
-        'Not applicable to your current operating licenses (Your entity holds PSSP; this circular binds Mobile Money Operators and Super Agents).',
-      matchedLicenses: [],
-      matchedRails: [],
-    },
-    executiveBriefCco:
-      'This circular is targeted at Mobile Money Operators and does not bind pure Payment Solution Service Providers (PSSP). Note: Clause 4.2 has been superseded by PSM/DIR/CON/CWS/08/014.',
-    actionBriefCoo:
-      'Monitor partner MMO settlement health to ensure third-party payment requests through agent rails do not encounter external latency.',
-    technicalBriefProductEng:
-      'No immediate API updates required for PSSP core rails. Standard USSD aggregator gateways operate under existing agreements.',
-    technicalBriefCto:
-      'Architecture Note (CTO): Maintain USSD aggregator interfaces without changing payload contracts until partner MMO completes migration.',
-    financialBriefCfo:
-      'No direct balance sheet capital reserve impact on PSSP license holders.',
-    governanceBriefCeoCro:
-      'Operational risk monitoring for B2B merchant transactions originating from MMO agent networks.',
-    actionItems: [
-      {
-        id: 'act_mmo_1',
-        targetDepartment: 'COMPLIANCE_LEGAL',
-        actionTitle: 'Archive Circular for Annual Regulatory Audit',
-        actionDescription: 'Log applicability assessment in CAMA audit ledger to document non-applicability rationale.',
-        suggestedDeadline: '2026-03-17',
-        isCompleted: true,
-      },
-    ],
-  },
-  {
-    id: 'circ_3',
-    circularNumber: 'FCCPC/DIR/DLR/2023/001',
-    regulator: 'FCCPC',
-    subject: 'Mandatory Digital Lending Conduct & Consumer Privacy Directives',
-    summary:
-      'FCCPC issues binding directives prohibiting contact list harvesting, predatory debt recovery, and undisclosed processing fees on digital credit applications.',
-    publicationDate: '2026-02-01',
-    effectiveDate: '2026-02-01',
-    statutoryDeadline: '2026-03-05',
-    daysRemaining: 4,
-    businessDaysRemaining: 3,
-    countdownTier: 'CRITICAL_EMERGENCY',
-    urgencyWindow: 'CRITICAL_EMERGENCY',
-    priority: 'CRITICAL_EMERGENCY',
-    enforcementRiskLevel: 'CRITICAL_SANCTION_RISK',
-    lineageStatus: 'ACTIVE_LAW',
-    targetedLicenses: ['DIGITAL_LENDER_FCCPC_REGISTERED'],
-    affectedRails: ['DIRECT_DEBIT_ACH', 'PAYSTACK', 'FLUTTERWAVE'],
-    appliesUniversally: false,
-    penaltyEscalationProjection: {
-      baselineFineNaira: 50_000_000,
-      dailyFineNaira: 1_000_000,
-      accruedDailyFineNaira: 0,
-      totalProjectedExposureNaira: 50_000_000,
-      statutoryCitation: 'FCCPA 2018 Section 155(1) & Digital Lending Regulations',
-      carriesPersonalCriminalLiability: false,
-      carriesLicenseSuspensionRisk: true,
-    },
-    applicability: {
-      isApplicable: false,
-      reason:
-        'Not applicable to your current operating licenses (Binds registered consumer lending apps; your entity is a B2B payment gateway).',
-      matchedLicenses: [],
-      matchedRails: [],
-    },
-    executiveBriefCco:
-      'Binds retail digital lenders. If your payment gateway provides payment collection for lending merchants, verify that merchants hold verified FCCPC registration.',
-    actionBriefCoo:
-      'Review digital lending merchant accounts to confirm FCCPC compliance certification.',
-    technicalBriefProductEng:
-      'Ensure loan repayment direct debit webhook callbacks pass verified transaction identifiers.',
-    technicalBriefCto:
-      'Ensure SDKs and mobile apps strictly avoid accessing device contacts or location permissions.',
-    financialBriefCfo:
-      'Ensure merchant reserve deductions are protected from unauthorized consumer refund claims.',
-    governanceBriefCeoCro:
-      'Third-party merchant compliance governance: Prohibit processing payments for unregistered lending entities.',
-    actionItems: [
-      {
-        id: 'act_fc_1',
-        targetDepartment: 'COMPLIANCE_LEGAL',
-        actionTitle: 'Audit Merchant Onboarding KYC for Digital Lenders',
-        actionDescription: 'Require all credit platform merchants to submit valid FCCPC registration approvals.',
-        suggestedDeadline: '2026-03-05',
-        isCompleted: false,
-      },
-    ],
-  },
-  {
-    id: 'circ_4',
-    circularNumber: 'SEC/DIR/VASP/2026/009',
-    regulator: 'SEC',
-    subject: 'Rules on Digital Assets Offering, Custody, and Virtual Asset Service Providers (VASP)',
-    summary:
-      'Securities and Exchange Commission guidelines establishing capital adequacy, client asset segregation, and mandatory travel rule reporting for digital asset exchanges.',
-    publicationDate: '2026-02-10',
-    effectiveDate: '2026-02-10',
-    statutoryDeadline: '2026-04-10',
-    daysRemaining: 40,
-    businessDaysRemaining: 29,
-    countdownTier: 'LOW',
-    urgencyWindow: 'STANDARD_WINDOW',
-    priority: 'LOW',
-    enforcementRiskLevel: 'LOW',
-    lineageStatus: 'ACTIVE_LAW',
-    targetedLicenses: ['CRYPTO_VASP_SEC_APPROVED', 'SEC_REGISTERED_DIGITAL_SUB_BROKER'],
-    affectedRails: ['NIBSS_NIP'],
-    appliesUniversally: false,
-    penaltyEscalationProjection: {
-      baselineFineNaira: 5_000_000,
-      dailyFineNaira: 100_000,
-      accruedDailyFineNaira: 0,
-      totalProjectedExposureNaira: 5_000_000,
-      statutoryCitation: 'Investments and Securities Act 2007 Section 303',
-      carriesPersonalCriminalLiability: true,
-      carriesLicenseSuspensionRisk: true,
-    },
-    applicability: {
-      isApplicable: false,
-      reason:
-        'Not applicable to your operating license profile (Binds SEC-regulated VASPs and Digital Sub-Brokers).',
-      matchedLicenses: [],
-      matchedRails: [],
-    },
-    executiveBriefCco:
-      'Applicable strictly to SEC-licensed VASPs. Monitored for institutional awareness regarding crypto-to-fiat onramps.',
-    actionBriefCoo: 'No operational disruption to standard fiat clearing rails.',
-    technicalBriefProductEng: 'No technical updates required for fiat payment gateway.',
-    technicalBriefCto: 'Ensure crypto-related merchant transactions adhere to AML travel rule filters.',
-    financialBriefCfo: 'No capital reserve allocations required.',
-    governanceBriefCeoCro: 'Board monitoring of digital asset regulatory evolution.',
-    actionItems: [],
-  },
-  {
-    id: 'circ_5',
-    circularNumber: 'NDIC/DIR/DIS/2026/003',
-    regulator: 'NDIC',
-    subject: 'Pass-Through Deposit Insurance Framework for Fintech Wallets & PSBs',
-    summary:
-      'Nigeria Deposit Insurance Corporation establishes pass-through deposit insurance coverage of ₦5,000,000 per individual wallet holder held in omnibus trust accounts with settlement banks.',
-    publicationDate: '2026-03-02',
-    effectiveDate: '2026-03-02',
-    statutoryDeadline: '2026-03-24',
-    daysRemaining: 20,
-    businessDaysRemaining: 15,
-    countdownTier: 'MEDIUM',
-    urgencyWindow: 'STANDARD_WINDOW',
-    priority: 'MEDIUM',
-    enforcementRiskLevel: 'HIGH',
-    lineageStatus: 'ACTIVE_LAW',
-    targetedLicenses: ['PAYMENT_SERVICE_BANK', 'MOBILE_MONEY_OPERATOR_MMO', 'PAYMENT_SOLUTION_SERVICES_PSSP'],
-    affectedRails: ['NIBSS_NIP', 'DIRECT_DEBIT_ACH'],
-    appliesUniversally: false,
-    penaltyEscalationProjection: {
-      baselineFineNaira: 10_000_000,
-      dailyFineNaira: 500_000,
-      accruedDailyFineNaira: 0,
-      totalProjectedExposureNaira: 10_000_000,
-      statutoryCitation: 'NDIC Act 2023 Section 39 & Pass-Through Insurance Directives',
-      carriesPersonalCriminalLiability: true,
-      carriesLicenseSuspensionRisk: true,
-    },
-    applicability: {
-      isApplicable: true,
-      reason:
-        'Directly impacts your organization: PSSP wallet pool accounts must maintain verified pass-through trust structures with designated deposit money banks.',
-      matchedLicenses: ['PAYMENT_SOLUTION_SERVICES_PSSP'],
-      matchedRails: ['NIBSS_NIP'],
-    },
-    executiveBriefCco:
-      'NDIC mandates submission of daily beneficial ownership records for omnibus pool accounts within 21 days. Failure to establish pass-through insurance structures triggers administrative fines of ₦10,000,000 plus ₦500,000 for each day of default.',
-    actionBriefCoo:
-      'Operations must configure daily automated balance reconciliation feeds between customer digital wallets and custodian settlement banks (First Bank, GTBank).',
-    technicalBriefProductEng:
-      'Implement API export endpoint for NDIC beneficial ownership reporting schema (BVN/NIN mapping per pool sub-account).',
-    technicalBriefCto:
-      'System Architecture (CTO): Deploy immutable cryptographic snapshot service recording sub-account balances at 23:59:59 daily for statutory NDIC deposit verification.',
-    financialBriefCfo:
-      'Treasury (CFO): Reconcile custodial deposit allocations to guarantee 100% ring-fencing of merchant escrow funds against banking insolvency.',
-    governanceBriefCeoCro:
-      'CRO / CEO Brief: Critical depositor protection gate. Eliminates systemic risk from settlement bank insolvency. File formal attestation by March 24.',
-    actionItems: [
-      {
-        id: 'act_ndic_1',
-        targetDepartment: 'TREASURY_FINANCE',
-        actionTitle: 'Ring-Fence Custodial Trust Account Allocations',
-        actionDescription: 'Execute tripartite trust agreement with sponsor settlement bank under NDIC guidelines.',
-        suggestedDeadline: '2026-03-20',
-        isCompleted: false,
-      },
-      {
-        id: 'act_ndic_2',
-        targetDepartment: 'ENGINEERING_TECH',
-        actionTitle: 'Deploy Daily NDIC Ledger Balance Export API',
-        actionDescription: 'Expose automated report conforming to NDIC pass-through depositor registry format.',
-        suggestedDeadline: '2026-03-22',
-        isCompleted: false,
-      },
-    ],
-  },
-  {
-    id: 'circ_6',
-    circularNumber: 'ARCON/DIR/ADV/2026/004',
-    regulator: 'ARCON',
-    subject: 'Mandatory Pre-Vetting for Digital Financial Promotions & Investment Claims',
-    summary:
-      'Advertising Regulatory Council of Nigeria mandates statutory vetting clearance for all digital marketing copy, billboard creatives, and social media campaigns promising financial yield or credit facilities.',
-    publicationDate: '2026-02-20',
-    effectiveDate: '2026-02-20',
-    statutoryDeadline: '2026-03-12',
-    daysRemaining: 8,
-    businessDaysRemaining: 6,
-    countdownTier: 'HIGH',
-    urgencyWindow: 'URGENT_ACTION',
-    priority: 'HIGH',
-    enforcementRiskLevel: 'HIGH',
-    lineageStatus: 'ACTIVE_LAW',
-    targetedLicenses: ['PAYMENT_SOLUTION_SERVICES_PSSP', 'COMMERCIAL_BANK', 'FINANCE_COMPANY'],
-    affectedRails: ['CARD_ACQUIRING_MASTERCARD_VISA', 'NIBSS_NIP'],
-    appliesUniversally: true,
-    penaltyEscalationProjection: {
-      baselineFineNaira: 3_000_000,
-      dailyFineNaira: 500_000,
-      accruedDailyFineNaira: 0,
-      totalProjectedExposureNaira: 3_000_000,
-      statutoryCitation: 'ARCON Act 2022 Section 24 & Nigerian Code of Advertising Practice',
-      carriesPersonalCriminalLiability: false,
-      carriesLicenseSuspensionRisk: false,
-    },
-    applicability: {
-      isApplicable: true,
-      reason:
-        'Universal statutory mandate: All financial entities running public digital marketing or merchant onboarding ads must possess verified ARCON vetting certificates.',
-      matchedLicenses: ['PAYMENT_SOLUTION_SERVICES_PSSP'],
-      matchedRails: ['CARD_ACQUIRING_MASTERCARD_VISA', 'NIBSS_NIP'],
-    },
-    executiveBriefCco:
-      'ARCON enforces compulsory ASP vetting approval before running financial advertisements. Unvetted digital campaigns are subject to immediate takedown notices and ₦3,000,000 fines.',
-    actionBriefCoo:
-      'Coordinate with Growth and Product Marketing teams to freeze unvetted marketing copy across Facebook, LinkedIn, Google Ads, and in-app banners.',
-    technicalBriefProductEng:
-      'Integrate marketing CMS approval workflow with Cogent Marketing Shield API to block unapproved creative deployments.',
-    technicalBriefCto: 'Ensure CDN edge caching respects campaign expiration and takedown directives.',
-    financialBriefCfo: 'Provision budget for statutory ARCON vetting filing fees (₦50,000 per creative batch).',
-    governanceBriefCeoCro: 'Board marketing governance oversight under ARCON Act 2022.',
-    actionItems: [
-      {
-        id: 'act_arcon_1',
-        targetDepartment: 'COMPLIANCE_LEGAL',
-        actionTitle: 'Audit Active Digital Ads for ARCON Certificate Numbers',
-        actionDescription: 'Review all active campaign creatives in Marketing Shield to verify statutory pre-vetting codes.',
-        suggestedDeadline: '2026-03-10',
-        isCompleted: false,
-      },
-    ],
-  },
-  {
-    id: 'circ_7',
-    circularNumber: 'NDPC/DIR/DPO/2026/002',
-    regulator: 'NDPC',
-    subject: 'Nigeria Data Protection Act: Cross-Border Cloud Hosting & Audit Filing',
-    summary:
-      'Nigeria Data Protection Commission directive establishing mandatory statutory data protection compliance audit filings (CAR) and binding requirements for cross-border cloud database hosting.',
-    publicationDate: '2026-01-15',
-    effectiveDate: '2026-01-15',
-    statutoryDeadline: '2026-03-31',
-    daysRemaining: 27,
-    businessDaysRemaining: 20,
-    countdownTier: 'MEDIUM',
-    urgencyWindow: 'STANDARD_WINDOW',
-    priority: 'MEDIUM',
-    enforcementRiskLevel: 'HIGH',
-    lineageStatus: 'ACTIVE_LAW',
-    targetedLicenses: ['PAYMENT_SOLUTION_SERVICES_PSSP', 'COMMERCIAL_BANK', 'SWITCHING_AND_PROCESSING'],
-    affectedRails: ['NIBSS_NIP', 'CARD_ACQUIRING_MASTERCARD_VISA'],
-    appliesUniversally: true,
-    penaltyEscalationProjection: {
-      baselineFineNaira: 10_000_000,
-      dailyFineNaira: 200_000,
-      accruedDailyFineNaira: 0,
-      totalProjectedExposureNaira: 10_000_000,
-      statutoryCitation: 'NDPA 2023 Section 48 & General Application and Implementation Directive',
-      carriesPersonalCriminalLiability: true,
-      carriesLicenseSuspensionRisk: false,
-    },
-    applicability: {
-      isApplicable: true,
-      reason:
-        'Universal mandate for Data Controllers of Major Importance: All fintechs processing transaction records of >10,000 data subjects must file the statutory NDPC CAR.',
-      matchedLicenses: ['PAYMENT_SOLUTION_SERVICES_PSSP'],
-      matchedRails: ['NIBSS_NIP'],
-    },
-    executiveBriefCco:
-      'Mandatory annual Data Protection Compliance Audit filing due March 31, 2026. Failure triggers statutory sanctions up to 2% of annual gross revenue or ₦10,000,000 under NDPA 2023.',
-    actionBriefCoo:
-      'Appoint licensed DPCO (Data Protection Compliance Organization) to perform external data privacy verification.',
-    technicalBriefProductEng:
-      'Verify customer PII encryption in transit and at rest across PostgreSQL databases and AWS/Cloudflare storage buckets.',
-    technicalBriefCto: 'Execute Data Protection Impact Assessment (DPIA) on payment gateway core token vaults.',
-    financialBriefCfo: 'Audit legal penalty reserves against statutory fine thresholds.',
-    governanceBriefCeoCro: 'Executive board signoff on the 2026 Annual Statutory Data Protection Attestation.',
-    actionItems: [
-      {
-        id: 'act_ndpc_1',
-        targetDepartment: 'COMPLIANCE_LEGAL',
-        actionTitle: 'File 2026 Statutory Compliance Audit Report with NDPC',
-        actionDescription: 'Submit certified DPCO audit dossier to the National Commissioner of the NDPC.',
-        suggestedDeadline: '2026-03-25',
-        isCompleted: false,
-      },
-    ],
-  },
-];
-
 export interface RadarCockpitProps {
   onSwitchPillar?: (pillar: PlatformPillar, context?: CrossPillarLinkContext) => void;
   initialContext?: CrossPillarLinkContext | null;
 }
 
 export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitProps) {
-  const [circulars, setCirculars] = useState<RadarCircularPresentationCard[]>(PRESET_CIRCULARS);
-  const [selectedCircularId, setSelectedCircularId] = useState<string>(PRESET_CIRCULARS[0].id);
+  const [circulars, setCirculars] = useState<RadarCircularPresentationCard[]>([]);
+  const [selectedCircularId, setSelectedCircularId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'dossier' | 'cards'>('table');
   const [activeTab, setActiveTab] = useState<'overview' | 'obligations' | 'briefs' | 'lineage'>('overview');
 
@@ -515,114 +84,69 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [showExportMenu, setShowExportMenu] = useState<boolean>(false);
   const [isLoadingLive, setIsLoadingLive] = useState<boolean>(false);
+  const [isSyncingFeeds, setIsSyncingFeeds] = useState<boolean>(false);
+  const [syncStatusMessage, setSyncStatusMessage] = useState<string | null>(null);
 
-  // Live Database Fetcher
+  // Tenant Profile Context
+  const [tenantProfile, setTenantProfile] = useState<{
+    organizationId?: string;
+    organizationName?: string;
+    activeLicenses?: string[];
+    activeRails?: string[];
+  } | null>(null);
+
+  // Live Database Fetcher (queries authenticated tenant applicability)
   const fetchLiveCirculars = useCallback(async () => {
     try {
       setIsLoadingLive(true);
       const res = await fetch('/api/radar/circulars');
       if (!res.ok) return;
       const data = await res.json();
-      if (data.success && Array.isArray(data.circulars) && data.circulars.length > 0) {
-        interface RawApiCircular {
-          id?: string;
-          circular_number?: string;
-          subject?: string;
-          summary?: string;
-          statutory_deadline?: string | null;
-          issuance_date?: string | null;
-          effective_date?: string | null;
-          priority?: RadarPriority;
-          enforcement_risk_level?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL_SANCTION_RISK';
-          lineage_status?: LineageStatus;
-          targeted_license_types?: LicenseType[];
-          affected_payment_rails?: PaymentRail[];
-          applies_universally?: boolean;
-          created_at?: string;
-          countdown?: ReturnType<typeof defaultCountdownCalculator.calculateCountdown>;
-          title?: string;
-          impact_score?: number;
-          applicability_tier?: string;
-          action_items_count?: number;
-          enforcement_date?: string;
-          affected_departments?: string[];
-          affected_rails?: string[];
+      if (data.success) {
+        if (data.tenantProfile) {
+          setTenantProfile(data.tenantProfile);
         }
-
-        const liveCards: RadarCircularPresentationCard[] = data.circulars.map((c: RawApiCircular) => {
-          let regCode: RegulatorCode = 'CBN';
-          const prefix = (c.circular_number || '').split('/')[0]?.toUpperCase();
-          if (['CBN', 'SEC', 'ARCON', 'NDPC', 'FCCPC', 'NFIU', 'NDIC'].includes(prefix)) {
-            regCode = prefix as RegulatorCode;
+        if (Array.isArray(data.circulars)) {
+          setCirculars(data.circulars);
+          if (data.circulars.length > 0) {
+            setSelectedCircularId((prev) => {
+              if (prev && data.circulars.some((c: RadarCircularPresentationCard) => c.id === prev)) {
+                return prev;
+              }
+              return data.circulars[0].id;
+            });
+          } else {
+            setSelectedCircularId(null);
           }
-
-          const countdown = c.countdown || defaultCountdownCalculator.calculateCountdown({
-            statutoryDeadline: c.statutory_deadline || null,
-            publicationDate: c.issuance_date || c.created_at,
-            regulator: regCode,
-          });
-
-          const circularId = c.id || `circ_${Date.now()}`;
-          const circNum = c.circular_number || 'CIRCULAR-UNKNOWN';
-
-          return {
-            id: circularId,
-            circularNumber: circNum,
-            regulator: regCode,
-            subject: c.subject || c.title || 'Regulatory Directive',
-            summary: c.summary || c.subject || 'Direct statutory directive issued by regulator.',
-            publicationDate: c.issuance_date || c.created_at?.slice(0, 10) || new Date().toISOString().slice(0, 10),
-            effectiveDate: c.effective_date || c.issuance_date || new Date().toISOString().slice(0, 10),
-            statutoryDeadline: c.statutory_deadline ?? null,
-            daysRemaining: countdown.daysRemaining,
-            businessDaysRemaining: countdown.businessDaysRemaining,
-            countdownTier: countdown.tier,
-            urgencyWindow: countdown.urgencyWindow,
-            priority: c.priority || 'MEDIUM',
-            enforcementRiskLevel: c.enforcement_risk_level || 'HIGH',
-            lineageStatus: (c.lineage_status || 'ACTIVE_LAW') as LineageStatus,
-            targetedLicenses: c.targeted_license_types || [],
-            affectedRails: c.affected_payment_rails || [],
-            appliesUniversally: c.applies_universally ?? false,
-            penaltyEscalationProjection: countdown.penaltyEscalation,
-            applicability: {
-              isApplicable: true,
-              reason: c.applies_universally
-                ? 'Universal statutory mandate applying to all regulated financial entities in Nigeria.'
-                : `Targets: [ ${(c.targeted_license_types || []).join(', ') || 'Financial Institutions'} ].`,
-              matchedLicenses: c.targeted_license_types || [],
-              matchedRails: c.affected_payment_rails || [],
-            },
-            executiveBriefCco: `Statutory mandate from ${regCode}. Full institutional compliance required by ${c.statutory_deadline || 'statutory directive'}.`,
-            actionBriefCoo: `Review active payment rails and operational cut-off parameters for compliance.`,
-            technicalBriefProductEng: 'Implement system rules, API parameter thresholds, and audit logging.',
-            technicalBriefCto: 'Audit microservice architecture, API integration contracts, and key security stores.',
-            financialBriefCfo: 'Evaluate balance sheet exposure, capital buffers, and reserve allocations.',
-            governanceBriefCeoCro: 'Board monitoring of regulatory governance and enforcement exposures.',
-            actionItems: [
-              {
-                id: `act_${circularId.slice(0, 8)}`,
-                targetDepartment: 'COMPLIANCE_LEGAL',
-                actionTitle: `Statutory Compliance Review: ${circNum}`,
-                actionDescription: 'Conduct detailed gap analysis and ensure readiness for regulatory audit.',
-                suggestedDeadline: c.statutory_deadline,
-                isCompleted: false,
-              },
-            ],
-          };
-        });
-
-        setCirculars(liveCards);
-        if (liveCards.length > 0) {
-          setSelectedCircularId(liveCards[0].id);
         }
       }
-    } catch {
-      // Fallback silently to preset circulars if offline
+    } catch (err) {
+      console.error('Failed to fetch live circulars', err);
     } finally {
       setIsLoadingLive(false);
     }
   }, []);
+
+  // Live Feed Synchronizer (triggers scrapers for CBN, SEC, NDPC, ARCON, FCCPC)
+  const handleSyncLiveFeeds = async () => {
+    try {
+      setIsSyncingFeeds(true);
+      setSyncStatusMessage('Polling live Nigerian regulatory portals (CBN, SEC, NDPC, ARCON, FCCPC)...');
+      const res = await fetch('/api/radar/sync', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        setSyncStatusMessage(data.message || 'Live synchronization completed successfully.');
+        await fetchLiveCirculars();
+      } else {
+        setSyncStatusMessage('Sync failed: ' + (data.error || 'Unknown error'));
+      }
+    } catch (err: unknown) {
+      setSyncStatusMessage('Sync network failure: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setIsSyncingFeeds(false);
+      setTimeout(() => setSyncStatusMessage(null), 8000);
+    }
+  };
 
   useEffect(() => {
     fetchLiveCirculars();
@@ -688,13 +212,14 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
   }, [circulars, filterRegulator, filterUrgency, filterLicense, filterLineage, relevantOnly, searchQuery]);
 
   const selectedCircular = useMemo(() => {
-    return circulars.find((c) => c.id === selectedCircularId) || circulars[0] || PRESET_CIRCULARS[0];
+    if (!circulars || circulars.length === 0) return null;
+    return circulars.find((c) => c.id === selectedCircularId) || circulars[0] || null;
   }, [circulars, selectedCircularId]);
 
   // Multi-Pane Inspector Engine Wiring (Level 4 & Level 5)
   const inspectableIds = useMemo(() => {
     const ids: string[] = displayedCirculars.map((c) => c.id);
-    if (selectedCircular.actionItems) {
+    if (selectedCircular?.actionItems) {
       selectedCircular.actionItems.forEach((act) => ids.push(act.id));
     }
     return ids;
@@ -817,6 +342,10 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
   };
 
   const handleExportBrief = async (format: 'markdown' | 'pdf' = 'markdown') => {
+    if (!selectedCircular) {
+      alert('Please select a regulatory directive to export its board brief.');
+      return;
+    }
     setIsExporting(true);
     try {
       const fetchFormat = format === 'pdf' ? 'html' : format;
@@ -871,15 +400,21 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
     }
   };
 
-  const currentLineageStatus = selectedCircular.lineageStatus || 'ACTIVE_LAW';
-  const penalty = selectedCircular.penaltyEscalationProjection || {
-    baselineFineNaira: 10_000_000,
-    dailyFineNaira: 2_000_000,
+  const totalFineExposure = useMemo(() => {
+    return circulars.reduce((acc, c) => {
+      return acc + (c.penaltyEscalationProjection?.totalProjectedExposureNaira || 0);
+    }, 0);
+  }, [circulars]);
+
+  const currentLineageStatus = selectedCircular?.lineageStatus || 'ACTIVE_LAW';
+  const penalty = selectedCircular?.penaltyEscalationProjection || {
+    baselineFineNaira: 0,
+    dailyFineNaira: 0,
     accruedDailyFineNaira: 0,
-    totalProjectedExposureNaira: 10_000_000,
-    statutoryCitation: 'BOFIA 2020 Section 57(2)',
-    carriesPersonalCriminalLiability: true,
-    carriesLicenseSuspensionRisk: true,
+    totalProjectedExposureNaira: 0,
+    statutoryCitation: 'N/A',
+    carriesPersonalCriminalLiability: false,
+    carriesLicenseSuspensionRisk: false,
   };
 
   // Dense Table Columns for Level 1 Horizon Scanning (Zango Dense View)
@@ -1066,7 +601,7 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
                   Regulatory Radar
                 </button>
                 <ChevronRight className="h-3.5 w-3.5 text-[#8D99AE]" />
-                {viewMode === 'dossier' ? (
+                {viewMode === 'dossier' && selectedCircular ? (
                   <>
                     <span className="text-[#4B5565]">{selectedCircular.regulator}</span>
                     <ChevronRight className="h-3.5 w-3.5 text-[#8D99AE]" />
@@ -1078,6 +613,17 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
                   <span className="font-semibold text-[#0B0F1A]">Horizon Scanning Feed</span>
                 )}
               </div>
+
+              {/* Active Tenant Profile Badge */}
+              {tenantProfile && tenantProfile.activeLicenses && tenantProfile.activeLicenses.length > 0 && (
+                <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#EEF2FF] border border-[#2A4BFF]/20 text-[11px] font-semibold text-[#2A4BFF]">
+                  <Shield className="w-3.5 h-3.5 text-[#2A4BFF]" />
+                  <span className="font-bold">{tenantProfile.organizationName}:</span>
+                  <span className="truncate max-w-[200px]">
+                    {tenantProfile.activeLicenses.map((l) => l.replace(/_/g, ' ')).join(', ')}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Actions Bar */}
@@ -1127,7 +673,7 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
               <div className="relative">
                 <div className="inline-flex rounded-lg shadow-xs">
                   <button
-                    disabled={isExporting}
+                    disabled={isExporting || !selectedCircular}
                     onClick={() => handleExportBrief('markdown')}
                     className="inline-flex items-center gap-1.5 rounded-l-lg border border-[#DDE3EE] bg-white px-3 py-1.5 text-xs font-semibold text-[#0B0F1A] hover:bg-[#F9FAFC] transition-all disabled:opacity-50"
                   >
@@ -1176,15 +722,26 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
                 )}
               </div>
 
-              {/* Sync Live Button */}
+              {/* Poll Live Regulatory Feeds (Scraper Trigger) */}
+              <button
+                onClick={handleSyncLiveFeeds}
+                disabled={isSyncingFeeds || isLoadingLive}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[#2A4BFF]/30 bg-[#2A4BFF]/5 hover:bg-[#2A4BFF]/10 text-[#2A4BFF] px-3 py-1.5 text-xs font-bold transition-all disabled:opacity-50"
+                title="Poll live Nigerian regulatory portals (CBN, SEC, NDPC, ARCON, FCCPC)"
+              >
+                <Radio className={`h-3.5 w-3.5 ${isSyncingFeeds ? 'animate-pulse text-[#2A4BFF]' : ''}`} />
+                <span className="hidden sm:inline">{isSyncingFeeds ? 'Polling Feeds...' : 'Poll Live Feeds'}</span>
+              </button>
+
+              {/* Refresh Database Directives */}
               <button
                 onClick={() => fetchLiveCirculars()}
-                disabled={isLoadingLive}
+                disabled={isLoadingLive || isSyncingFeeds}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-[#DDE3EE] bg-white px-3 py-1.5 text-xs font-semibold text-[#4B5565] hover:text-[#0B0F1A] hover:bg-[#F9FAFC] transition-all disabled:opacity-50"
-                title="Sync directives from live database"
+                title="Refresh directives from live database"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${isLoadingLive ? 'animate-spin text-[#2A4BFF]' : ''}`} />
-                <span className="hidden sm:inline">{isLoadingLive ? 'Syncing...' : 'Sync'}</span>
+                <span className="hidden sm:inline">{isLoadingLive ? 'Refreshing...' : 'Refresh'}</span>
               </button>
 
               {/* Ingest Circular CTA */}
@@ -1203,6 +760,22 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
             MAIN CONTENT AREA
             ────────────────────────────────────────────────────────────────────────── */}
         <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 space-y-6">
+          {/* Live Sync Status Alert Banner */}
+          {syncStatusMessage && (
+            <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-blue-200 bg-blue-50/80 text-blue-900 text-xs font-medium shadow-xs">
+              <div className="flex items-center gap-2">
+                <RefreshCw className={`w-3.5 h-3.5 shrink-0 ${isSyncingFeeds ? 'animate-spin text-[#2A4BFF]' : 'text-emerald-600'}`} />
+                <span>{syncStatusMessage}</span>
+              </div>
+              <button
+                onClick={() => setSyncStatusMessage(null)}
+                className="text-blue-600 hover:text-blue-900 text-[11px] font-bold"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
           {/* 1. Metric Pulse Strip (4 elevated cards) */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-xl border border-[#DDE3EE] bg-white p-4 shadow-xs">
@@ -1237,7 +810,11 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
                 <ShieldAlert className="h-3.5 w-3.5 text-red-600" />
                 <span className="font-medium">Sanction Fine Avoided</span>
               </div>
-              <div className="text-2xl font-black text-red-700">₦450M+</div>
+              <div className="text-2xl font-black text-red-700">
+                {totalFineExposure > 0
+                  ? `₦${(totalFineExposure / 1_000_000).toLocaleString('en-NG', { maximumFractionDigits: 1 })}M`
+                  : '₦0'}
+              </div>
               <div className="text-[10px] text-[#4B5565]">BOFIA, ISA & NDPA exposure</div>
             </div>
           </div>
@@ -1351,7 +928,7 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
                 <DenseDataTable
                   columns={columns}
                   data={displayedCirculars}
-                  selectedId={selectedCircularId}
+                  selectedId={selectedCircularId ?? undefined}
                   onRowClick={(row) => {
                     setSelectedCircularId(row.id);
                     setViewMode('dossier');
@@ -1411,6 +988,24 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
               VIEW MODE: LEVEL 2 CIRCULAR DOSSIER WORKSPACE
               ────────────────────────────────────────────────────────────────────────── */}
           {viewMode === 'dossier' && (
+            !selectedCircular ? (
+              <div className="rounded-2xl border border-[#DDE3EE] bg-white p-12 text-center shadow-sm space-y-4">
+                <Radio className="w-10 h-10 text-[#8D99AE] mx-auto animate-pulse" />
+                <div className="space-y-1">
+                  <h3 className="text-base font-bold text-[#0B0F1A]">No Regulatory Directive Selected</h3>
+                  <p className="text-xs text-[#4B5565] max-w-md mx-auto">
+                    Please select a circular from the Horizon Scanning table to inspect its statutory obligations, penalty models, and multi-role briefs.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setViewMode('table')}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#2A4BFF] text-white text-xs font-bold hover:bg-[#203ECC] transition-all"
+                >
+                  <TableIcon className="w-4 h-4" />
+                  <span>View Scanning Table</span>
+                </button>
+              </div>
+            ) : (
             <div className="space-y-5">
               {/* Back Navigation Bar */}
               <div className="flex items-center justify-between">
@@ -1842,6 +1437,7 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
                 )}
               </div>
             </div>
+          )
           )}
         </main>
 
