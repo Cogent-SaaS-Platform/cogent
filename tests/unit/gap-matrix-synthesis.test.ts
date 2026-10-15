@@ -1,11 +1,19 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   GapSynthesisService,
 } from '@/modules/gap-matrix/services/gapSynthesisService';
 import { createAdminClient } from '@/shared/db';
+import { AiEngine } from '@/shared/ai-engine';
 
 describe('Epic 17: 5-W Operational Synthesis & Deterministic Penalty Engine', () => {
-  const service = new GapSynthesisService({ dbClient: createAdminClient() });
+  const mockAiEngine = {
+    generateStructured: vi.fn().mockRejectedValue(new Error('Deterministic unit test synthesis')),
+  } as unknown as AiEngine;
+
+  const service = new GapSynthesisService({
+    dbClient: createAdminClient(),
+    aiEngine: mockAiEngine,
+  });
 
   it('synthesizes complete 5-W framework items with deterministic penalty attachment', async () => {
     const result = await service.evaluatePolicyGap({

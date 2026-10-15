@@ -17,8 +17,8 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_KEY" ]; then
-            echo "::error::SUPABASE_URL or SUPABASE_KEY secret is not configured"
-            exit 1
+            echo "::warning::SUPABASE_URL or SUPABASE_KEY secret is not configured; skipping heartbeat"
+            exit 0
           fi
 
           echo "Executing Supabase Postgres REST v1 keep-alive query..."

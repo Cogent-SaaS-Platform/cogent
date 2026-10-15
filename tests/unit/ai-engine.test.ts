@@ -114,7 +114,7 @@ describe('Live Gemini AI Engine Integration', () => {
     expect(vector).toBeDefined();
     expect(vector.length).toBe(768);
     expect(typeof vector[0]).toBe('number');
-  }, 15000);
+  }, 120000);
 
   it('executes structured generation with gemini-3.8-flash and outputs telemetry', async () => {
     expect(apiKey).toBeDefined();

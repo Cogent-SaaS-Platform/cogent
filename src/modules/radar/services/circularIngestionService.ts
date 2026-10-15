@@ -186,7 +186,7 @@ export class CircularIngestionService {
         await this.dbClient.from('notifications').insert({
           organization_id: notifOrgId,
           title: `🚨 Live Directive Enacted: ${metadata.circularNumber} (${metadata.regulatorCode})`,
-          message: `${metadata.title || metadata.subject || 'New statutory regulatory directive'}. Full compliance required by ${metadata.statutoryDeadline || 'statutory timeline'}. Immediate gap audit advised.`,
+          message: `${metadata.subject || 'New statutory regulatory directive'}. Full compliance required by ${metadata.statutoryDeadline || 'statutory timeline'}. Immediate gap audit advised.`,
           link: `/radar?circularNumber=${encodeURIComponent(metadata.circularNumber)}`,
           is_read: false,
         });

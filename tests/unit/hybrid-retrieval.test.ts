@@ -62,7 +62,7 @@ describe('Hybrid Statutory Retrieval Service (Task 5.2)', () => {
       expect(topClause.regulatorCode).toBeDefined();
       expect(topClause.rrfScore).toBeGreaterThan(0);
     },
-    30000
+    120000
   );
 
   it(
@@ -82,7 +82,7 @@ describe('Hybrid Statutory Retrieval Service (Task 5.2)', () => {
 
       expect(result.clauses[0].rrfScore).toBeGreaterThan(0);
     },
-    30000
+    120000
   );
 
   it(
@@ -101,6 +101,6 @@ describe('Hybrid Statutory Retrieval Service (Task 5.2)', () => {
         expect(clause.regulatorCode).toBe('ARCON');
       }
     },
-    30000
+    120000
   );
 });

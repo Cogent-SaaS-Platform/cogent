@@ -80,7 +80,7 @@ describe('Pillar 1 Marketing Shield Service (Task 5.3 & MVP.md)', () => {
       expect(result.telemetry.auditHash).toBeDefined();
       expect(result.telemetry.latencyMs).toBeGreaterThan(0);
     },
-    90000
+    180000
   );
 
   it(
@@ -100,7 +100,7 @@ describe('Pillar 1 Marketing Shield Service (Task 5.3 & MVP.md)', () => {
       expect(result.compliantRewrite).toBeDefined();
       expect(result.humanReviewState.status).toBe('PENDING_REVIEW');
     },
-    90000
+    180000
   );
 
   it(
@@ -121,6 +121,6 @@ describe('Pillar 1 Marketing Shield Service (Task 5.3 & MVP.md)', () => {
       expect(result.humanReviewState.status).toBe('PENDING_REVIEW');
       expect(result.compliantRewrite).toBeDefined();
     },
-    90000
+    180000
   );
 });

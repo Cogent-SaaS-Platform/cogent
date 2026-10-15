@@ -22,6 +22,11 @@ vi.mock('@/shared/storage/r2Client', () => ({
   R2_BUCKET_NAME: 'cogent-test-bucket',
 }));
 
+vi.mock('@sentry/nextjs', () => ({
+  init: vi.fn(),
+  captureRequestError: vi.fn(),
+}));
+
 import { GET as healthHandler } from '@/app/api/health/route';
 import { logger, createScopedLogger } from '@/shared/logger';
 import { register, onRequestError } from '@/../instrumentation';

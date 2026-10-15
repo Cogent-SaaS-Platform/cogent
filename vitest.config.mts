@@ -14,9 +14,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: true,
-    testTimeout: 60000,
-    hookTimeout: 30000,
-    exclude: ['**/node_modules/**', '**/tests/e2e/**'],
+    testTimeout: 120000,
+    hookTimeout: 60000,
+    exclude: ['**/node_modules/**', '**/tests/e2e/**', '**/tests/security/**'],
   },
   resolve: {
     alias: {

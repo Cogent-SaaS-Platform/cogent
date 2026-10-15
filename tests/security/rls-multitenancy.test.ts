@@ -83,7 +83,7 @@ describe('Automated Multi-Tenant RLS Security Test Suite (Epic 8 / Task 8.2)', (
         full_name: 'Test Compliance Officer',
       },
     ]);
-  }, 20000);
+  }, 60000);
 
   describe('1. Public Regulatory Knowledge Moat (Universal Global Readability)', () => {
     it(

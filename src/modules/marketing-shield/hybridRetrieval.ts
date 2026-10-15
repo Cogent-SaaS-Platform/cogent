@@ -92,17 +92,26 @@ export class HybridRetrievalService {
     const rrfK = options.rrfK ?? 60;
 
     // 1. Generate 768d vector embedding using gemini-embedding-2
-    const embedding = await this.aiEngine.generateEmbedding(copyText);
-    const embeddingHash = AiEngine.hashContent(JSON.stringify(embedding.slice(0, 10)));
+    let embedding: number[] = [];
+    try {
+      embedding = await this.aiEngine.generateEmbedding(copyText);
+    } catch (embErr) {
+      logger.warn({ err: String(embErr) }, 'Embedding generation failed or timed out, relying on FTS keyword search');
+    }
+    const embeddingHash = embedding.length > 0
+      ? AiEngine.hashContent(JSON.stringify(embedding.slice(0, 10)))
+      : AiEngine.hashContent(copyText);
 
     // 2. Query vector cosine similarity and full-text search in parallel
     const [vectorResult, ftsResult] = await Promise.allSettled([
-      this.dbClient.rpc('match_regulatory_clauses', {
-        query_embedding: embedding,
-        match_threshold: minSimilarity,
-        match_count: limit * 2,
-        filter_regulator: options.filterRegulator || null,
-      }),
+      embedding.length > 0
+        ? this.dbClient.rpc('match_regulatory_clauses', {
+            query_embedding: embedding,
+            match_threshold: minSimilarity,
+            match_count: limit * 2,
+            filter_regulator: options.filterRegulator || null,
+          })
+        : Promise.resolve({ data: [] as RawVectorMatch[], error: null }),
       this.dbClient.rpc('search_regulatory_clauses_fts', {
         query_text: copyText,
         match_count: limit * 2,
