@@ -103,7 +103,8 @@ export async function GET(req: NextRequest) {
           log.entityType.toLowerCase().includes(search) ||
           log.operator.toLowerCase().includes(search) ||
           log.sha256InputPrefix.toLowerCase().includes(search) ||
-          log.sha256OutputPrefix.toLowerCase().includes(search)
+          log.sha256OutputPrefix.toLowerCase().includes(search) ||
+          JSON.stringify(log.metadata || {}).toLowerCase().includes(search)
       );
     }
 

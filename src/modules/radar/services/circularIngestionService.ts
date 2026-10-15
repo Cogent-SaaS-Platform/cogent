@@ -179,6 +179,23 @@ export class CircularIngestionService {
       deduplicated ? 'Circular verified and deduplicated successfully' : 'Circular ingested and verified successfully'
     );
 
+    // Step 9: Emit High-Priority Real-Time Notification to Tenant Enclave
+    if (!deduplicated && this.dbClient) {
+      try {
+        const notifOrgId = organizationId || '00000000-0000-0000-0000-000000000001';
+        await this.dbClient.from('notifications').insert({
+          organization_id: notifOrgId,
+          title: `🚨 Live Directive Enacted: ${metadata.circularNumber} (${metadata.regulatorCode})`,
+          message: `${metadata.title || metadata.subject || 'New statutory regulatory directive'}. Full compliance required by ${metadata.statutoryDeadline || 'statutory timeline'}. Immediate gap audit advised.`,
+          link: `/radar?circularNumber=${encodeURIComponent(metadata.circularNumber)}`,
+          is_read: false,
+        });
+      } catch (notifErr) {
+        logger.warn({ notifErr }, 'Failed to insert live notification row; continuing pipeline');
+      }
+    }
+
+
     return {
       circularId,
       documentVersionId,
