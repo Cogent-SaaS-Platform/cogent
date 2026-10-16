@@ -1,6 +1,5 @@
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
-import { logger } from '@/shared/logger';
 import { ConfigurationError } from '@/shared/errors';
 
 /**
@@ -11,24 +10,37 @@ const upstashRedisUrl: string = process.env.UPSTASH_REDIS_REST_URL || '';
 const upstashRedisToken: string = process.env.UPSTASH_REDIS_REST_TOKEN || '';
 
 /**
+ * Edge-safe structured logger for middleware and rate limiting telemetry
+ */
+function logRateLimitEvent(
+  level: 'warn' | 'error',
+  payload: Record<string, unknown>,
+  message: string
+): void {
+  const logFn = level === 'warn' ? console.warn : console.error;
+  logFn(
+    JSON.stringify({
+      level: level === 'warn' ? 40 : 50,
+      time: new Date().toISOString(),
+      env: process.env.NODE_ENV ?? 'development',
+      service: 'cogent-engine',
+      ...payload,
+      msg: message,
+    })
+  );
+}
+
+/**
  * Factory for instantiating the Upstash Redis client.
  * Enforces production presence of credentials without crashing module loads in build/test harnesses.
  */
 export function getUpstashRedisClient(): Redis {
-  const isBuildPhase =
-    process.env.NEXT_PHASE === 'phase-production-build' ||
-    process.env.npm_lifecycle_event === 'build' ||
-    Boolean(process.env.CI);
-
-  if (process.env.NODE_ENV === 'production' && !isBuildPhase && (!upstashRedisUrl || !upstashRedisToken)) {
-    throw new ConfigurationError(
-      'UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are required in production'
-    );
-  }
+  const url = process.env.UPSTASH_REDIS_REST_URL || upstashRedisUrl;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN || upstashRedisToken;
 
   return new Redis({
-    url: upstashRedisUrl || 'https://mock-redis.upstash.io',
-    token: upstashRedisToken || 'mock-token',
+    url: url || 'https://mock-redis.upstash.io',
+    token: token || 'mock-token',
   });
 }
 
@@ -84,13 +96,27 @@ export async function checkRateLimit(
   identifier: string,
   limiterType: RateLimiterType = 'standard'
 ): Promise<RateLimitResult> {
+  const url = process.env.UPSTASH_REDIS_REST_URL || upstashRedisUrl;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN || upstashRedisToken;
+  const isBuildPhase =
+    process.env.NEXT_PHASE === 'phase-production-build' ||
+    process.env.npm_lifecycle_event === 'build' ||
+    Boolean(process.env.CI);
+
+  if (process.env.NODE_ENV === 'production' && !isBuildPhase && (!url || !token)) {
+    throw new ConfigurationError(
+      'UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are required in production'
+    );
+  }
+
   const limiter = limiterType === 'aiHeavy' ? aiHeavyScanLimiter : standardApiLimiter;
 
   try {
     const result = await limiter.limit(identifier);
 
     if (!result.success) {
-      logger.warn(
+      logRateLimitEvent(
+        'warn',
         {
           identifier,
           limiterType,
@@ -111,7 +137,8 @@ export async function checkRateLimit(
     };
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error(String(error));
-    logger.error(
+    logRateLimitEvent(
+      'error',
       {
         identifier,
         limiterType,

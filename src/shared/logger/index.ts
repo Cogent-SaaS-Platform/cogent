@@ -37,19 +37,25 @@ const SENSITIVE_PATHS = [
 
 const isProduction = process.env.NODE_ENV === 'production';
 const isTest = process.env.NODE_ENV === 'test';
-const betterStackToken = process.env.BETTER_STACK_SOURCE_TOKEN;
+const isVercel = Boolean(process.env.VERCEL);
+const isEdge =
+  process.env.NEXT_RUNTIME === 'edge' ||
+  typeof (globalThis as unknown as { EdgeRuntime?: string }).EdgeRuntime === 'string';
 
 function resolveTransport(): TransportSingleOptions | undefined {
-  // If Better Stack token is provided, stream via HTTPS transport (quarantined from test runner)
-  if (betterStackToken && !isTest) {
-    return {
-      target: '@logtail/pino',
-      options: { sourceToken: betterStackToken },
-    };
+  // In Edge runtime, Vercel serverless environments, production, or CI/test:
+  // Pino worker-thread transports (@logtail/pino, pino-pretty) must NOT be used.
+  // 1. Edge runtime / Next.js middleware has no worker_threads or Node filesystem modules,
+  //    causing runtime 500 errors: "unable to determine transport target for @logtail/pino".
+  // 2. On Vercel, serverless worker threads are frozen and cannot resolve bundled package targets.
+  //    Vercel natively ingests all stdout JSON logs and forwards them to Better Stack via Log Drain.
+  // 3. Fallback to standard JSON stdout in production, Vercel, Edge, or CI/test.
+  if (isEdge || isVercel || isProduction || isTest) {
+    return undefined;
   }
 
-  // Fallback to pretty printing in local development (non-production, non-CI, non-test)
-  if (!isProduction && !isTest) {
+  // Fallback to pretty printing only in local development
+  try {
     return {
       target: 'pino-pretty',
       options: {
@@ -57,10 +63,9 @@ function resolveTransport(): TransportSingleOptions | undefined {
         ignore: 'pid,hostname',
       },
     };
+  } catch {
+    return undefined;
   }
-
-  // Fallback to standard JSON stdout in production or CI/test
-  return undefined;
 }
 
 const transport = resolveTransport();
