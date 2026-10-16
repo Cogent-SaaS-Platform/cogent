@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
+
 import { OrganizationSwitcher, UserButton, Show } from '@clerk/nextjs';
 import { ChevronRight, ChevronLeft } from 'lucide-react';
 import {
@@ -174,10 +176,18 @@ export function NavigationRail({
           className="flex items-center gap-3 w-full group overflow-hidden"
           title="Cogent RegTech OS"
         >
-          {/* Monogram Badge */}
-          <div className="w-9 h-9 rounded-xl bg-[#2A4BFF] flex items-center justify-center shrink-0 shadow-sm shadow-[#2A4BFF]/30 transition-transform group-hover:scale-105">
-            <span className="font-extrabold text-white text-base tracking-wider">C</span>
+          {/* Original Cogent Platform Icon */}
+          <div className="w-9 h-9 shrink-0 transition-transform group-hover:scale-105">
+            <Image
+              src="/icon.png"
+              alt="Cogent RegTech"
+              width={36}
+              height={36}
+              className="w-9 h-9 rounded-xl object-contain shadow-sm shadow-[#2A4BFF]/25"
+              priority
+            />
           </div>
+
 
           {/* Expanded Brand Name */}
           <div

@@ -3,6 +3,7 @@ import React from 'react';
 import { renderToString } from 'react-dom/server';
 import { ClerkAvatar, UserAvatar, OrgAvatar } from '@/shared/ui/ClerkAvatar';
 import { AuthShowcasePanel } from '@/shared/ui/AuthShowcasePanel';
+import { AuthTabSwitcher } from '@/shared/ui/AuthTabSwitcher';
 
 vi.mock('@clerk/nextjs', () => ({
   useUser: () => ({ user: null, isLoaded: true }),
@@ -10,7 +11,26 @@ vi.mock('@clerk/nextjs', () => ({
 }));
 
 describe('Settings & Auth UI Components', () => {
+  describe('AuthTabSwitcher (auth.JPG navigation redirect buttons)', () => {
+    it('renders Log In as active tab and Create Account as redirect link to /sign-up when on sign-in page', () => {
+      const html = renderToString(React.createElement(AuthTabSwitcher, { activeTab: 'sign-in' }));
+      expect(html).toContain('Log In');
+      expect(html).toContain('Create Account');
+      expect(html).toContain('href="/sign-up"');
+      expect(html).toContain('aria-current="page"');
+    });
+
+    it('renders Create Account as active tab and Log In as redirect link to /sign-in when on sign-up page', () => {
+      const html = renderToString(React.createElement(AuthTabSwitcher, { activeTab: 'sign-up' }));
+      expect(html).toContain('Log In');
+      expect(html).toContain('Create Account');
+      expect(html).toContain('href="/sign-in"');
+      expect(html).toContain('aria-current="page"');
+    });
+  });
+
   describe('ClerkAvatar Component (Marble #6C47FF Silhouette)', () => {
+
     it('renders marble gradient fallback with silhouette when Clerk is unauthenticated', () => {
       const html = renderToString(React.createElement(UserAvatar, { size: 'md', fallbackName: 'Folake Adeyemi' }));
       expect(html).toContain('linear-gradient(135deg, #6C47FF 0%, #8E6BFF 50%, #2A4BFF 100%)');

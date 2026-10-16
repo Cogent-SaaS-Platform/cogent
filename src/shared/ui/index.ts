@@ -7,3 +7,5 @@ export * from './DualStateIcons';
 export * from './EnterpriseHeader';
 export * from './ClerkAvatar';
 export * from './AuthShowcasePanel';
+export * from './AuthTabSwitcher';
+

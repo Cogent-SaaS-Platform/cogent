@@ -12,6 +12,9 @@ const isPublicRoute = createRouteMatcher([
   '/',
   '/sign-in(.*)',
   '/sign-up(.*)',
+  '/login(.*)',
+  '/signup(.*)',
+  '/create-account(.*)',
   '/api/webhooks(.*)', // Paystack & Clerk incoming webhooks verified by cryptographic signatures
   '/api/inngest(.*)',  // Inngest durable execution worker endpoints verified by signing keys
   '/api/health',       // Synthetic uptime monitoring probe
@@ -28,13 +31,25 @@ const handler = isClerkConfigured
         return;
       }
 
-      // If user is already authenticated and visits the public landing page '/', redirect to '/overview'
+      // Root entry point routing:
+      // If user is already authenticated, redirect straight to '/overview'
+      // If unauthenticated, redirect to our primary sign-in page '/sign-in'
       if (req.nextUrl.pathname === '/') {
         const { userId } = await auth();
         if (userId) {
           return NextResponse.redirect(new URL('/overview', req.url));
         }
+        return NextResponse.redirect(new URL('/sign-in', req.url));
       }
+
+      // Friendly route aliases for standard auth entry points
+      if (req.nextUrl.pathname === '/login') {
+        return NextResponse.redirect(new URL('/sign-in', req.url));
+      }
+      if (req.nextUrl.pathname === '/signup' || req.nextUrl.pathname === '/create-account') {
+        return NextResponse.redirect(new URL('/sign-up', req.url));
+      }
+
 
       if (!isPublicRoute(req)) {
         const isApiRoute = req.nextUrl.pathname.startsWith('/api/');
@@ -82,6 +97,13 @@ const handler = isClerkConfigured
       }
     })
   : (req: NextRequest): NextResponse => {
+      if (req.nextUrl.pathname === '/' || req.nextUrl.pathname === '/login') {
+        return NextResponse.redirect(new URL('/sign-in', req.url));
+      }
+      if (req.nextUrl.pathname === '/signup' || req.nextUrl.pathname === '/create-account') {
+        return NextResponse.redirect(new URL('/sign-up', req.url));
+      }
+
       if (process.env.NODE_ENV === 'production' && !isPublicRoute(req)) {
         if (req.nextUrl.pathname.startsWith('/api/')) {
           return NextResponse.json(
@@ -93,6 +115,7 @@ const handler = isClerkConfigured
       }
       return NextResponse.next();
     };
+
 
 export default handler;
 export const proxy = handler;

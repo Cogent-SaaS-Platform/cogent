@@ -2,9 +2,13 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+
 import { SignIn } from '@clerk/nextjs';
 import { AuthShowcasePanel } from '@/shared/ui/AuthShowcasePanel';
+import { AuthTabSwitcher } from '@/shared/ui/AuthTabSwitcher';
+
 import {
   Mail,
   Lock,
@@ -19,15 +23,14 @@ export default function SignInPage() {
   const router = useRouter();
   const isClerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
-  // Demo Sandbox State (Used when user prefers instant demo access or Clerk is unconfigured)
-  const [showDemoForm, setShowDemoForm] = useState(false);
-  const [demoEmail, setDemoEmail] = useState('compliance.officer@apexfintech.ng');
-  const [demoPassword, setDemoPassword] = useState('DemoPassword2026!');
+  // Fallback state (Used only when Clerk environment keys are unconfigured)
+  const [email, setEmail] = useState('compliance.officer@apexfintech.ng');
+  const [password, setPassword] = useState('Password2026!');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleDemoSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setTimeout(() => {
@@ -44,31 +47,30 @@ export default function SignInPage() {
         {/* Brand Header matching sign.JPG */}
         <div className="flex items-center justify-between">
           <Link href="/" className="inline-flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-lg bg-[#2A4BFF] flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
-              <span className="font-extrabold text-white text-base leading-none">C</span>
-            </div>
+            <Image
+              src="/icon.png"
+              alt="Cogent"
+              width={32}
+              height={32}
+              className="w-8 h-8 rounded-lg shadow-xs group-hover:scale-105 transition-transform object-contain"
+              priority
+            />
             <span className="font-bold text-xl tracking-tight text-[#0B0F1A]">COGENT</span>
           </Link>
 
-          <div className="flex items-center gap-2">
-            {isClerkConfigured && (
-              <button
-                type="button"
-                onClick={() => setShowDemoForm(!showDemoForm)}
-                className="text-[11px] font-semibold text-[#2A4BFF] hover:underline cursor-pointer"
-              >
-                {showDemoForm ? 'Use Clerk Sign In' : 'One-Click Demo'}
-              </button>
-            )}
-            <span className="text-[11px] font-mono text-[#8D99AE] bg-[#F5F6FA] border border-[#DDE3EE] px-2.5 py-1 rounded-full">
-              NDPA 2023 Compliant
-            </span>
-          </div>
+          <span className="text-[11px] font-mono text-[#8D99AE] bg-[#F5F6FA] border border-[#DDE3EE] px-2.5 py-1 rounded-full">
+            NDPA 2023 Compliant
+          </span>
         </div>
 
         {/* Center Auth Card */}
         <div className="my-auto py-8 max-w-md w-full mx-auto">
-          {isClerkConfigured && !showDemoForm ? (
+          {/* Segmented Tab Switcher (Log In / Create Account Navigation) */}
+          <AuthTabSwitcher activeTab="sign-in" />
+
+          {isClerkConfigured ? (
+
+
             <div className="space-y-4">
               <div className="space-y-1 mb-4">
                 <h1 className="text-3xl font-extrabold text-[#0B0F1A] tracking-tight">
@@ -166,15 +168,15 @@ export default function SignInPage() {
               </div>
 
               {/* Email & Password Form */}
-              <form onSubmit={handleDemoSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-[#8D99AE] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="email"
                       required
-                      value={demoEmail}
-                      onChange={(e) => setDemoEmail(e.target.value)}
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       placeholder="Email"
                       className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#DDE3EE] rounded-xl text-xs text-[#0B0F1A] placeholder-[#8D99AE] focus:outline-none focus:border-[#2A4BFF] focus:ring-2 focus:ring-[#2A4BFF]/10 shadow-2xs font-medium"
                     />
@@ -187,11 +189,12 @@ export default function SignInPage() {
                     <input
                       type={showPassword ? 'text' : 'password'}
                       required
-                      value={demoPassword}
-                      onChange={(e) => setDemoPassword(e.target.value)}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
                       placeholder="Password"
                       className="w-full pl-10 pr-10 py-2.5 bg-white border border-[#DDE3EE] rounded-xl text-xs text-[#0B0F1A] placeholder-[#8D99AE] focus:outline-none focus:border-[#2A4BFF] focus:ring-2 focus:ring-[#2A4BFF]/10 shadow-2xs font-medium"
                     />
+
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}

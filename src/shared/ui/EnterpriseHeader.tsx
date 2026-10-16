@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { OrganizationSwitcher, UserButton, Show, SignInButton } from '@clerk/nextjs';
 import { PlatformPillar } from '@/shared/types';
 import { ShieldCheck, Radar, FileSearch, LayoutDashboard } from 'lucide-react';
@@ -24,9 +25,15 @@ export function EnterpriseHeader({ activePillar = 'executive', onSwitchPillar }:
         {/* Brand & Left Section */}
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#2A4BFF] flex items-center justify-center shadow-xs">
-              <span className="font-extrabold text-white text-base">C</span>
-            </div>
+            <Image
+              src="/icon.png"
+              alt="Cogent RegTech"
+              width={32}
+              height={32}
+              className="w-8 h-8 rounded-lg shadow-xs object-contain"
+              priority
+            />
+
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-lg text-[#0B0F1A] tracking-tight">COGENT</span>
