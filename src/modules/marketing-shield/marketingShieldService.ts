@@ -290,14 +290,39 @@ export class MarketingShieldService {
       },
     });
 
-    const aiResult = await this.aiEngine.generateStructured<MarketingAnalysisOutput>({
-      systemInstruction,
-      prompt,
-      schema: MarketingAnalysisOutputSchema,
-      modelAlias: 'FAST_MODEL',
-    });
+    let aiOutput: MarketingAnalysisOutput;
+    let aiTelemetry: {
+      modelIdentifier: string;
+      inputTokenCount: number;
+      outputTokenCount: number;
+      latencyMs: number;
+      rawPromptHash: string;
+      rawOutputHash: string;
+      retryAttempts: number;
+    };
 
-    const aiOutput = aiResult.data;
+    try {
+      const aiResult = await this.aiEngine.generateStructured<MarketingAnalysisOutput>({
+        systemInstruction,
+        prompt,
+        schema: MarketingAnalysisOutputSchema,
+        modelAlias: 'FAST_MODEL',
+      });
+      aiOutput = aiResult.data;
+      aiTelemetry = aiResult.telemetry;
+    } catch (aiErr) {
+      logger.warn({ err: String(aiErr) }, 'AI candidate generation unavailable; executing deterministic fallback synthesis');
+      aiOutput = this.generateDeterministicFallbackAiOutput(input.rawCopy, deterministicResult, retrievedClauses);
+      aiTelemetry = {
+        modelIdentifier: 'gemini-3.8-flash:deterministic-fallback',
+        inputTokenCount: 0,
+        outputTokenCount: 0,
+        latencyMs: Math.round(performance.now() - startTime),
+        rawPromptHash: AiEngine.hashContent(prompt),
+        rawOutputHash: AiEngine.hashContent(JSON.stringify(aiOutput)),
+        retryAttempts: 0,
+      };
+    }
 
     // ──────────────────────────────────────────────────────────────────────────
     // STAGE 5: Deterministic Post-Processing & Penalty Calculation
@@ -503,19 +528,19 @@ export class MarketingShieldService {
         organization_id: input.organizationId,
         user_id: input.userId || null,
         pipeline_type: 'MARKETING_PREVET',
-        model_identifier: aiResult.telemetry.modelIdentifier,
+        model_identifier: aiTelemetry.modelIdentifier,
         model_config: {
-          fastModel: aiResult.telemetry.modelIdentifier,
+          fastModel: aiTelemetry.modelIdentifier,
           temperature: 0.1,
         },
         prompt_template_version: 'v1.1-hardened',
-        input_token_count: aiResult.telemetry.inputTokenCount,
-        output_token_count: aiResult.telemetry.outputTokenCount,
+        input_token_count: aiTelemetry.inputTokenCount,
+        output_token_count: aiTelemetry.outputTokenCount,
         latency_ms: totalLatencyMs,
         retrieved_clause_ids: retrievedClauses.map((c) => c.clauseId),
         triggered_rule_ids: [],
-        raw_prompt_hash: aiResult.telemetry.rawPromptHash,
-        raw_output_hash: aiResult.telemetry.rawOutputHash,
+        raw_prompt_hash: aiTelemetry.rawPromptHash,
+        raw_output_hash: aiTelemetry.rawOutputHash,
         human_approval_status: 'PENDING_REVIEW',
       });
 
@@ -575,7 +600,7 @@ export class MarketingShieldService {
           deterministicPenaltyNaira: totalDeterministicPenaltyNaira,
           findingsCount: presentationCards.length,
           arconPreclearanceRequired: aiOutput.arconPreclearanceSuggested || finalVerdict === 'BLOCKING_ISSUE',
-          modelIdentifier: aiResult.telemetry.modelIdentifier,
+          modelIdentifier: aiTelemetry.modelIdentifier,
           latencyMs: totalLatencyMs,
         },
       });
@@ -613,7 +638,7 @@ export class MarketingShieldService {
       },
       telemetry: {
         latencyMs: totalLatencyMs,
-        modelIdentifier: aiResult.telemetry.modelIdentifier,
+        modelIdentifier: aiTelemetry.modelIdentifier,
         verifiedAt: new Date().toISOString(),
         auditHash,
       },
@@ -636,5 +661,55 @@ export class MarketingShieldService {
     );
 
     return viewModel;
+  }
+
+  /**
+   * Deterministic AI fallback synthesis when Google Gemini is offline, unreachable, or in CI
+   */
+  private generateDeterministicFallbackAiOutput(
+    rawCopy: string,
+    deterministicResult: DeterministicEvaluationResult,
+    _retrievedClauses: RetrievedStatutoryClause[]
+  ): MarketingAnalysisOutput {
+    let rewrite = rawCopy;
+
+    for (const finding of deterministicResult.findings) {
+      const pattern = finding.matchedPattern.toLowerCase();
+      if (pattern.includes('zero interest')) {
+        rewrite = rewrite.replace(new RegExp(finding.flaggedExcerpt, 'gi'), 'competitive interest rates');
+      } else if (pattern.includes('guaranteed approval') || pattern.includes('100%')) {
+        rewrite = rewrite.replace(new RegExp(finding.flaggedExcerpt, 'gi'), 'subject to credit evaluation and approval');
+      } else if (pattern.includes('risk-free')) {
+        rewrite = rewrite.replace(new RegExp(finding.flaggedExcerpt, 'gi'), 'market-reflective variable return');
+      } else {
+        rewrite = rewrite.replace(new RegExp(finding.flaggedExcerpt, 'gi'), '[Terms apply]');
+      }
+    }
+
+    if (!rewrite.toLowerCase().includes('regulated') && !rewrite.toLowerCase().includes('licensed')) {
+      rewrite += ' Terms and conditions apply. Regulated by Nigerian financial authorities.';
+    }
+
+    const candidateFindings: MarketingAnalysisOutput['candidateFindings'] = [];
+    for (const match of deterministicResult.findings) {
+      candidateFindings.push({
+        candidateRuleCode: match.matchedPattern.toUpperCase().replace(/\s+/g, '_'),
+        flaggedExcerpt: match.flaggedExcerpt,
+        explanation: match.statutoryRationale,
+        recommendedFix: `Excise prohibited phrase "${match.flaggedExcerpt}".`,
+      });
+    }
+
+    return {
+      candidateVerdict:
+        deterministicResult.suggestedVerdict === 'BLOCKING_ISSUE'
+          ? 'BLOCKING_ISSUE'
+          : deterministicResult.suggestedVerdict === 'ISSUE_DETECTED'
+          ? 'ISSUE_DETECTED'
+          : 'NO_ISSUE_DETECTED',
+      candidateFindings,
+      compliantRewrite: rewrite,
+      arconPreclearanceSuggested: deterministicResult.suggestedVerdict === 'BLOCKING_ISSUE',
+    };
   }
 }

@@ -30,7 +30,8 @@ function loadEnvLocal(): Record<string, string> {
 }
 
 const env = loadEnvLocal();
-const apiKey = env['GEMINI_API_KEY'];
+const apiKey = env['GEMINI_API_KEY'] || process.env.GEMINI_API_KEY;
+const isLiveTestable = Boolean(apiKey && process.env.CI !== 'true');
 
 describe('AI Engine Prompt Injection Defense & Hardening', () => {
   it('strips injected closing XML tags to prevent delimiter breakout', () => {
@@ -104,7 +105,7 @@ describe('Zod Schema Decoupled Enforcement', () => {
   });
 });
 
-describe('Live Gemini AI Engine Integration', () => {
+describe.skipIf(!isLiveTestable)('Live Gemini AI Engine Integration', () => {
   const engine = new AiEngine(apiKey);
 
   it('generates 768d vector embeddings via gemini-embedding-2', async () => {
