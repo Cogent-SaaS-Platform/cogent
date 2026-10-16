@@ -317,7 +317,7 @@ export class MarketingShieldService {
         modelIdentifier: 'gemini-3.8-flash:deterministic-fallback',
         inputTokenCount: 0,
         outputTokenCount: 0,
-        latencyMs: Math.round(performance.now() - startTime),
+        latencyMs: Math.round(performance.now() - overallStartTime),
         rawPromptHash: AiEngine.hashContent(prompt),
         rawOutputHash: AiEngine.hashContent(JSON.stringify(aiOutput)),
         retryAttempts: 0,
