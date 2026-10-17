@@ -145,9 +145,15 @@ export async function checkRateLimit(
         error: err.message,
         stack: err.stack,
       },
-      'Upstash Redis rate limiter network dispatch failed'
+      'Upstash Redis rate limiter network dispatch failed - failing open to preserve availability'
     );
-    throw err;
+    // Fail open: availability over strict rate limiting during redis degradation or auth mismatch
+    return {
+      success: true,
+      limit: limiterType === 'aiHeavy' ? 10 : 60,
+      remaining: limiterType === 'aiHeavy' ? 10 : 60,
+      reset: Date.now() + 60000,
+    };
   }
 }
 

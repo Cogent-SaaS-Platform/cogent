@@ -171,30 +171,7 @@ export class TenantSyncService {
    */
   private async bootstrapTenantDefaults(organizationId: string): Promise<void> {
     try {
-      // Baseline operating license (Commercial Bank / MFB / FinTech)
-      await this.adminClient.from('tenant_licenses').insert([
-        {
-          organization_id: organizationId,
-          license_type: 'COMMERCIAL_BANK' as LicenseType,
-          license_number: `CBN/BSD/APP/${new Date().getFullYear()}/001`,
-          issuing_regulator: 'CBN' as RegulatorCode,
-          is_active: true,
-          operating_conditions: 'Standard Nigerian Banking & Financial Services License',
-        },
-      ]);
-
-      // Baseline core payment rail
-      await this.adminClient.from('tenant_payment_rails').insert([
-        {
-          organization_id: organizationId,
-          rail_type: 'NIBSS_NIP' as PaymentRail,
-          integration_status: 'LIVE_PRODUCTION',
-          settlement_bank_code: '044',
-          is_active: true,
-        },
-      ]);
-
-      // Baseline 14-day free trial subscription
+      // Baseline 14-day free trial subscription (real licenses and rails configured during onboarding)
       await this.adminClient.from('tenant_subscriptions').insert([
         {
           organization_id: organizationId,
@@ -209,7 +186,7 @@ export class TenantSyncService {
       ]);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      logger.warn({ error: message, organizationId }, 'Failed to bootstrap tenant default licenses/rails/subscriptions');
+      logger.warn({ error: message, organizationId }, 'Failed to bootstrap tenant default subscriptions');
     }
   }
 }

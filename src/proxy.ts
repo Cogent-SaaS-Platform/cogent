@@ -80,18 +80,22 @@ const handler = isClerkConfigured
               { status: 403 }
             );
           }
-          const signInUrl = new URL('/sign-in', req.url);
-          return NextResponse.redirect(signInUrl);
+          const onboardingUrl = new URL('/onboarding', req.url);
+          return NextResponse.redirect(onboardingUrl);
         }
 
-        // Task A3.1: Upstash Rate Limiting Enforcement on API Routes
+        // Task A3.1: Upstash Rate Limiting Enforcement on API Routes (Fail-Open Guard)
         if (isApiRoute && process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-          const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || '127.0.0.1';
-          const rateLimitIdentifier = orgId || clientIp;
-          const isAiScan = req.nextUrl.pathname.includes('/scan') || req.nextUrl.pathname.includes('/evaluate');
-          const limitResult = await checkRateLimit(rateLimitIdentifier, isAiScan ? 'aiHeavy' : 'standard');
-          if (!limitResult.success) {
-            return createRateLimitResponse(limitResult);
+          try {
+            const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || '127.0.0.1';
+            const rateLimitIdentifier = orgId || clientIp;
+            const isAiScan = req.nextUrl.pathname.includes('/scan') || req.nextUrl.pathname.includes('/evaluate');
+            const limitResult = await checkRateLimit(rateLimitIdentifier, isAiScan ? 'aiHeavy' : 'standard');
+            if (!limitResult.success) {
+              return createRateLimitResponse(limitResult);
+            }
+          } catch (rlErr) {
+            console.error('[Proxy] Rate limit check exception caught - failing open:', rlErr);
           }
         }
       }

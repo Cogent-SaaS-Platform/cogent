@@ -89,11 +89,11 @@ export async function POST(req: NextRequest) {
       viewModel,
       regulator,
       format,
-      applicantCcoName = 'Olumide Adebayo, Esq.',
+      applicantCcoName = 'Authorized Compliance Officer',
       applicantCcoTitle = 'Chief Compliance Officer',
       attestationNotes,
       attestationHash,
-      organizationName = 'Cogent Enterprise FinTech',
+      organizationName = 'Licensed Financial Institution',
     } = validationResult.data;
 
     let content: string;

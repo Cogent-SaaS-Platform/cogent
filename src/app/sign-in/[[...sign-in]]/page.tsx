@@ -24,8 +24,8 @@ export default function SignInPage() {
   const isClerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
   // Fallback state (Used only when Clerk environment keys are unconfigured)
-  const [email, setEmail] = useState('compliance.officer@apexfintech.ng');
-  const [password, setPassword] = useState('Password2026!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);

@@ -91,14 +91,14 @@ describe('Phase A3: Live Integration & Security Hardening Verification', () => {
       expect(body.remaining).toBe(0);
     });
 
-    it('propagates network exceptions with diagnostic trace instead of silently swallowing', async () => {
+    it('fails open on network exceptions to preserve tenant availability instead of taking down the platform', async () => {
       vi.spyOn(standardApiLimiter, 'limit').mockRejectedValueOnce(
         new Error('Upstash Connection Timeout: ECONNREFUSED')
       );
 
-      await expect(
-        checkRateLimit('tenant-org-fail', 'standard')
-      ).rejects.toThrow('Upstash Connection Timeout: ECONNREFUSED');
+      const result = await checkRateLimit('tenant-org-fail', 'standard');
+      expect(result.success).toBe(true);
+      expect(result.remaining).toBe(60);
     });
   });
 

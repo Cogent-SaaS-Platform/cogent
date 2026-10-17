@@ -69,7 +69,7 @@ const DEFAULT_COMMAND_ITEMS: CommandItem[] = [
   {
     id: 'gap-aml-manual',
     category: 'Gap Matrix',
-    title: 'Apex FinTech AML/CFT Operational Manual',
+    title: 'AML/CFT Operational Compliance Manual',
     subtitle: 'Concordance audit: 88% compliant with BOFIA 2020 Sec 57',
     badge: 'NFIU',
     href: '/gap',

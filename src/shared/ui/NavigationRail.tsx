@@ -338,7 +338,7 @@ export function NavigationRail({
               {isExpanded && (
                 <div className="flex flex-col min-w-0">
                   <span className="text-xs font-semibold text-[#0B0F1A] truncate">
-                    Apex FinTech PLC
+                    Licensed Institution
                   </span>
                   <span className="text-[10px] text-[#10B981] font-mono flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />

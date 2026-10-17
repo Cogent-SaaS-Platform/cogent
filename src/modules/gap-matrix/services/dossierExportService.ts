@@ -29,7 +29,7 @@ export class DossierExportService {
     const {
       evaluationResult,
       organizationName = 'Licensed Financial Institution',
-      ccoName = 'Folake Adeyemi, Esq. (CCO)',
+      ccoName = 'Authorized Compliance Officer',
       boardChairName = 'Chairman, Board Audit & Risk Committee',
     } = options;
 

@@ -102,7 +102,7 @@ function LiveUserAvatar({
 }) {
   const { user, isLoaded } = useUser();
   const dimensionClass = SIZE_MAP[size];
-  const displayName = user?.fullName || fallbackName || 'Folake Adeyemi';
+  const displayName = user?.fullName || fallbackName || 'Compliance Officer';
 
   if (isLoaded && user?.imageUrl) {
     return (
@@ -128,7 +128,7 @@ function LiveOrgAvatar({
 }) {
   const { organization, isLoaded } = useOrganization();
   const dimensionClass = SIZE_MAP[size];
-  const displayName = organization?.name || fallbackName || 'Apex FinTech';
+  const displayName = organization?.name || fallbackName || 'Institution';
 
   if (isLoaded && organization?.imageUrl) {
     return (
@@ -166,7 +166,7 @@ export function ClerkAvatar({
     return <LiveOrgAvatar size={size} fallbackName={fallbackName} className={className} />;
   }
 
-  const displayName = fallbackName || (type === 'user' ? 'Folake Adeyemi' : 'Apex FinTech');
+  const displayName = fallbackName || (type === 'user' ? 'Compliance Officer' : 'Institution');
   return <MarbleFallback type={type} size={size} displayName={displayName} className={className} />;
 }
 

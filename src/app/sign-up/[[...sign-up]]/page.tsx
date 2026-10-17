@@ -25,9 +25,9 @@ export default function SignUpPage() {
   const isClerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
   // Fallback state (Used only when Clerk environment keys are unconfigured)
-  const [institutionName, setInstitutionName] = useState('Apex FinTech Nigeria Limited');
-  const [email, setEmail] = useState('new.tenant@apexfintech.ng');
-  const [password, setPassword] = useState('EnterprisePassword2026!');
+  const [institutionName, setInstitutionName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -71,8 +71,6 @@ export default function SignUpPage() {
           <AuthTabSwitcher activeTab="sign-up" />
 
           {isClerkConfigured ? (
-
-
             <div className="space-y-4">
               <div className="space-y-1 mb-4">
                 <h1 className="text-3xl font-extrabold text-[#0B0F1A] tracking-tight">
@@ -87,6 +85,8 @@ export default function SignUpPage() {
                 routing="path"
                 path="/sign-up"
                 signInUrl="/sign-in"
+                fallbackRedirectUrl="/onboarding"
+                forceRedirectUrl="/onboarding"
                 appearance={{
                   elements: {
                     card: 'shadow-none border-none p-0 bg-transparent w-full',

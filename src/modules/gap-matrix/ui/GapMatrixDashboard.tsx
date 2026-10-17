@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { useUser, useOrganization } from '@clerk/nextjs';
 import {
   Scale,
   ShieldAlert,
@@ -97,125 +98,6 @@ const PRESET_BENCHMARKS: StatutoryBenchmarkFramework[] = [
   },
 ];
 
-const PRESET_EVALUATION_ITEMS: IdentifiedGapItem[] = [
-  {
-    id: 'gap_item_1',
-    evaluationId: 'eval_canonical_1',
-    regulatoryClauseId: 'rc_aml_str_72h',
-    obligationId: 'ob_str_72h',
-    policyClauseId: 'pc_aml_sec_4_1',
-    complianceStatus: 'PARTIALLY_MET',
-    statutoryPenaltyNaira: 5000000,
-    statutoryLegalCitation: 'Section 25(2) Money Laundering (Prevention and Prohibition) Act 2022 & Regulation 14 NFIU Regulations 2022',
-    carriesPersonalCriminalLiability: true,
-    carriesLicenseSuspensionRisk: true,
-    regulatoryClauseReference: 'Regulation 14(2) AML/CFT',
-    matchedPolicySection: 'Section 4.1',
-    matchedPolicyText: 'All formal Suspicious Transaction Reports (STRs) shall be filed with the Nigerian Financial Intelligence Unit (NFIU) within seven (7) business days of detection.',
-    suggestedStatus: 'PARTIALLY_MET',
-    whatHappened:
-      'Statutory baseline mandates that financial institutions file Suspicious Transaction Reports (STRs) within 72 hours of detection under Section 25(2) MLA 2022. Company policy Section 4.1 erroneously permits a 7-business-day reporting window.',
-    whatToKnow:
-      'The NFIU and Central Bank of Nigeria enforce strict sanctions on reporting delays following the FATF mutual evaluation report on Nigeria. Discrepancies between internal policy timelines and the 72-hour statutory deadline are routinely cited as Level 2 deficiencies by visiting bank examiners.',
-    whatHasChanged:
-      'The company policy relies on outdated 2013 AML guidelines. The 2022 Act reduced the allowable reporting window from 7 days to exactly 72 hours, introducing personal criminal liability for compliance officers.',
-    whatToDo:
-      'Chief Compliance Officer must sponsor immediate Board policy revision: "The Compliance Unit shall transmit all STRs to the Nigerian Financial Intelligence Unit (NFIU) via the goAML portal within seventy-two (72) hours of the transaction being flagged as suspicious."',
-    derivedInsight:
-      'Amending Section 4.1 eliminates up to ₦10,000,000 in administrative fines under Section 57 BOFIA 2020 and establishes a clean defense record during annual CBN on-site examinations.',
-    draftReplacementLanguage: 'The Compliance Unit shall transmit all STRs to the Nigerian Financial Intelligence Unit (NFIU) via the goAML portal within seventy-two (72) hours of the transaction being flagged as suspicious.',
-    responsibleRole: 'Chief Compliance Officer',
-    statutoryRemediationTimelineDays: 14,
-  },
-  {
-    id: 'gap_item_2',
-    evaluationId: 'eval_canonical_1',
-    regulatoryClauseId: 'rc_pep_senior_mgmt',
-    obligationId: 'ob_pep_approval',
-    policyClauseId: 'pc_pep_sec_3_2',
-    complianceStatus: 'CRITICAL_GAP',
-    statutoryPenaltyNaira: 10000000,
-    statutoryLegalCitation: 'Regulation 19(1) CBN AML/CFT Regulations 2022 & Section 66 BOFIA 2020',
-    carriesPersonalCriminalLiability: false,
-    carriesLicenseSuspensionRisk: true,
-    regulatoryClauseReference: 'Regulation 19(1)(b) PEP Approval',
-    matchedPolicySection: null,
-    matchedPolicyText: null,
-    suggestedStatus: 'CRITICAL_GAP',
-    whatHappened:
-      'Statute mandates prior Executive Senior Management or Managing Director approval before onboarding Politically Exposed Persons (PEPs) or continuing relationships where an existing customer becomes a PEP. Internal policy mentions annual CCO file review but completely omits mandatory Senior Management sign-off prior to account opening.',
-    whatToKnow:
-      'CBN Banking Supervision Department classifies unapproved PEP onboarding as a Level 1 Material Deficiency with automatic sanctions and public regulatory disclosure under Section 66 BOFIA 2020.',
-    whatHasChanged:
-      'The company manual treats PEP approval as a routine KYC screening step without required executive escalation controls.',
-    whatToDo:
-      'Managing Director and Chief Compliance Officer must adopt Section 3.2.1: "No account shall be opened for any foreign or domestic Politically Exposed Person (PEP), nor transaction processed, without written prior sign-off from the Managing Director or a designated Executive Director."',
-    derivedInsight:
-      'Closing this critical gap avoids a ₦10M statutory penalty and prevents potential operating license suspension or payment rail disconnection.',
-    draftReplacementLanguage: 'No account shall be opened for any foreign or domestic Politically Exposed Person (PEP), nor transaction processed, without written prior sign-off from the Managing Director or a designated Executive Director.',
-    responsibleRole: 'Managing Director & CCO',
-    statutoryRemediationTimelineDays: 7,
-  },
-  {
-    id: 'gap_item_3',
-    evaluationId: 'eval_canonical_1',
-    regulatoryClauseId: 'rc_cdd_identity_verification',
-    obligationId: 'ob_cdd_bvn_nin',
-    policyClauseId: 'pc_cdd_sec_2_1',
-    complianceStatus: 'ADEQUATELY_MET',
-    statutoryPenaltyNaira: 0,
-    statutoryLegalCitation: 'Section 3.2 CBN Tiered KYC Guidelines 2023',
-    carriesPersonalCriminalLiability: false,
-    carriesLicenseSuspensionRisk: false,
-    regulatoryClauseReference: 'Section 3.2 Tiered KYC',
-    matchedPolicySection: 'Section 2.1',
-    matchedPolicyText: 'The institution shall verify the identity of every customer before account creation using Bank Verification Number (BVN) or National Identity Number (NIN). Simplified due diligence is permitted for Tier-1 low-value digital accounts.',
-    suggestedStatus: 'ADEQUATELY_MET',
-    whatHappened:
-      'Company policy Section 2.1 fully conforms to CBN Tiered KYC Circular PSM/DIR/PUB/CIR/001/053, mandating BVN or NIN verification for digital onboarding.',
-    whatToKnow:
-      'CBN requires biometric authentication through NIBSS BVN database or NIMC API before account activation.',
-    whatHasChanged:
-      'The internal procedure is fully aligned with active regulations. No operational change is required.',
-    whatToDo:
-      'Maintain quarterly audit trails of NIBSS verification API uptime and KYC logs for examiner inspection.',
-    derivedInsight:
-      'Clean audit finding. Fully eligible for Bank Examiner Green Light during annual statutory inspection.',
-    draftReplacementLanguage: 'Maintain quarterly audit trails of NIBSS verification API uptime and KYC logs for examiner inspection.',
-    responsibleRole: 'Head of Operations & KYC',
-    statutoryRemediationTimelineDays: 30,
-  },
-  {
-    id: 'gap_item_4',
-    evaluationId: 'eval_canonical_1',
-    regulatoryClauseId: 'rc_record_retention_5yr',
-    obligationId: 'ob_retention_5yr',
-    policyClauseId: 'pc_retention_sec_5_1',
-    complianceStatus: 'ADEQUATELY_MET',
-    statutoryPenaltyNaira: 0,
-    statutoryLegalCitation: 'Section 26 MLA 2022 & Section 38 CAMA 2020',
-    carriesPersonalCriminalLiability: false,
-    carriesLicenseSuspensionRisk: false,
-    regulatoryClauseReference: 'Section 26 MLA 2022',
-    matchedPolicySection: 'Section 5.1',
-    matchedPolicyText: 'All customer identification files, account ledgers, and transaction records shall be maintained securely in electronic archives for a minimum period of five (5) years following the termination of the business relationship.',
-    suggestedStatus: 'ADEQUATELY_MET',
-    whatHappened:
-      'Company policy Section 5.1 mandates a minimum 5-year retention period for transaction records and customer identification dossiers in full compliance with Nigerian statute.',
-    whatToKnow:
-      'Section 26 MLA 2022 requires maintaining records for at least five years to facilitate criminal and forensic inquiries by EFCC, ICPC, and NFIU.',
-    whatHasChanged:
-      'Full compliance with primary statutory retention obligations.',
-    whatToDo:
-      'Ensure cloud backups and immutable storage buckets are audited semi-annually.',
-    derivedInsight:
-      'Satisfies CAMA 2020 and BOFIA record-keeping standards. Clean finding.',
-    draftReplacementLanguage: 'All customer identification files, account ledgers, and transaction records shall be maintained securely in immutable electronic archives for a minimum period of five (5) years following the termination of the business relationship.',
-    responsibleRole: 'Head of IT & Compliance',
-    statutoryRemediationTimelineDays: 30,
-  },
-];
-
 // Baseline Tenant Policies Inventory
 interface TenantPolicySummary {
   id: string;
@@ -228,42 +110,6 @@ interface TenantPolicySummary {
   fineExposureNaira: number;
   lastEvaluatedAt: string;
 }
-
-const PRESET_TENANT_POLICIES: TenantPolicySummary[] = [
-  {
-    id: 'policy-canonical-demo',
-    title: 'AML/CFT & KYC Operational Compliance Manual',
-    department: 'COMPLIANCE_LEGAL',
-    versionTag: '2.4',
-    clausesCount: 14,
-    concordanceScore: 75.0,
-    criticalGapsCount: 1,
-    fineExposureNaira: 15000000,
-    lastEvaluatedAt: '2026-10-04T14:30:00Z',
-  },
-  {
-    id: 'policy-consumer-credit',
-    title: 'Consumer Credit & Digital Lending Procedures',
-    department: 'OPERATIONS',
-    versionTag: '1.8',
-    clausesCount: 9,
-    concordanceScore: 88.5,
-    criticalGapsCount: 0,
-    fineExposureNaira: 2500000,
-    lastEvaluatedAt: '2026-09-28T11:15:00Z',
-  },
-  {
-    id: 'policy-infosec-ndpa',
-    title: 'Enterprise Information Security & NDPA Data Privacy Policy',
-    department: 'ENGINEERING_TECH',
-    versionTag: '3.1',
-    clausesCount: 22,
-    concordanceScore: 92.0,
-    criticalGapsCount: 0,
-    fineExposureNaira: 0,
-    lastEvaluatedAt: '2026-10-02T09:00:00Z',
-  },
-];
 
 export interface GapMatrixDashboardProps {
   onSwitchPillar?: (pillar: PlatformPillar, context?: CrossPillarLinkContext) => void;
@@ -278,6 +124,13 @@ export function GapMatrixDashboard({
   organizationId = '00000000-0000-0000-0000-000000000001',
   organizationName = 'Authorized Tenant',
 }: GapMatrixDashboardProps) {
+  const { user } = useUser();
+  const { organization } = useOrganization();
+  const effectiveOrgName = organization?.name || organizationName || 'Authorized Tenant';
+  const effectiveCcoName =
+    user?.fullName ||
+    (user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'Authorized Compliance Officer');
+
   // Navigation & View States
   const [activeTab, setActiveTab] = useState<'CLAUSE_MATRIX' | 'POLICIES_INVENTORY' | 'BENCHMARKS'>('CLAUSE_MATRIX');
   const [viewMode, setViewMode] = useState<'STREAM' | 'TABLE'>('STREAM');
@@ -285,12 +138,12 @@ export function GapMatrixDashboard({
   // Benchmark & Policy States
   const [availableBenchmarks, setAvailableBenchmarks] = useState<StatutoryBenchmarkFramework[]>(PRESET_BENCHMARKS);
   const [selectedBenchmarkId, setSelectedBenchmarkId] = useState<string>('bench-cbn-aml-2022');
-  const [tenantPolicies, setTenantPolicies] = useState<TenantPolicySummary[]>(PRESET_TENANT_POLICIES);
-  const [activePolicyId, setActivePolicyId] = useState<string>('policy-canonical-demo');
-  const [activePolicyTitle, setActivePolicyTitle] = useState<string>('AML/CFT & KYC Operational Compliance Manual v2.4');
+  const [tenantPolicies, setTenantPolicies] = useState<TenantPolicySummary[]>([]);
+  const [activePolicyId, setActivePolicyId] = useState<string>('');
+  const [activePolicyTitle, setActivePolicyTitle] = useState<string>('');
 
   // Evaluation Items & Filters
-  const [evaluationItems, setEvaluationItems] = useState<IdentifiedGapItem[]>(PRESET_EVALUATION_ITEMS);
+  const [evaluationItems, setEvaluationItems] = useState<IdentifiedGapItem[]>([]);
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'CRITICAL_GAP' | 'PARTIALLY_MET' | 'ADEQUATELY_MET'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -321,14 +174,18 @@ export function GapMatrixDashboard({
         const res = await fetch('/api/gap-matrix/policies');
         if (res.ok) {
           const json = await res.json();
-          if (json.data && json.data.length > 0) {
+          if (json.data && Array.isArray(json.data) && json.data.length > 0) {
             setTenantPolicies(json.data);
             setActivePolicyId(json.data[0].id);
             setActivePolicyTitle(json.data[0].title);
+          } else {
+            setTenantPolicies([]);
+            setActivePolicyId('');
+            setActivePolicyTitle('');
           }
         }
       } catch (err) {
-        // Fall back to preset tenant policies
+        // Keep empty policies
       }
     }
     loadInitialData();
@@ -653,10 +510,19 @@ export function GapMatrixDashboard({
 
   // Run Gap Evaluation via Live Server API
   const handleRunEvaluation = async (policyIdToUse?: string, titleToUse?: string) => {
-    setIsEvaluating(true);
-    setEvaluationNotice(null);
     const pid = policyIdToUse || activePolicyId;
     const ptitle = titleToUse || activePolicyTitle;
+
+    if (!pid || pid === 'policy-canonical-demo' || tenantPolicies.length === 0) {
+      setIsUploadDrawerOpen(true);
+      setEvaluationNotice(
+        'Please upload an internal policy manual to run an automated 5-W statutory gap evaluation.'
+      );
+      return;
+    }
+
+    setIsEvaluating(true);
+    setEvaluationNotice(null);
 
     try {
       const response = await fetch('/api/gap-matrix/evaluate', {
@@ -672,8 +538,15 @@ export function GapMatrixDashboard({
       });
 
       if (!response.ok) {
-        const errJson = await response.json().catch(() => ({}));
-        throw new Error(errJson.error || 'Evaluation endpoint returned error');
+        const text = await response.text();
+        let errMsg = 'Evaluation endpoint returned error';
+        try {
+          const errJson = JSON.parse(text);
+          errMsg = errJson.error || errMsg;
+        } catch {
+          errMsg = text || errMsg;
+        }
+        throw new Error(errMsg);
       }
 
       const json = await response.json();
@@ -689,10 +562,12 @@ export function GapMatrixDashboard({
         setEvaluationNotice(
           `Live 5-W synthesis completed via Gemini AI. Evaluated ${result.items.length} statutory obligations with deterministic penalty calculation.`
         );
+      } else {
+        setEvaluationNotice('Evaluation completed with no gap items identified.');
       }
     } catch (err: unknown) {
       console.warn('Evaluation fallback notice:', err);
-      const msg = err instanceof Error ? err.message : 'Synthesis completed with local benchmark matching';
+      const msg = err instanceof Error ? err.message : 'Evaluation could not be completed';
       setEvaluationNotice(`Evaluation note: ${msg}`);
     } finally {
       setIsEvaluating(false);
@@ -748,8 +623,8 @@ export function GapMatrixDashboard({
 
     return defaultDossierExportService.generateDossier({
       evaluationResult: evalResult,
-      organizationName,
-      ccoName: 'Folake Adeyemi, Esq. (CCO)',
+      organizationName: effectiveOrgName,
+      ccoName: effectiveCcoName,
     });
   }, [
     activePolicyTitle,
@@ -758,7 +633,8 @@ export function GapMatrixDashboard({
     metrics,
     evaluationItems,
     organizationId,
-    organizationName,
+    effectiveOrgName,
+    effectiveCcoName,
   ]);
 
   const formattedTotalFine = new Intl.NumberFormat('en-NG', {
@@ -1126,11 +1002,15 @@ export function GapMatrixDashboard({
                       }}
                       className="bg-white border border-[#DDE3EE] rounded-lg text-xs font-semibold text-[#0B0F1A] px-3 py-1.5 focus:outline-none focus:border-[#2A4BFF] max-w-[280px] truncate"
                     >
-                      {tenantPolicies.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.title} ({p.clausesCount || 0} clauses)
-                        </option>
-                      ))}
+                      {tenantPolicies.length === 0 ? (
+                        <option value="">No policies uploaded yet</option>
+                      ) : (
+                        tenantPolicies.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.title} ({p.clausesCount || 0} clauses)
+                          </option>
+                        ))
+                      )}
                     </select>
                   </div>
 
@@ -1371,8 +1251,41 @@ export function GapMatrixDashboard({
                 </div>
               </div>
 
-              {/* Master Evaluation View: Card Stream or Dense Table */}
-              {viewMode === 'STREAM' ? (
+              {/* Master Evaluation View: Empty State, Card Stream or Dense Table */}
+              {evaluationItems.length === 0 ? (
+                <div className="p-12 text-center rounded-2xl bg-white border border-[#DDE3EE] shadow-xs">
+                  <div className="w-14 h-14 rounded-2xl bg-[#EEF2FF] text-[#2A4BFF] flex items-center justify-center mx-auto mb-4 border border-[#C7D2FE]">
+                    <Scale className="w-7 h-7" />
+                  </div>
+                  <h3 className="text-base font-bold text-[#0B0F1A]">
+                    No Gap Evaluation Performed Yet
+                  </h3>
+                  <p className="text-xs text-[#4B5565] mt-1.5 max-w-md mx-auto leading-relaxed">
+                    Upload your organization&apos;s internal policy manual (PDF, DOCX, or TXT) to evaluate clause concordance against Nigerian statutory frameworks with instant 5-W synthesis.
+                  </p>
+                  <div className="flex items-center justify-center gap-3 mt-6">
+                    <button
+                      type="button"
+                      onClick={() => setIsUploadDrawerOpen(true)}
+                      className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-white bg-[#2A4BFF] hover:bg-[#1E3BD9] rounded-xl shadow-xs transition-colors"
+                    >
+                      <Upload className="w-4 h-4" />
+                      <span>Upload Policy Manual</span>
+                    </button>
+                    {tenantPolicies.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRunEvaluation()}
+                        disabled={isEvaluating}
+                        className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-[#4B5565] bg-white hover:bg-[#F9FAFC] rounded-xl border border-[#DDE3EE] transition-colors shadow-xs"
+                      >
+                        <Sparkles className="w-4 h-4 text-[#2A4BFF]" />
+                        <span>Run 5-W Evaluation</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : viewMode === 'STREAM' ? (
                 <div className="space-y-3">
                   {filteredItems.map((item, index) => {
                     const fineFormatted =

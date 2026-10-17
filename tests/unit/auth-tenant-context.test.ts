@@ -102,11 +102,12 @@ describe('Cogent Enterprise Auth & Tenancy Subsystem', () => {
     expect(result.userId).toBe('00000000-0000-0000-0000-000000000099');
     expect(result.isNewOrganization).toBe(true);
 
-    // Verify user upsert was called
+    // Verify user and org sync were called, but synthetic licenses are deferred to onboarding
     expect(mockFrom).toHaveBeenCalledWith('users');
     expect(mockFrom).toHaveBeenCalledWith('organizations');
     expect(mockFrom).toHaveBeenCalledWith('organization_memberships');
-    expect(mockFrom).toHaveBeenCalledWith('tenant_licenses');
-    expect(mockFrom).toHaveBeenCalledWith('tenant_payment_rails');
+    expect(mockFrom).toHaveBeenCalledWith('tenant_subscriptions');
+    expect(mockFrom).not.toHaveBeenCalledWith('tenant_licenses');
+    expect(mockFrom).not.toHaveBeenCalledWith('tenant_payment_rails');
   });
 });

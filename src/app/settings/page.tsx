@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useUser, useOrganization } from '@clerk/nextjs';
 import { AppShell } from '@/shared/ui/AppShell';
 import { UserAvatar, OrgAvatar } from '@/shared/ui/ClerkAvatar';
 import {
@@ -44,7 +45,25 @@ type SettingsTab =
   | 'notifications';
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<SettingsTab>('billings');
+  const [activeTab, setActiveTab] = useState<SettingsTab>('details');
+  const { user } = useUser();
+  const { organization } = useOrganization();
+
+  // Listen to tab URL query parameter if present
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab') as SettingsTab;
+      if (
+        tabParam &&
+        ['details', 'profile', 'security', 'team', 'billings', 'plan', 'email', 'notifications'].includes(
+          tabParam
+        )
+      ) {
+        setActiveTab(tabParam);
+      }
+    }
+  }, []);
 
   // Plan & Paystack Billing State
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'annual'>('monthly');
@@ -139,19 +158,19 @@ export default function SettingsPage() {
   };
 
 
-  // Personal User Details State (My Details)
-  const [userFirstName, setUserFirstName] = useState('Folake');
-  const [userLastName, setUserLastName] = useState('Adeyemi');
-  const [userEmail, setUserEmail] = useState('f.adeyemi@apexfintech.ng');
+  // Personal User Details State (My Details) - bound dynamically to authenticated user
+  const [userFirstName, setUserFirstName] = useState('');
+  const [userLastName, setUserLastName] = useState('');
+  const [userEmail, setUserEmail] = useState('');
   const [userRole, setUserRole] = useState('Chief Compliance Officer (CCO)');
   const [userTimezone, setUserTimezone] = useState('Africa/Lagos (WAT, UTC+1)');
   const [personalDetailsSaved, setPersonalDetailsSaved] = useState(false);
 
-  // Institution Profile State (RC Number is strictly OPTIONAL per requirements)
-  const [institutionName, setInstitutionName] = useState('Apex FinTech Nigeria Limited');
+  // Institution Profile State - bound dynamically to authenticated organization
+  const [institutionName, setInstitutionName] = useState('');
   const [rcNumber, setRcNumber] = useState('');
-  const [institutionSize, setInstitutionSize] = useState('51-200');
-  const [primaryDomain, setPrimaryDomain] = useState('apexfintech.ng');
+  const [institutionSize, setInstitutionSize] = useState('11-50');
+  const [primaryDomain, setPrimaryDomain] = useState('');
   const [selectedRegulators, setSelectedRegulators] = useState<string[]>([
     'CBN',
     'NDPC',
@@ -159,11 +178,24 @@ export default function SettingsPage() {
     'FCCPC',
   ]);
   const [licenseType, setLicenseType] = useState('PAYMENT_SOLUTION_SERVICES_PSSP');
-  const [licenseNumber, setLicenseNumber] = useState('CBN/PSSP/LIC/2026/014');
-  const [registeredAddress, setRegisteredAddress] = useState(
-    'Plot 14 Admiralty Way, Lekki Phase 1, Lagos, Nigeria'
-  );
+  const [licenseNumber, setLicenseNumber] = useState('');
+  const [registeredAddress, setRegisteredAddress] = useState('');
   const [profileSaved, setProfileSaved] = useState(false);
+
+  // Sync state from Clerk user & organization when loaded
+  useEffect(() => {
+    if (user) {
+      setUserFirstName(user.firstName || '');
+      setUserLastName(user.lastName || '');
+      setUserEmail(user.primaryEmailAddress?.emailAddress || '');
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (organization) {
+      setInstitutionName(organization.name || '');
+    }
+  }, [organization]);
 
   // Password / Security State
   const [currentPassword, setCurrentPassword] = useState('');
@@ -171,50 +203,46 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordSaved, setPasswordSaved] = useState(false);
 
-  // Billing Form State matching settingg.webp
-  const [cardholderName, setCardholderName] = useState('Mayad Ahmed');
-  const [cardExpiry, setCardExpiry] = useState('02 / 2028');
-  const [cardNumber, setCardNumber] = useState('8269 9620 9292 2538');
-  const [cardCvv, setCardCvv] = useState('••••');
+  // Billing Form State
+  const [cardholderName, setCardholderName] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardCvv, setCardCvv] = useState('');
   const [invoiceEmailType, setInvoiceEmailType] = useState<'existing' | 'custom'>('existing');
   const [customInvoiceEmail, setCustomInvoiceEmail] = useState('');
-  const [selectedInvoices, setSelectedInvoices] = useState<string[]>(['INV-2026-003']);
+  const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
 
-  // Team RBAC State with "OTHER" custom role/department write-in
-  const [teamMembers, setTeamMembers] = useState([
-    {
-      id: '1',
-      name: 'Folake Adeyemi, Esq.',
-      email: 'f.adeyemi@apexfintech.ng',
-      role: 'OWNER',
-      department: 'COMPLIANCE_LEGAL',
-      status: 'Active',
-    },
-    {
-      id: '2',
-      name: 'Ibrahim Danladi',
-      email: 'i.danladi@apexfintech.ng',
-      role: 'ADMIN',
-      department: 'OPERATIONS',
-      status: 'Active',
-    },
-    {
-      id: '3',
-      name: 'Chinedu Okeke',
-      email: 'c.okeke@apexfintech.ng',
-      role: 'MEMBER',
-      department: 'ENGINEERING_TECH',
-      status: 'Active',
-    },
-    {
-      id: '4',
-      name: 'Ngozi Eze',
-      email: 'n.eze@apexfintech.ng',
-      role: 'OTHER',
-      department: 'Internal Supervisory Sandbox',
-      status: 'Active',
-    },
-  ]);
+  // Team RBAC State - initializes with active account user
+  const [teamMembers, setTeamMembers] = useState<
+    Array<{
+      id: string;
+      name: string;
+      email: string;
+      role: string;
+      department: string;
+      status: string;
+    }>
+  >([]);
+
+  useEffect(() => {
+    if (user) {
+      const realName =
+        user.fullName ||
+        `${user.firstName || ''} ${user.lastName || ''}`.trim() ||
+        'Compliance Officer';
+      const realEmail = user.primaryEmailAddress?.emailAddress || '';
+      setTeamMembers([
+        {
+          id: user.id || 'owner_1',
+          name: realName,
+          email: realEmail,
+          role: 'OWNER',
+          department: 'COMPLIANCE_LEGAL',
+          status: 'Active',
+        },
+      ]);
+    }
+  }, [user]);
 
   const [newMemberEmail, setNewMemberEmail] = useState('');
   const [newMemberRole, setNewMemberRole] = useState('MEMBER');
@@ -561,7 +589,7 @@ export default function SettingsPage() {
                     type="text"
                     value={primaryDomain}
                     onChange={(e) => setPrimaryDomain(e.target.value)}
-                    placeholder="e.g. apexfintech.ng"
+                    placeholder="e.g. institution.ng"
                     className="w-full px-4 py-2.5 bg-white border border-[#DDE3EE] rounded-xl text-sm text-[#0B0F1A] placeholder-[#94A3B8] focus:outline-none focus:border-[#2A4BFF] focus:ring-2 focus:ring-[#2A4BFF]/10 shadow-2xs font-mono"
                   />
                 </div>
@@ -831,7 +859,7 @@ export default function SettingsPage() {
                       required
                       value={newMemberEmail}
                       onChange={(e) => setNewMemberEmail(e.target.value)}
-                      placeholder="analyst@apexfintech.ng"
+                      placeholder="analyst@institution.ng"
                       className="w-full px-3 py-1.5 bg-white border border-[#DDE3EE] rounded-lg text-xs text-[#0B0F1A] focus:outline-none focus:border-[#2A4BFF]"
                     />
                   </div>

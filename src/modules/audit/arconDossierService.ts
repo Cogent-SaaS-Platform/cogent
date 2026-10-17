@@ -32,7 +32,7 @@ export class ArconDossierService {
       viewModel,
       organizationName = 'Cogent Enterprise Tenant',
       organizationId = '00000000-0000-0000-0000-000000000001',
-      applicantCcoName = 'Olumide Adebayo, Esq.',
+      applicantCcoName = 'Authorized Compliance Officer',
       applicantCcoTitle = 'Chief Compliance Officer',
       attestationNotes = 'Reviewed and reconciled against ARCON Code 2022, CBN Consumer Protection Framework 2019, and FCCPC Digital Lending Guidelines 2022. Pre-clearance conditions attested.',
       filingType = 'STANDARD_PRE_CLEARANCE',
@@ -178,7 +178,7 @@ export class ArconDossierService {
     const {
       viewModel,
       organizationName = 'Cogent Enterprise Tenant',
-      applicantCcoName = 'Olumide Adebayo, Esq.',
+      applicantCcoName = 'Authorized Compliance Officer',
       applicantCcoTitle = 'Chief Compliance Officer',
     } = params;
 

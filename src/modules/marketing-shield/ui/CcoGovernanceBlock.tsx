@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useUser } from '@clerk/nextjs';
 import { HumanApprovalStatus, ProductCategoryCode, RegulatorCode } from '@/shared/types';
 import {
   ShieldCheck,
@@ -45,28 +46,12 @@ export interface CcoSignoffRecord {
 
 export const DEFAULT_SIGNATORIES: SignatoryProfile[] = [
   {
-    id: 'sig_olumide',
-    name: 'Olumide Adebayo, Esq.',
+    id: 'sig_cco',
+    name: 'Designated Compliance Officer',
     title: 'Chief Compliance Officer',
-    regulatoryId: 'NBA/BL: 48291 • CCO-FINTECH-09',
+    regulatoryId: 'INSTITUTIONAL-CCO',
     notes:
       'Reviewed against ARCON Code 2022 and CBN Consumer Protection Framework 2019. Pre-clearance conditions attested.',
-  },
-  {
-    id: 'sig_amina',
-    name: 'Amina Bello, SAN',
-    title: 'General Counsel & Legal Director',
-    regulatoryId: 'NBA/SAN: 21904 • REG-DIR-01',
-    notes:
-      'Formally vetted for compliance with FCCPC Act 2018 and BOFIA 2020. Dissemination authorized strictly with statutory disclosures.',
-  },
-  {
-    id: 'sig_chukwudi',
-    name: 'Chukwudi Eze, Esq.',
-    title: 'Senior Regulatory Counsel',
-    regulatoryId: 'NBA/BL: 39102 • COMP-LEGAL-44',
-    notes:
-      'Verified mandatory APR interest rate disclosures and credit scoring disclaimers per CBN CPF 2019 Section 5.2.',
   },
 ];
 
@@ -112,18 +97,23 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
 }) => {
   // Signatory registry stored in localStorage so new additions persist
   const [signatories, setSignatories] = useState<SignatoryProfile[]>(DEFAULT_SIGNATORIES);
+  const { user } = useUser();
   const [lastSignatory, setLastSignatory] = useState<SignatoryProfile | null>(null);
 
-  // Form input fields for the active campaign
-  const [selectedOption, setSelectedOption] = useState<string>('sig_olumide');
-  const [reviewerName, setReviewerName] = useState<string>('Olumide Adebayo, Esq.');
+  // Form input fields for the active campaign - dynamically defaulted to active officer
+  const [selectedOption, setSelectedOption] = useState<string>('sig_cco');
+  const [reviewerName, setReviewerName] = useState<string>('Chief Compliance Officer');
   const [reviewerTitle, setReviewerTitle] = useState<string>('Chief Compliance Officer');
-  const [reviewerRegulatoryId, setReviewerRegulatoryId] = useState<string>(
-    'NBA/BL: 48291 • CCO-FINTECH-09'
-  );
+  const [reviewerRegulatoryId, setReviewerRegulatoryId] = useState<string>('');
   const [attestationNotes, setAttestationNotes] = useState<string>(
     'Reviewed against ARCON Code 2022 and CBN Consumer Protection Framework 2019. Pre-clearance conditions attested.'
   );
+
+  useEffect(() => {
+    if (user?.fullName) {
+      setReviewerName(user.fullName);
+    }
+  }, [user]);
 
   // Institutional Claims Ledger persistence state (Task 1.2 / 1.6)
   const [saveToLedger, setSaveToLedger] = useState<boolean>(false);
@@ -268,7 +258,18 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
+      let data: any;
+      try {
+        data = await res.json();
+      } catch {
+        const text = await res.text().catch(() => '');
+        throw new Error(text || `Server returned error (${res.status})`);
+      }
+
+      if (!res.ok || !data.success) {
+        throw new Error(data?.error || `Attestation submission failed (${res.status})`);
+      }
+
       if (data.success) {
         if (data.data?.savedClaim) {
           setLedgerSavedConfirmation(true);
@@ -540,7 +541,7 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
                   type="text"
                   value={reviewerName}
                   onChange={(e) => setReviewerName(e.target.value)}
-                  placeholder="e.g. Olumide Adebayo, Esq."
+                  placeholder="e.g. Authorized Compliance Officer"
                   className="w-full rounded-xl bg-white border border-[#DDE3EE] px-3 py-2 text-xs text-[#0B0F1A] focus:outline-none focus:ring-2 focus:ring-[#2A4BFF] shadow-xs"
                   required
                 />

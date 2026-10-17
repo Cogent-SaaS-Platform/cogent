@@ -116,7 +116,7 @@ export class AuditDefenseExporter {
     }));
 
     // 4. Fetch CCO attestation from audit_logs
-    let ccoName = 'Olumide Adebayo, Esq.';
+    let ccoName = 'Authorized Compliance Officer';
     let ccoTitle = 'Chief Compliance Officer';
     let attestationNotes = 'Formally reviewed and reconciled against statutory frameworks. Pre-clearance conditions attested.';
     let attestationHash = scan.approval_status === 'APPROVED_BY_CCO' ? 'CERTIFIED_BY_CCO' : 'PENDING_ATTESTATION';

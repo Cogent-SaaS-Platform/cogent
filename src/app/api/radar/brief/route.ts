@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
       applicability,
       roleBriefs,
       actionItems,
-      ccoSignatoryName = 'Olumide Adebayo, Esq.',
+      ccoSignatoryName = 'Authorized Compliance Officer',
       ccoSignatoryTitle = 'Chief Compliance Officer',
       format = 'markdown',
     } = body;

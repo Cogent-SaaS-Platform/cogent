@@ -878,7 +878,7 @@ export const MarketingShieldDashboard: React.FC<MarketingShieldDashboardProps> =
           viewModel,
           regulator: targetRegulator,
           format: fetchFormat,
-          applicantCcoName: currentSignoff?.reviewedBy || 'Olumide Adebayo, Esq.',
+          applicantCcoName: currentSignoff?.reviewedBy || 'Authorized Compliance Officer',
           applicantCcoTitle: currentSignoff?.reviewerTitle || 'Chief Compliance Officer',
           attestationNotes:
             currentSignoff?.attestationNotes ||

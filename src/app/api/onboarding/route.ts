@@ -46,9 +46,9 @@ export async function POST(req: NextRequest) {
           .update({
             name: companyName,
             rc_number: rcNumber || null,
-            cbn_approval_ref: primaryRegulators.includes('CBN') ? (licenseNumber || 'CBN/GOV/2026/01') : null,
+            cbn_approval_ref: primaryRegulators.includes('CBN') ? (licenseNumber || null) : null,
             fccpc_registration_number: licenseType.includes('FCCPC') || primaryRegulators.includes('FCCPC')
-              ? (licenseNumber || 'FCCPC/RN/2026/01')
+              ? (licenseNumber || null)
               : null,
             updated_at: new Date().toISOString(),
           })
@@ -316,7 +316,8 @@ SECTION 2: TRANSACTION MONITORING & STR REPORTING
         });
       } catch (dbErr: unknown) {
         const err = dbErr instanceof Error ? dbErr : new Error(String(dbErr));
-        logger.error({ err: err.message }, 'Database provisioning error during onboarding');
+        logger.error({ err: err.message, stack: err.stack }, 'Database provisioning error during onboarding');
+        throw err;
       }
     }
 
