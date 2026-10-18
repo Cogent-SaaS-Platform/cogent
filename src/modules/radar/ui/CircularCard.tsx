@@ -162,16 +162,21 @@ export function CircularCard({ card, isSelected, onSelect, onInspect }: Circular
         )}
       </div>
 
-      {/* Footer Details */}
+      {/* Footer Details: Dual Date Lineage */}
       <div className="flex items-center justify-between border-t border-[#DDE3EE] pt-2.5 text-[10px] text-[#4B5565]">
-        <div className="flex items-center gap-2">
-          <span>Pub: {card.publicationDate}</span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-medium text-[#0B0F1A]">Issued: {card.publicationDate}</span>
+          <span className="text-[#8D99AE]">•</span>
+          <span>Effective: {card.effectiveDate || card.publicationDate}</span>
           {card.statutoryDeadline && (
-            <span>• Deadline: {card.statutoryDeadline}</span>
+            <>
+              <span className="text-[#8D99AE]">•</span>
+              <span className="text-amber-700 font-bold">Due: {card.statutoryDeadline}</span>
+            </>
           )}
         </div>
         <ChevronRight
-          className={`h-3.5 w-3.5 transition-transform ${
+          className={`h-3.5 w-3.5 transition-transform shrink-0 ${
             isSelected
               ? 'text-[#2A4BFF] translate-x-1'
               : 'text-slate-400 group-hover:text-[#2A4BFF] group-hover:translate-x-0.5'

@@ -266,15 +266,22 @@ export class StatutoryBenchmarkService {
 
     // 1. Search for matching instrument version
     for (const instrument of REGULATORY_INSTRUMENTS_SEED) {
+      const shortName = instrument.short_name.toLowerCase();
       for (const version of instrument.versions) {
         const seedId = `bench-${instrument.body_code.toLowerCase()}-${version.version_number.toLowerCase()}`;
+        const refCode = version.reference_code.toLowerCase();
         if (
           seedId === normReq ||
-          version.reference_code.toLowerCase() === normReq ||
-          (normReq.includes('aml') && seedId.includes('aml')) ||
-          (normReq.includes('cpf') && seedId.includes('2019')) ||
-          (normReq.includes('fccpc') && seedId.includes('fccpc')) ||
-          (normReq.includes('sec') && seedId.includes('sec'))
+          refCode === normReq ||
+          (normReq.includes('bofia') && shortName.includes('bofia')) ||
+          (normReq.includes('open-banking') && shortName.includes('open banking')) ||
+          (normReq.includes('ndpa') && shortName.includes('ndpa')) ||
+          (normReq.includes('vasp') && shortName.includes('vasp')) ||
+          (normReq.includes('bog') && shortName.includes('bog')) ||
+          (normReq.includes('aml') && (seedId.includes('aml') || shortName.includes('aml'))) ||
+          (normReq.includes('cpf') && (seedId.includes('2019') || shortName.includes('cpf'))) ||
+          (normReq.includes('fccpc') && (seedId.includes('fccpc') || shortName.includes('fccpc'))) ||
+          (normReq.includes('sec') && (seedId.includes('sec') || shortName.includes('sec')))
         ) {
           return this.mapVersionToStatutoryClauses(instrument, version, documentVersionId);
         }

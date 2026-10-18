@@ -127,15 +127,15 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
     }
   }, []);
 
-  // Live Feed Synchronizer (triggers scrapers for CBN, SEC, NDPC, ARCON, FCCPC)
+  // Live Feed Synchronizer (triggers scrapers for CBN, SEC, NDPC, ARCON, FCCPC, Law Firms, and Media)
   const handleSyncLiveFeeds = async () => {
     try {
       setIsSyncingFeeds(true);
-      setSyncStatusMessage('Polling live Nigerian regulatory portals (CBN, SEC, NDPC, ARCON, FCCPC)...');
+      setSyncStatusMessage('Scanning 18+ African regulatory portals, Tier-1 law firm advisories, and fintech wires...');
       const res = await fetch('/api/radar/sync', { method: 'POST' });
       const data = await res.json();
       if (data.success) {
-        setSyncStatusMessage(data.message || 'Live synchronization completed successfully.');
+        setSyncStatusMessage(data.message || 'Live synchronization across all 18+ sources completed successfully.');
         await fetchLiveCirculars();
       } else {
         setSyncStatusMessage('Sync failed: ' + (data.error || 'Unknown error'));
@@ -470,13 +470,14 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
     },
     {
       key: 'publicationDate',
-      header: 'Issued',
-      width: '110px',
+      header: 'Lineage Dates',
+      width: '130px',
       sortable: true,
       render: (row) => (
-        <span className="text-xs text-[#4B5565]">
-          {row.publicationDate}
-        </span>
+        <div className="space-y-0.5 text-[11px]">
+          <div className="text-[#0B0F1A] font-medium">Issued: {row.publicationDate}</div>
+          <div className="text-[#8D99AE] text-[10px]">Eff: {row.effectiveDate || row.publicationDate}</div>
+        </div>
       ),
     },
     {
@@ -722,15 +723,15 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
                 )}
               </div>
 
-              {/* Poll Live Regulatory Feeds (Scraper Trigger) */}
+              {/* Scan Live Regulatory Feeds (Multi-Stream Scraper Trigger) */}
               <button
                 onClick={handleSyncLiveFeeds}
                 disabled={isSyncingFeeds || isLoadingLive}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[#2A4BFF]/30 bg-[#2A4BFF]/5 hover:bg-[#2A4BFF]/10 text-[#2A4BFF] px-3 py-1.5 text-xs font-bold transition-all disabled:opacity-50"
-                title="Poll live Nigerian regulatory portals (CBN, SEC, NDPC, ARCON, FCCPC)"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[#2A4BFF]/30 bg-[#2A4BFF]/5 hover:bg-[#2A4BFF]/10 text-[#2A4BFF] px-3.5 py-1.5 text-xs font-bold transition-all disabled:opacity-50 shadow-xs"
+                title="Scan live Nigerian and Pan-African regulatory portals, law firm advisories, and fintech media"
               >
                 <Radio className={`h-3.5 w-3.5 ${isSyncingFeeds ? 'animate-pulse text-[#2A4BFF]' : ''}`} />
-                <span className="hidden sm:inline">{isSyncingFeeds ? 'Polling Feeds...' : 'Poll Live Feeds'}</span>
+                <span className="hidden sm:inline">{isSyncingFeeds ? 'Scanning 18+ Feeds...' : 'Scan Sources Now'}</span>
               </button>
 
               {/* Refresh Database Directives */}

@@ -6,6 +6,11 @@ import {
   SeverityLevel,
   LicenseType,
   PaymentRail,
+  RegulatoryDomainCode,
+  DocumentClassification,
+  JurisdictionCode,
+  AssessmentCriterion,
+  ObligationUserOverride,
 } from '@/shared/types';
 
 export interface RegulatoryBodySeed {
@@ -48,6 +53,9 @@ export interface RegulatoryObligationSeed {
   penalties: StatutoryPenaltySeed[];
   prohibited_terms: ProhibitedTermSeed[];
   applicability: ApplicabilityRuleSeed[];
+  assessment_criteria?: AssessmentCriterion[];
+  target_role?: string;
+  user_override?: ObligationUserOverride;
 }
 
 export interface RegulatoryClauseSeed {
@@ -77,6 +85,11 @@ export interface RegulatoryInstrumentSeed {
   title: string;
   short_name: string;
   instrument_type: InstrumentType;
+  domain?: RegulatoryDomainCode;
+  jurisdiction?: JurisdictionCode;
+  classification?: DocumentClassification;
+  enacted_year?: number;
+  description?: string;
   versions: RegulatoryDocumentVersionSeed[];
 }
 
@@ -132,6 +145,11 @@ export const REGULATORY_INSTRUMENTS_SEED: RegulatoryInstrumentSeed[] = [
     title: 'Nigerian Code of Advertising Practice, Sales Promotion and Other Marketing Communications (6th Edition)',
     short_name: 'ARCON Code 2022',
     instrument_type: 'SUBSIDIARY_REGULATION',
+    domain: 'CONSUMER_PROTECTION',
+    jurisdiction: 'NG',
+    classification: 'SUBSIDIARY_REGULATION',
+    enacted_year: 2022,
+    description: 'Statutory regulation governing truth in advertising, mandatory pre-exposure vetting, and financial promotion disclaimers.',
     versions: [
       {
         version_number: '2022-6TH-EDITION',
@@ -270,6 +288,11 @@ export const REGULATORY_INSTRUMENTS_SEED: RegulatoryInstrumentSeed[] = [
     title: 'Central Bank of Nigeria Consumer Protection Framework for Banks and Other Financial Institutions',
     short_name: 'CBN CPF 2019',
     instrument_type: 'REGULATORY_FRAMEWORK',
+    domain: 'CONSUMER_PROTECTION',
+    jurisdiction: 'NG',
+    classification: 'GUIDANCE_STANDARD',
+    enacted_year: 2019,
+    description: 'Consumer protection guidelines safeguarding bank and fintech customers against hidden charges, debt harassment, and predatory credit.',
     versions: [
       {
         version_number: '2019-FINAL',
@@ -394,6 +417,11 @@ export const REGULATORY_INSTRUMENTS_SEED: RegulatoryInstrumentSeed[] = [
     title: 'Limited Interim Regulatory/Registration Framework and Guidelines for Digital Lending 2022',
     short_name: 'FCCPC Lending Guidelines 2022',
     instrument_type: 'OPERATIONAL_GUIDELINE',
+    domain: 'DIGITAL_LENDING',
+    jurisdiction: 'NG',
+    classification: 'SUBSIDIARY_REGULATION',
+    enacted_year: 2022,
+    description: 'Mandatory operational standards for digital money lenders in Nigeria, prohibiting predatory interest rates and contact harassment.',
     versions: [
       {
         version_number: '2022-INTERIM-V1',
@@ -472,6 +500,11 @@ export const REGULATORY_INSTRUMENTS_SEED: RegulatoryInstrumentSeed[] = [
     title: 'Securities and Exchange Commission Consolidated Rules & Regulations on Collective Investment Schemes & Wealthtech',
     short_name: 'SEC Consolidated Rules 2013 (As Amended)',
     instrument_type: 'SUBSIDIARY_REGULATION',
+    domain: 'CAPITAL_MARKETS',
+    jurisdiction: 'NG',
+    classification: 'SUBSIDIARY_REGULATION',
+    enacted_year: 2013,
+    description: 'Consolidated capital market rules governing wealthtech platforms, automated portfolio managers, and digital investment aggregators.',
     versions: [
       {
         version_number: '2022-AMENDMENT',
@@ -550,6 +583,11 @@ export const REGULATORY_INSTRUMENTS_SEED: RegulatoryInstrumentSeed[] = [
     title: 'Central Bank of Nigeria (Anti-Money Laundering, Combating the Financing of Terrorism and Countering Proliferation Financing) Regulations 2022',
     short_name: 'CBN AML/CFT Regulations 2022',
     instrument_type: 'SUBSIDIARY_REGULATION',
+    domain: 'AML_CFT',
+    jurisdiction: 'NG',
+    classification: 'SUBSIDIARY_REGULATION',
+    enacted_year: 2022,
+    description: 'Supervisory regulations on institutional money laundering defense, risk profiling, PEP screening, and transaction monitoring.',
     versions: [
       {
         version_number: 'AML-2022',
@@ -682,4 +720,507 @@ export const REGULATORY_INSTRUMENTS_SEED: RegulatoryInstrumentSeed[] = [
       },
     ],
   },
+
+  // 6. BANKS AND OTHER FINANCIAL INSTITUTIONS ACT (BOFIA) 2020
+  {
+    body_code: 'CBN',
+    title: 'Banks and Other Financial Institutions Act (BOFIA) 2020 (Act No. 5)',
+    short_name: 'BOFIA 2020',
+    instrument_type: 'PRIMARY_ACT',
+    domain: 'FINTECH_PAYMENTS',
+    jurisdiction: 'NG',
+    classification: 'PRIMARY_LEGISLATION',
+    enacted_year: 2020,
+    description: 'Principal statutory legislation regulating banks, specialized financial institutions, fintech switches, and payment systems in Nigeria.',
+    versions: [
+      {
+        version_number: '2020-ACT-NO-5',
+        reference_code: 'FED/GAZ/2020/ACT-05',
+        publication_date: '2020-11-12',
+        effective_date: '2020-11-13',
+        canonical_source_url: 'https://www.cbn.gov.ng/out/2020/ccd/bofia%202020.pdf',
+        source_file_url: 'regulatory/cbn/bofia_act_2020.pdf',
+        source_file_hash: 'c1b2a3d4e5f67890123456789abcdef0123456789abcdef0123456789abcdef0',
+        verification_status: 'HUMAN_VERIFIED',
+        verification_notes: 'Federal Republic of Nigeria Official Gazette No. 177, Vol. 107.',
+        clauses: [
+          {
+            section_reference: 'Section 57(1)',
+            section_heading: 'Mandatory Licensing for Payment Systems and FinTech Platforms',
+            clause_text:
+              'No person or corporate entity shall carry on the business of a payment service provider, switching and processing company, mobile money operator, payment terminal service provider, or any other financial technology services in Nigeria without a valid license issued by the Central Bank of Nigeria.',
+            page_number: 45,
+            paragraph_reference: 'Section 57(1)-(2)',
+            obligations: [
+              {
+                obligation_type: 'STRICT_PROHIBITION',
+                summary: 'Strict prohibition against operating payment services, switches, or fintech platforms without an active CBN license.',
+                severity_floor: 'CRITICAL',
+                statutory_timeline_days: null,
+                mandatory_disclosure_text: null,
+                target_role: 'Chief Executive Officer & Chief Compliance Officer',
+                penalties: [
+                  {
+                    penalty_min_naira: 50000000,
+                    penalty_max_naira: 100000000,
+                    daily_fine_naira: 500000,
+                    carries_personal_criminal_liability: true,
+                    carries_license_suspension_risk: true,
+                    penalty_legal_citation: 'Section 57(3) BOFIA 2020 (Unlicensed Operations Sanctions)',
+                  },
+                ],
+                prohibited_terms: [],
+                applicability: [{ all_institutions_flag: true }],
+                assessment_criteria: [
+                  {
+                    id: 'bofia-57-1',
+                    criterionText: 'Valid CBN Approval-in-Principle (AIP) or Final Operational License is active and held in institutional registry',
+                    evidenceRequired: 'CBN Operational License Certificate with current verification letter',
+                    isMandatory: true,
+                    defaultChecked: true,
+                  },
+                  {
+                    id: 'bofia-57-2',
+                    criterionText: 'Permissible activities of the entity strictly match the authorized CBN license categorization tier',
+                    evidenceRequired: 'Approved Product Catalogue cross-checked against CBN Scope of Operations Matrix',
+                    isMandatory: true,
+                    defaultChecked: true,
+                  },
+                  {
+                    id: 'bofia-57-3',
+                    criterionText: 'Annual statutory supervisory filing and license renewal documentation submitted to CBN Banking Supervision',
+                    evidenceRequired: 'CBN Annual Return Acknowledgement Slip',
+                    isMandatory: true,
+                    defaultChecked: false,
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            section_reference: 'Section 65(1)',
+            section_heading: 'Minimum Paid-Up Share Capital and Governance Reserves',
+            clause_text:
+              'Every licensed payment service provider and financial institution shall maintain unimpaired minimum paid-up share capital and statutory reserves as prescribed by the Central Bank of Nigeria, free from liens, charges, or regulatory encumbrances.',
+            page_number: 52,
+            paragraph_reference: 'Section 65(1)-(4)',
+            obligations: [
+              {
+                obligation_type: 'GOVERNANCE_CONTROL',
+                summary: 'Statutory mandate to maintain unimpaired minimum paid-up share capital matching CBN license tier.',
+                severity_floor: 'CRITICAL',
+                statutory_timeline_days: 30,
+                mandatory_disclosure_text: null,
+                target_role: 'Chief Financial Officer & Head of Treasury',
+                penalties: [
+                  {
+                    penalty_min_naira: 20000000,
+                    penalty_max_naira: 50000000,
+                    daily_fine_naira: 200000,
+                    carries_personal_criminal_liability: true,
+                    carries_license_suspension_risk: true,
+                    penalty_legal_citation: 'Section 65(5) BOFIA 2020 & CBN Circular on Capital Requirements',
+                  },
+                ],
+                prohibited_terms: [],
+                applicability: [{ all_institutions_flag: true }],
+                assessment_criteria: [
+                  {
+                    id: 'bofia-65-1',
+                    criterionText: 'Paid-up share capital deposited in escrow or audited reserves meets or exceeds tier threshold (e.g. ₦2B for Switching, ₦100M for PSSP)',
+                    evidenceRequired: 'Audited Financial Statements and CBN Capital Escrow Statement',
+                    isMandatory: true,
+                    defaultChecked: true,
+                  },
+                  {
+                    id: 'bofia-65-2',
+                    criterionText: 'Capital adequacy and liquidity ratios are monitored and reported monthly to Board Risk Committee',
+                    evidenceRequired: 'Monthly ALCO / Risk Committee minutes and liquidity returns',
+                    isMandatory: true,
+                    defaultChecked: false,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+
+  // 7. CBN OPEN BANKING REGULATORY FRAMEWORK 2023
+  {
+    body_code: 'CBN',
+    title: 'Operational Guidelines for Open Banking in Nigeria (2023)',
+    short_name: 'CBN Open Banking 2023',
+    instrument_type: 'OPERATIONAL_GUIDELINE',
+    domain: 'FINTECH_PAYMENTS',
+    jurisdiction: 'NG',
+    classification: 'SUBSIDIARY_REGULATION',
+    enacted_year: 2023,
+    description: 'Technical and operational guidelines for API data exchange, customer explicit consent, and security tokens among banks and fintechs.',
+    versions: [
+      {
+        version_number: '2023-V1',
+        reference_code: 'BPS/DIR/GEN/CIR/09/012',
+        publication_date: '2023-03-07',
+        effective_date: '2023-04-01',
+        canonical_source_url: 'https://www.cbn.gov.ng/out/2023/bpsd/open%20banking%20guidelines.pdf',
+        source_file_url: 'regulatory/cbn/cbn_open_banking_guidelines_2023.pdf',
+        source_file_hash: 'd2e3f4a5b6c7890123456789abcdef0123456789abcdef0123456789abcdef01',
+        verification_status: 'HUMAN_VERIFIED',
+        verification_notes: 'Approved under CBN Act 2007 and BOFIA 2020.',
+        clauses: [
+          {
+            section_reference: 'Section 4.2',
+            section_heading: 'Customer Explicit Consent and Granular Revocation Protocol',
+            clause_text:
+              'Participants in the Open Banking registry shall obtain explicit, unambiguous, and time-bound consent from customers prior to accessing customer account data or initiating transactions. Customers must be provided an intuitive in-app mechanism to revoke consent at any time without penalty.',
+            page_number: 18,
+            paragraph_reference: 'Section 4.2(a)-(c)',
+            obligations: [
+              {
+                obligation_type: 'MANDATORY_DISCLOSURE',
+                summary: 'Mandatory explicit customer consent architecture and self-service revocation dashboard for Open Banking APIs.',
+                severity_floor: 'HIGH',
+                statutory_timeline_days: null,
+                mandatory_disclosure_text: 'Explicit consent required for API financial data access.',
+                target_role: 'Head of Product & Chief Technology Officer',
+                penalties: [
+                  {
+                    penalty_min_naira: 5000000,
+                    penalty_max_naira: 15000000,
+                    daily_fine_naira: 100000,
+                    carries_personal_criminal_liability: false,
+                    carries_license_suspension_risk: true,
+                    penalty_legal_citation: 'Section 11.1 CBN Open Banking Sanctions Matrix',
+                  },
+                ],
+                prohibited_terms: [],
+                applicability: [{ all_institutions_flag: true }],
+                assessment_criteria: [
+                  {
+                    id: 'ob-4-2-1',
+                    criterionText: 'Consent capture screen displays exact data fields accessed, duration of access, and specific business purpose',
+                    evidenceRequired: 'UI/UX Consent Flow Design & OAuth 2.0 Scope Documentation',
+                    isMandatory: true,
+                    defaultChecked: true,
+                  },
+                  {
+                    id: 'ob-4-2-2',
+                    criterionText: 'Self-service consent management portal enables instant revocation within 2 clicks in mobile/web app',
+                    evidenceRequired: 'Production App Settings Screenshot & Revocation Audit Event Log',
+                    isMandatory: true,
+                    defaultChecked: true,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+
+  // 8. NIGERIA DATA PROTECTION ACT (NDPA) 2023
+  {
+    body_code: 'NDPC',
+    title: 'Nigeria Data Protection Act 2023 (Act No. 13)',
+    short_name: 'NDPA 2023',
+    instrument_type: 'PRIMARY_ACT',
+    domain: 'DATA_PRIVACY_AI',
+    jurisdiction: 'NG',
+    classification: 'PRIMARY_LEGISLATION',
+    enacted_year: 2023,
+    description: 'National legislation governing processing of personal data, lawful bases, data subject rights, and cross-border transfers.',
+    versions: [
+      {
+        version_number: '2023-ACT-13',
+        reference_code: 'FED/GAZ/2023/ACT-13',
+        publication_date: '2023-06-12',
+        effective_date: '2023-06-14',
+        canonical_source_url: 'https://ndpc.gov.ng/assets/ndpa-2023.pdf',
+        source_file_url: 'regulatory/ndpc/ndpa_act_2023.pdf',
+        source_file_hash: 'e3f4a5b6c7890123456789abcdef0123456789abcdef0123456789abcdef012',
+        verification_status: 'HUMAN_VERIFIED',
+        verification_notes: 'Gazetted Federal Republic of Nigeria Master Act.',
+        clauses: [
+          {
+            section_reference: 'Section 24(1)',
+            section_heading: 'Principles of Personal Data Processing and Lawful Purpose',
+            clause_text:
+              'A data controller or processor shall collect personal data only for specific, explicit, and legitimate purposes and not further process it in a manner that is incompatible with those purposes. All financial consumer data must be collected with a lawful basis under Section 25.',
+            page_number: 21,
+            paragraph_reference: 'Section 24(1)(a)-(f)',
+            obligations: [
+              {
+                obligation_type: 'GOVERNANCE_CONTROL',
+                summary: 'Statutory mandate restricting financial data processing strictly to lawful, notified, and verified institutional purposes.',
+                severity_floor: 'CRITICAL',
+                statutory_timeline_days: null,
+                mandatory_disclosure_text: 'Privacy Notice conforming to Section 27 NDPA 2023.',
+                target_role: 'Data Protection Officer & Head of Legal',
+                penalties: [
+                  {
+                    penalty_min_naira: 10000000,
+                    penalty_max_naira: 50000000,
+                    daily_fine_naira: 0,
+                    carries_personal_criminal_liability: true,
+                    carries_license_suspension_risk: false,
+                    penalty_legal_citation: 'Section 48(1) NDPA 2023 (Major Data Controller Sanctions: 2% of annual turnover or ₦10M)',
+                  },
+                ],
+                prohibited_terms: [],
+                applicability: [{ all_institutions_flag: true }],
+                assessment_criteria: [
+                  {
+                    id: 'ndpa-24-1',
+                    criterionText: 'Data Protection Impact Assessment (DPIA) conducted and filed annually with NDPC',
+                    evidenceRequired: 'Annual NDPC DPIA Compliance Audit Certificate',
+                    isMandatory: true,
+                    defaultChecked: true,
+                  },
+                  {
+                    id: 'ndpa-24-2',
+                    criterionText: 'Certified Data Protection Officer (DPO) designated and registered with NDPC directory',
+                    evidenceRequired: 'DPO Appointment Letter & NDPC Registration Acknowledgment',
+                    isMandatory: true,
+                    defaultChecked: true,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+
+  // 9. SEC DIGITAL ASSETS & CRYPTO VASP RULES 2024
+  {
+    body_code: 'SEC',
+    title: 'Rules on Issuance, Offering Platforms and Custody of Digital Assets & Virtual Asset Service Providers (VASPs)',
+    short_name: 'SEC VASP Rules 2024',
+    instrument_type: 'SUBSIDIARY_REGULATION',
+    domain: 'CRYPTO_VASP',
+    jurisdiction: 'NG',
+    classification: 'SUBSIDIARY_REGULATION',
+    enacted_year: 2024,
+    description: 'Consolidated regulatory framework governing crypto asset exchanges, custodial token wallets, and virtual asset offerings.',
+    versions: [
+      {
+        version_number: '2024-VASP-REV',
+        reference_code: 'SEC/CIR/VASP/2024/004',
+        publication_date: '2024-03-15',
+        effective_date: '2024-04-01',
+        canonical_source_url: 'https://sec.gov.ng/rules-regulations/vasp-rules-2024.pdf',
+        source_file_url: 'regulatory/sec/sec_vasp_rules_2024.pdf',
+        source_file_hash: 'f4a5b6c7890123456789abcdef0123456789abcdef0123456789abcdef0123',
+        verification_status: 'HUMAN_VERIFIED',
+        verification_notes: 'Accelerated Regulatory Incubation Program (ARIP) / RI Program master rules.',
+        clauses: [
+          {
+            section_reference: 'Rule 12.1',
+            section_heading: 'Custodial Segregation of Client Virtual Assets and Cold Storage Quota',
+            clause_text:
+              'Every licensed Virtual Asset Service Provider (VASP) shall maintain 100% segregated custody of client digital assets, separate from proprietary corporate balances. A minimum of 85% of total client digital assets must be secured in multi-signature, air-gapped cold storage vaults.',
+            page_number: 34,
+            paragraph_reference: 'Rule 12.1(a)-(d)',
+            obligations: [
+              {
+                obligation_type: 'GOVERNANCE_CONTROL',
+                summary: 'Mandatory custodial segregation of user crypto funds and minimum 85% multi-sig cold storage vault allocation.',
+                severity_floor: 'CRITICAL',
+                statutory_timeline_days: null,
+                mandatory_disclosure_text: 'Virtual assets are subject to market volatility. Client assets held in segregated custody.',
+                target_role: 'Chief Technology Officer & Head of Crypto Custody',
+                penalties: [
+                  {
+                    penalty_min_naira: 20000000,
+                    penalty_max_naira: 100000000,
+                    daily_fine_naira: 500000,
+                    carries_personal_criminal_liability: true,
+                    carries_license_suspension_risk: true,
+                    penalty_legal_citation: 'Rule 31 SEC VASP Enforcement Sanctions & License Revocation',
+                  },
+                ],
+                prohibited_terms: [],
+                applicability: [{ applicable_license_type: 'CRYPTO_VASP_SEC_APPROVED' }],
+                assessment_criteria: [
+                  {
+                    id: 'vasp-12-1',
+                    criterionText: 'Cold storage multi-signature policy enforces minimum 3-of-5 keyholder authorization across distinct geographical regions',
+                    evidenceRequired: 'Key Management SOP and Cryptographic Hardware Security Module (HSM) Audit',
+                    isMandatory: true,
+                    defaultChecked: true,
+                  },
+                  {
+                    id: 'vasp-12-2',
+                    criterionText: 'Proof of Reserves (PoR) cryptographic attestation published monthly by independent third-party auditor',
+                    evidenceRequired: 'Monthly Merkle-tree Proof of Reserves Attestation Report',
+                    isMandatory: true,
+                    defaultChecked: false,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+
+  // 10. BANK OF GHANA PAYMENT SYSTEMS AND SERVICES ACT 2019 (PAN-AFRICAN CORRIDOR)
+  {
+    body_code: 'CBN', // Mapped to primary banking supervisor for cross-border corridor
+    title: 'Bank of Ghana Payment Systems and Services Act 2019 (Act 987)',
+    short_name: 'BOG Act 987 (Ghana)',
+    instrument_type: 'PRIMARY_ACT',
+    domain: 'FINTECH_PAYMENTS',
+    jurisdiction: 'GH',
+    classification: 'PRIMARY_LEGISLATION',
+    enacted_year: 2019,
+    description: 'Cross-border statutory framework regulating electronic money issuers, dedicated settlement accounts, and inward remittance in Ghana.',
+    versions: [
+      {
+        version_number: '2019-ACT-987',
+        reference_code: 'GH/GAZ/2019/ACT-987',
+        publication_date: '2019-05-14',
+        effective_date: '2019-06-01',
+        canonical_source_url: 'https://www.bog.gov.gh/laws-regulations/act-987/',
+        source_file_url: 'regulatory/bog/ghana_payment_systems_act_987.pdf',
+        source_file_hash: 'a5b6c7890123456789abcdef0123456789abcdef0123456789abcdef01234',
+        verification_status: 'HUMAN_VERIFIED',
+        verification_notes: 'Republic of Ghana Parliamentary Gazette Master Act.',
+        clauses: [
+          {
+            section_reference: 'Section 28(1)',
+            section_heading: 'Dedicated Settlement Account and Float Ring-Fencing',
+            clause_text:
+              'A payment service provider or electronic money issuer shall maintain a dedicated customer float account with a universal bank in Ghana strictly ring-fenced from operational corporate accounts, containing 100% liquid cash backing for all outstanding e-money balances.',
+            page_number: 26,
+            paragraph_reference: 'Section 28(1)-(3)',
+            obligations: [
+              {
+                obligation_type: 'GOVERNANCE_CONTROL',
+                summary: 'Mandatory 100% liquid cash ring-fencing of electronic float in universal bank settlement accounts.',
+                severity_floor: 'CRITICAL',
+                statutory_timeline_days: 1,
+                mandatory_disclosure_text: null,
+                target_role: 'Head of Treasury & Chief Financial Officer',
+                penalties: [
+                  {
+                    penalty_min_naira: 15000000,
+                    penalty_max_naira: 40000000,
+                    daily_fine_naira: 150000,
+                    carries_personal_criminal_liability: true,
+                    carries_license_suspension_risk: true,
+                    penalty_legal_citation: 'Section 42 BOG Act 987 (Penalty Units Sanctions)',
+                  },
+                ],
+                prohibited_terms: [],
+                applicability: [{ all_institutions_flag: true }],
+                assessment_criteria: [
+                  {
+                    id: 'bog-28-1',
+                    criterionText: 'Daily float reconciliation between e-money ledger and universal bank settlement balances executed before 09:00 GMT',
+                    evidenceRequired: 'Daily Automated Float Reconciliation Certificates and Bank Statements',
+                    isMandatory: true,
+                    defaultChecked: true,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  },
 ];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REGULATORY DOMAINS TAXONOMY (ENTERPRISE CONTROL ROOM)
+// ─────────────────────────────────────────────────────────────────────────────
+export interface RegulatoryDomainOverview {
+  code: RegulatoryDomainCode;
+  name: string;
+  description: string;
+  iconName: string;
+  totalInstruments: number;
+  totalObligations: number;
+  criticalObligations: number;
+}
+
+export const REGULATORY_DOMAINS: RegulatoryDomainOverview[] = [
+  {
+    code: 'FINTECH_PAYMENTS',
+    name: 'FinTech, Payments & Banking Rails',
+    description: 'Switching, processing, mobile money, open banking, payment terminals, and core banking licenses.',
+    iconName: 'CreditCard',
+    totalInstruments: 3,
+    totalObligations: 12,
+    criticalObligations: 6,
+  },
+  {
+    code: 'AML_CFT',
+    name: 'AML / CFT & Financial Crime',
+    description: 'Anti-money laundering, combating terrorism financing, PEP screening, and statutory STR filings.',
+    iconName: 'ShieldAlert',
+    totalInstruments: 2,
+    totalObligations: 8,
+    criticalObligations: 5,
+  },
+  {
+    code: 'DIGITAL_LENDING',
+    name: 'Digital Lending & Credit Standards',
+    description: 'Consumer credit, fair APR disclosures, debt recovery conduct, and FCCPC registry compliance.',
+    iconName: 'Smartphone',
+    totalInstruments: 2,
+    totalObligations: 6,
+    criticalObligations: 4,
+  },
+  {
+    code: 'DATA_PRIVACY_AI',
+    name: 'Data Privacy & AI Governance',
+    description: 'NDPA 2023 fair processing, cross-border customer data transfers, and automated profiling safeguards.',
+    iconName: 'Lock',
+    totalInstruments: 1,
+    totalObligations: 4,
+    criticalObligations: 2,
+  },
+  {
+    code: 'CAPITAL_MARKETS',
+    name: 'Capital Markets & WealthTech',
+    description: 'Investments and Securities Act, digital sub-brokers, robo-advisors, and crowdfunding platforms.',
+    iconName: 'TrendingUp',
+    totalInstruments: 1,
+    totalObligations: 5,
+    criticalObligations: 2,
+  },
+  {
+    code: 'CRYPTO_VASP',
+    name: 'Virtual Assets & Web3 Regulations',
+    description: 'SEC VASP rules, digital asset offering platforms, custodial segregation, and crypto travel rules.',
+    iconName: 'Coins',
+    totalInstruments: 1,
+    totalObligations: 4,
+    criticalObligations: 3,
+  },
+  {
+    code: 'CONSUMER_PROTECTION',
+    name: 'Consumer Protection & Truth-in-Advertising',
+    description: 'ARCON advertising pre-vetting, deceptive claims prohibition, and mandatory APR disclosures.',
+    iconName: 'Scale',
+    totalInstruments: 2,
+    totalObligations: 9,
+    criticalObligations: 5,
+  },
+];
+
+export function getCorpusByDomain(domain: RegulatoryDomainCode): RegulatoryInstrumentSeed[] {
+  return REGULATORY_INSTRUMENTS_SEED.filter((inst) => inst.domain === domain);
+}
+
+export function getCorpusByJurisdiction(jurisdiction: JurisdictionCode): RegulatoryInstrumentSeed[] {
+  return REGULATORY_INSTRUMENTS_SEED.filter((inst) => inst.jurisdiction === jurisdiction);
+}

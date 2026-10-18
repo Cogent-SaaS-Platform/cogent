@@ -195,5 +195,68 @@ export type Result<T, E = Error> =
 export const Ok = <T>(data: T): Result<T, never> => ({ success: true, data });
 export const Err = <E>(error: E): Result<never, E> => ({ success: false, error });
 
+export type JurisdictionCode =
+  | 'NG'
+  | 'GH'
+  | 'KE'
+  | 'ZA'
+  | 'WAEMU'
+  | 'SUPRANATIONAL'
+  | 'PAN_AFRICA';
+
+export type RegulatoryDomainCode =
+  | 'FINTECH_PAYMENTS'
+  | 'AML_CFT'
+  | 'DIGITAL_LENDING'
+  | 'DATA_PRIVACY_AI'
+  | 'CAPITAL_MARKETS'
+  | 'CRYPTO_VASP'
+  | 'CONSUMER_PROTECTION';
+
+export type DocumentClassification =
+  | 'PRIMARY_LEGISLATION'
+  | 'SUBSIDIARY_REGULATION'
+  | 'CIRCULAR_DIRECTIVE'
+  | 'GUIDANCE_STANDARD';
+
+export interface AssessmentCriterion {
+  id: string;
+  criterionText: string;
+  evidenceRequired: string;
+  isMandatory: boolean;
+  defaultChecked?: boolean;
+}
+
+export interface ObligationUserOverride {
+  status: 'VERIFIED_MET' | 'PARTIALLY_MET' | 'NON_COMPLIANT' | 'NOT_APPLICABLE' | 'PENDING_REVIEW';
+  internalNotes?: string;
+  internalSopCitation?: string;
+  assignedOwner?: string;
+  lastReviewedAt?: string;
+  verifiedCriteriaIds?: string[];
+}
+
+export type SourceCategory =
+  | 'APEX_REGULATOR'
+  | 'LAW_FIRM_ADVISORY'
+  | 'REGULATORY_NEWS_MEDIA'
+  | 'SUPRANATIONAL_BODY';
+
+export interface RegulatorySourceDefinition {
+  id: string;
+  code: string;
+  name: string;
+  category: SourceCategory;
+  jurisdiction: JurisdictionCode;
+  officialUrl: string;
+  feedUrl?: string;
+  adapterType: 'RSS_FEED' | 'HTML_SCRAPER' | 'REST_API' | 'MANUAL_VERIFIED';
+  isActive: boolean;
+  pollingFrequencyHours: number;
+  trustScore: number;
+  tags: string[];
+  description: string;
+}
+
 export * from './billing';
 
