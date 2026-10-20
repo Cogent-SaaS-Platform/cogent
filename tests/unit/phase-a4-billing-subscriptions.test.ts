@@ -390,5 +390,34 @@ describe('Phase A4: Paystack Billing & Subscription Engine Verification', () => 
       );
       expect(() => EntitlementEngine.assertCanExportCryptographicPack(proActive)).not.toThrow();
     });
+
+    it('enforces 7-day trial default quotas of 10 scans and 1 policy document', () => {
+      const trialSummary = EntitlementEngine.computeSummary({
+        status: 'trialing',
+      });
+
+      expect(trialSummary.marketingScanQuota).toBe(10);
+      expect(trialSummary.policyDocumentQuota).toBe(1);
+      expect(() => EntitlementEngine.assertCanScan(trialSummary, 10)).toThrow(
+        SubscriptionRequiredError
+      );
+      expect(() => EntitlementEngine.assertCanEvaluatePolicy(trialSummary, 1)).toThrow(
+        SubscriptionRequiredError
+      );
+    });
+
+    it('enforces AI rewrite quotas (5 for trial, 25 for Starter, unlimited for Pro)', () => {
+      const trial = EntitlementEngine.computeSummary({ status: 'trialing' });
+      const starter = EntitlementEngine.computeSummary({ tier: 'STARTER', status: 'active' });
+      const pro = EntitlementEngine.computeSummary({ tier: 'PRO', status: 'active' });
+
+      expect(() => EntitlementEngine.assertCanGenerateRewrite(trial, 5)).toThrow(
+        SubscriptionRequiredError
+      );
+      expect(() => EntitlementEngine.assertCanGenerateRewrite(starter, 25)).toThrow(
+        SubscriptionRequiredError
+      );
+      expect(() => EntitlementEngine.assertCanGenerateRewrite(pro, 5000)).not.toThrow();
+    });
   });
 });

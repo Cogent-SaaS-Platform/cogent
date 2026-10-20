@@ -171,17 +171,17 @@ export class TenantSyncService {
    */
   private async bootstrapTenantDefaults(organizationId: string): Promise<void> {
     try {
-      // Baseline 14-day free trial subscription (real licenses and rails configured during onboarding)
+      // Baseline 7-day institutional evaluation trial subscription (real licenses and rails configured during onboarding)
       await this.adminClient.from('tenant_subscriptions').insert([
         {
           organization_id: organizationId,
           tier: 'STARTER',
           status: 'trialing',
-          trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+          trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
           current_period_start: new Date().toISOString(),
-          current_period_end: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-          marketing_scan_quota: 50,
-          policy_document_quota: 3,
+          current_period_end: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          marketing_scan_quota: 10,
+          policy_document_quota: 1,
         },
       ]);
     } catch (err) {

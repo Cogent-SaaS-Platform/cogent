@@ -5,6 +5,8 @@ import { AuditDefenseExporter, DefensePackRegulator } from '@/modules/marketing-
 import { logger } from '@/shared/logger';
 import { MarketingShieldViewModel } from '@/shared/types/presentation';
 import { getTenantContext } from '@/shared/auth';
+import { EntitlementEngine } from '@/shared/billing';
+import { AppError } from '@/shared/errors';
 
 const DossierPostSchema = z.object({
   scanId: z.string().optional(),
@@ -12,7 +14,7 @@ const DossierPostSchema = z.object({
     .custom<MarketingShieldViewModel>((val) => typeof val === 'object' && val !== null)
     .optional(),
   regulator: z.enum(['ARCON', 'CBN'] as const).default('ARCON'),
-  format: z.enum(['markdown', 'html', 'pdf']).default('html'),
+  format: z.enum(['markdown', 'html', 'pdf', 'zip']).default('html'),
   applicantCcoName: z.string().optional(),
   applicantCcoTitle: z.string().optional(),
   attestationNotes: z.string().optional(),
@@ -23,10 +25,16 @@ const DossierPostSchema = z.object({
 export async function GET(req: NextRequest) {
   try {
     const tenantCtx = await getTenantContext();
+    EntitlementEngine.assertEngineActive(tenantCtx.subscription, 'Audit Defense Pack export');
+
     const { searchParams } = new URL(req.url);
     const scanId = searchParams.get('scanId');
     const regulator = (searchParams.get('regulator')?.toUpperCase() || 'ARCON') as DefensePackRegulator;
     const format = searchParams.get('format') || 'html';
+
+    if (format === 'zip') {
+      EntitlementEngine.assertCanExportCryptographicPack(tenantCtx.subscription);
+    }
 
     if (!scanId) {
       return NextResponse.json(
@@ -58,6 +66,9 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (error: unknown) {
+    if (error instanceof AppError) {
+      return NextResponse.json(error.toJSON(), { status: error.statusCode });
+    }
     const err = error instanceof Error ? error : new Error(String(error));
     logger.error({ error: err.message }, 'Failed to fetch audit defense pack');
     return NextResponse.json(
@@ -70,6 +81,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const tenantCtx = await getTenantContext();
+    EntitlementEngine.assertEngineActive(tenantCtx.subscription, 'Audit Defense Pack export');
+
     const body = await req.json();
     const validationResult = DossierPostSchema.safeParse(body);
 
@@ -95,6 +108,10 @@ export async function POST(req: NextRequest) {
       attestationHash,
       organizationName = 'Licensed Financial Institution',
     } = validationResult.data;
+
+    if (format === 'zip') {
+      EntitlementEngine.assertCanExportCryptographicPack(tenantCtx.subscription);
+    }
 
     let content: string;
     let contentType = 'text/html; charset=utf-8';
@@ -192,6 +209,9 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error: unknown) {
+    if (error instanceof AppError) {
+      return NextResponse.json(error.toJSON(), { status: error.statusCode });
+    }
     const err = error instanceof Error ? error : new Error(String(error));
     logger.error({ error: err.message }, 'Failed to export audit defense pack');
     return NextResponse.json(

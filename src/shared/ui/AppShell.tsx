@@ -5,6 +5,7 @@ import { NavigationRail } from './NavigationRail';
 import { GlobalHeader, BreadcrumbSegment } from './GlobalHeader';
 import { CommandPalette } from './CommandPalette';
 import { SmartInsightDrawer } from './SmartInsightDrawer';
+import { TenantSubscriptionBanner } from './TenantSubscriptionBanner';
 
 export interface AppShellProps {
   children: React.ReactNode;
@@ -58,6 +59,9 @@ export function AppShell({
           onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
           onOpenNotifications={() => setIsNotificationsOpen(true)}
         />
+
+        {/* Global Subscription & Trial Status Banner */}
+        <TenantSubscriptionBanner />
 
         {/* Dynamic Page Canvas */}
         <main className="flex-1 bg-[#F5F6FA] overflow-x-hidden">

@@ -13,7 +13,20 @@ import {
   PaystackVerifyResponse,
   SubscriptionTier,
   PlanMetadata,
+  PlanLimits,
 } from '@/shared/types';
+
+export const COGENT_TRIAL_LIMITS: PlanLimits = {
+  teamSeats: 2,
+  marketingScansPerMonth: 10,
+  aiRewritesPerMonth: 5,
+  policyDocuments: 1,
+  arconDossierType: 'STANDARD_PDF',
+  regulatoryRadarCoverage: 'SINGLE_LICENSE',
+  cascadeTriggers: 'SINGLE_RULE',
+  auditRetentionDays: 7,
+  remediationDrafting: 'FIVE_CLAUSES',
+};
 
 export const COGENT_PLANS: Record<SubscriptionTier, PlanMetadata> = {
   STARTER: {
@@ -21,8 +34,15 @@ export const COGENT_PLANS: Record<SubscriptionTier, PlanMetadata> = {
     name: 'Cogent Starter Tier',
     badge: 'Seed & Early Fintechs',
     description: 'Essential marketing pre-vetting and single-license regulatory radar monitoring.',
-    paystackPlanCodeMonthly: process.env.PAYSTACK_PLAN_STARTER_MONTHLY || 'PLN_cogent_starter_monthly',
-    paystackPlanCodeAnnual: process.env.PAYSTACK_PLAN_STARTER_ANNUAL || 'PLN_cogent_starter_annual',
+    paystackPlanCodeMonthly:
+      process.env.PAYSTACK_PLAN_STARTER_MONTHLY ||
+      process.env.PAYSTACK_PLAN_STARTER ||
+      'PLN_royj9genuk9bx17',
+    paystackPlanCodeAnnual:
+      process.env.PAYSTACK_PLAN_STARTER_ANNUAL ||
+      process.env.PAYSTACK_PLAN_STARTER_MONTHLY ||
+      process.env.PAYSTACK_PLAN_STARTER ||
+      'PLN_neu4gffocozjyca',
     pricing: {
       usdMonthly: 199,
       usdAnnual: 1990,
@@ -58,8 +78,15 @@ export const COGENT_PLANS: Record<SubscriptionTier, PlanMetadata> = {
     name: 'Cogent Pro Tier',
     badge: 'MFBs, PSSPs & Growth Scale',
     description: 'Unlimited marketing scans, multi-role executive briefs, and real-time circular cascade.',
-    paystackPlanCodeMonthly: process.env.PAYSTACK_PLAN_PRO_MONTHLY || 'PLN_cogent_pro_monthly',
-    paystackPlanCodeAnnual: process.env.PAYSTACK_PLAN_PRO_ANNUAL || 'PLN_cogent_pro_annual',
+    paystackPlanCodeMonthly:
+      process.env.PAYSTACK_PLAN_PRO_MONTHLY ||
+      process.env.PAYSTACK_PLAN_PRO ||
+      'PLN_vrg9x92x33qis6b',
+    paystackPlanCodeAnnual:
+      process.env.PAYSTACK_PLAN_PRO_ANNUAL ||
+      process.env.PAYSTACK_PLAN_PRO_MONTHLY ||
+      process.env.PAYSTACK_PLAN_PRO ||
+      'PLN_2d2ay011r1dtjdc',
     pricing: {
       usdMonthly: 549,
       usdAnnual: 5490,
@@ -98,8 +125,15 @@ export const COGENT_PLANS: Record<SubscriptionTier, PlanMetadata> = {
     name: 'Cogent Enterprise Tier',
     badge: 'Commercial Banks & Super-Fintechs',
     description: 'Unlimited institutional defense, bespoke statutory baselines, and dedicated legal SLA.',
-    paystackPlanCodeMonthly: process.env.PAYSTACK_PLAN_ENTERPRISE_MONTHLY || 'PLN_cogent_enterprise_monthly',
-    paystackPlanCodeAnnual: process.env.PAYSTACK_PLAN_ENTERPRISE_ANNUAL || 'PLN_cogent_enterprise_annual',
+    paystackPlanCodeMonthly:
+      process.env.PAYSTACK_PLAN_ENTERPRISE_MONTHLY ||
+      process.env.PAYSTACK_PLAN_ENTERPRISE ||
+      'PLN_63zae7j8jk5ds9z',
+    paystackPlanCodeAnnual:
+      process.env.PAYSTACK_PLAN_ENTERPRISE_ANNUAL ||
+      process.env.PAYSTACK_PLAN_ENTERPRISE_MONTHLY ||
+      process.env.PAYSTACK_PLAN_ENTERPRISE ||
+      'PLN_63zae7j8jk5ds9z',
     pricing: {
       usdMonthly: 1999,
       usdAnnual: 19990,

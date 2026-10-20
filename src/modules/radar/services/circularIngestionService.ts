@@ -20,6 +20,8 @@ import {
 import { LineageService } from './lineageService';
 import { LineageStatus } from '@/shared/types';
 import { inngestDispatcher } from '../inngest/client';
+import { ApplicabilityEngine } from './applicabilityEngine';
+import { ClauseSegmentationEngine } from './clauseSegmentationEngine';
 
 /**
  * Circular Ingestion Service (Task 9.1 & 10.2)
@@ -94,7 +96,7 @@ export class CircularIngestionService {
 
     await this.uploadToStorage(fileBuffer, storagePath, mimeType);
 
-    // Step 5: Database Persistence with SHA-256 deduplication
+    // Step 5: Database Persistence with SHA-256 deduplication and granular clause indexing
     const {
       circularId,
       documentVersionId,
@@ -104,7 +106,8 @@ export class CircularIngestionService {
       metadata,
       storagePath,
       sourceFileHash,
-      extractedStructure.rawText
+      extractedStructure.rawText,
+      extractedStructure.sections
     );
 
     // Step 6: Dispatch Inngest Event (ADR-006)
@@ -242,7 +245,8 @@ export class CircularIngestionService {
     metadata: DeterministicMetadataResult,
     storagePath: string,
     sourceFileHash: string,
-    rawText?: string
+    rawText?: string,
+    sections?: Array<{ sectionNumber: string; heading: string; content: string }>
   ): Promise<{ circularId: string; documentVersionId: string; deduplicated?: boolean; lineageStatus?: LineageStatus }> {
     const circularId = crypto.randomUUID();
     const documentVersionId = crypto.randomUUID();
@@ -254,7 +258,7 @@ export class CircularIngestionService {
     try {
       const client = this.dbClient;
 
-      // Deduplication Check: Check if circular already exists by checksum or reference code
+      // 1. Deduplication Check: Check if circular already exists by checksum or reference code
       const { data: existingCirculars } = await client
         .from('radar_circulars')
         .select('id, document_version_id, circular_number, lineage_status, document_checksum')
@@ -279,7 +283,7 @@ export class CircularIngestionService {
         };
       }
 
-      // 1. Find or create regulatory instrument
+      // 2. Resolve Regulatory Body & Regulatory Instrument
       let instrumentId: string = crypto.randomUUID();
       const { data: existingBodies } = await client
         .from('regulatory_bodies')
@@ -290,29 +294,43 @@ export class CircularIngestionService {
       const bodyId = existingBodies?.[0]?.id;
 
       if (bodyId) {
-        const { data: existingInstruments } = await client
+        // Match existing instrument by title, short name, or circular number
+        const { data: matchedInst } = await client
           .from('regulatory_instruments')
           .select('id')
-          .eq('body_id', bodyId)
-          .limit(1);
+          .or(`short_name.ilike.%${metadata.circularNumber}%,title.ilike.%${metadata.subject || metadata.circularNumber}%`)
+          .limit(1)
+          .maybeSingle();
 
-        if (existingInstruments && existingInstruments.length > 0) {
-          instrumentId = existingInstruments[0].id;
+        if (matchedInst) {
+          instrumentId = matchedInst.id;
         } else {
-          await client.from('regulatory_instruments').insert({
-            id: instrumentId,
-            body_id: bodyId,
-            title: `${metadata.regulatorCode} Regulatory Circulars & Directives`,
-            short_name: `${metadata.regulatorCode} Circulars`,
-            instrument_type: 'CIRCULAR_DIRECTIVE',
-          });
+          const instTitle = metadata.subject && metadata.subject.length > 10
+            ? metadata.subject
+            : `${metadata.regulatorCode} Regulatory Directive (${metadata.circularNumber})`;
+
+          const { data: newInst } = await client
+            .from('regulatory_instruments')
+            .insert({
+              id: instrumentId,
+              body_id: bodyId,
+              title: instTitle,
+              short_name: metadata.circularNumber,
+              instrument_type: 'CIRCULAR_DIRECTIVE',
+            })
+            .select('id')
+            .single();
+
+          if (newInst) {
+            instrumentId = newInst.id;
+          }
         }
 
-        // 2. Insert document version
+        // 3. Insert document version
         await client.from('regulatory_document_versions').insert({
           id: documentVersionId,
           instrument_id: instrumentId,
-          version_number: metadata.circularNumber,
+          version_number: '1.0',
           reference_code: metadata.circularNumber,
           publication_date: metadata.publicationDate,
           effective_date: metadata.effectiveDate,
@@ -320,10 +338,11 @@ export class CircularIngestionService {
           source_file_url: storagePath,
           source_file_hash: sourceFileHash,
           verification_status: 'HUMAN_VERIFIED',
+          verification_notes: 'Ingested and verified via Cogent Regulatory Ingestion Pipeline.',
           is_active: true,
         });
 
-        // 3. Insert radar_circulars master record with checksum, lineage_status, dates, and text
+        // 4. Insert radar_circulars master record
         const { error: circularError } = await client.from('radar_circulars').insert({
           id: circularId,
           document_version_id: documentVersionId,
@@ -345,6 +364,81 @@ export class CircularIngestionService {
 
         if (circularError) {
           logger.warn({ error: circularError.message }, 'Failed to insert into radar_circulars table');
+        }
+
+        // 5. Adaptive Statutory Clause & Obligation Tokenization (Production Feature)
+        const segmentedClauses = ClauseSegmentationEngine.segmentAndDecompose({
+          rawText,
+          sections,
+          regulatorCode: metadata.regulatorCode,
+          circularNumber: metadata.circularNumber,
+          subject: metadata.subject,
+          priority: metadata.priority,
+          statutoryDeadline: metadata.statutoryDeadline,
+        });
+
+        await ClauseSegmentationEngine.persistDocumentClauses(client, documentVersionId, segmentedClauses);
+
+        // 6. Real-Time Tenant Impact Evaluation
+        try {
+          const { data: orgs } = await client.from('organizations').select('id, name');
+          if (orgs && orgs.length > 0) {
+            for (const org of orgs) {
+              const { data: licenses } = await client
+                .from('tenant_licenses')
+                .select('license_type, is_active')
+                .eq('organization_id', org.id)
+                .eq('is_active', true);
+
+              const { data: rails } = await client
+                .from('tenant_payment_rails')
+                .select('rail_type, is_active')
+                .eq('organization_id', org.id)
+                .eq('is_active', true);
+
+              const activeLicenses = (licenses || []).map((l: any) => l.license_type);
+              const activeRails = (rails || []).map((r: any) => r.rail_type);
+
+              const targetingCtx = {
+                regulator: metadata.regulatorCode,
+                targetedLicenses: metadata.targetedLicenseTypes,
+                affectedRails: metadata.affectedPaymentRails,
+                appliesUniversally: metadata.appliesUniversally,
+              };
+
+              const evalResult = ApplicabilityEngine.evaluatePure(
+                { organizationId: org.id, activeLicenses, activeRails },
+                targetingCtx
+              );
+
+              const impactId = crypto.randomUUID();
+              await client.from('radar_tenant_impacts').insert({
+                id: impactId,
+                organization_id: org.id,
+                circular_id: circularId,
+                is_applicable: evalResult.isApplicable,
+                applicability_reason: evalResult.reason,
+                executive_brief_cco: `Statutory mandate from ${metadata.regulatorCode}. Full compliance required by ${metadata.statutoryDeadline || 'statutory timeline'}.`,
+                action_brief_coo: `Verify operational controls and rail continuity for ${(metadata.affectedPaymentRails || []).join(', ') || 'payment infrastructure'}.`,
+                technical_brief_product_eng: 'Implement required schema limits, validation logging, and authentication rules.',
+                financial_brief_cfo: 'Evaluate balance sheet exposure and daily penalty provisions.',
+              });
+
+              if (evalResult.isApplicable) {
+                await client.from('radar_action_items').insert({
+                  organization_id: org.id,
+                  impact_id: impactId,
+                  target_department: 'COMPLIANCE_LEGAL',
+                  action_title: `Statutory Review: ${metadata.circularNumber}`,
+                  action_description: `Execute operational impact assessment against ${evalResult.matchedLicenses.join(', ') || 'tenant license'} requirements.`,
+                  suggested_deadline: metadata.statutoryDeadline || null,
+                  is_completed: false,
+                });
+              }
+            }
+          }
+        } catch (impactErr) {
+          logger.warn({ impactErr }, 'Tenant impact pre-computation encountered non-fatal error');
         }
       }
     } catch (dbErr) {

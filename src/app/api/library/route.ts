@@ -92,9 +92,29 @@ export async function GET(req: NextRequest) {
           }
 
           // Match seed item to preserve enriched domain and classification
-          const matchedSeed = REGULATORY_INSTRUMENTS_SEED.find(
-            (s) => s.short_name.toLowerCase() === inst.short_name.toLowerCase()
-          );
+          const instShort = (inst.short_name || '').toLowerCase();
+          const instTitle = (inst.title || '').toLowerCase();
+          const matchedSeed = REGULATORY_INSTRUMENTS_SEED.find((s) => {
+            const seedShort = s.short_name.toLowerCase();
+            const seedTitle = s.title.toLowerCase();
+            return (
+              seedShort === instShort ||
+              seedTitle === instTitle ||
+              instShort.includes(seedShort) ||
+              seedShort.includes(instShort) ||
+              instTitle.includes(seedShort)
+            );
+          });
+
+          // Resolve sensible default domain if not matched
+          let defaultDomain = 'FINTECH_PAYMENTS';
+          const regCode = (body?.code || '').toUpperCase();
+          if (regCode === 'FCCPC' || instTitle.includes('lending') || instTitle.includes('consumer')) defaultDomain = 'DIGITAL_LENDING';
+          else if (regCode === 'ARCON' || instTitle.includes('advertising') || instTitle.includes('vetting')) defaultDomain = 'CONSUMER_PROTECTION';
+          else if (regCode === 'NDPC' || instTitle.includes('privacy') || instTitle.includes('data')) defaultDomain = 'DATA_PRIVACY_AI';
+          else if (regCode === 'SEC' && (instTitle.includes('vasp') || instTitle.includes('virtual') || instTitle.includes('crypto'))) defaultDomain = 'CRYPTO_VASP';
+          else if (regCode === 'SEC') defaultDomain = 'CAPITAL_MARKETS';
+          else if (instTitle.includes('aml') || instTitle.includes('laundering') || regCode === 'NFIU') defaultDomain = 'AML_CFT';
 
           const citation = activeVersion?.reference_code || `${inst.short_name} (${year})`;
 
@@ -106,7 +126,7 @@ export async function GET(req: NextRequest) {
             regulator: body?.code || matchedSeed?.body_code || 'CBN',
             regulatorName: body?.name || 'Regulatory Authority',
             instrumentType: inst.instrument_type,
-            domain: matchedSeed?.domain || 'FINTECH_PAYMENTS',
+            domain: matchedSeed?.domain || (defaultDomain as RegulatoryDomainCode),
             jurisdiction: matchedSeed?.jurisdiction || 'NG',
             classification: matchedSeed?.classification || 'SUBSIDIARY_REGULATION',
             year,

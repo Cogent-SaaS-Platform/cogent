@@ -53,6 +53,15 @@ function deriveTierFromPlan(planCode?: string, metadataTier?: SubscriptionTier):
   }
 
   if (planCode) {
+    for (const [tierKey, planMeta] of Object.entries(COGENT_PLANS)) {
+      if (
+        planCode === planMeta.paystackPlanCodeMonthly ||
+        planCode === planMeta.paystackPlanCodeAnnual
+      ) {
+        return tierKey as SubscriptionTier;
+      }
+    }
+
     const upper = planCode.toUpperCase();
     if (upper.includes('ENTERPRISE')) return 'ENTERPRISE';
     if (upper.includes('PRO')) return 'PRO';

@@ -135,30 +135,7 @@ export function Step1InstitutionDetails({ state, onChange, onNext }: Step1Props)
           </div>
         </div>
 
-        {/* RC Number (Explicitly Optional for TASK-08) */}
-        <div className="md:col-span-2">
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-xs font-bold text-[#0B0F1A]">
-              Corporate RC Number
-            </label>
-            <span className="text-[11px] font-semibold text-[#059669] bg-[#ECFDF5] px-2 py-0.5 rounded-full border border-[#A7F3D0]">
-              Optional
-            </span>
-          </div>
-          <div className="relative">
-            <input
-              type="text"
-              value={state.rcNumber}
-              onChange={(e) => onChange({ rcNumber: e.target.value })}
-              placeholder="e.g. RC 1849204 (Optional for foreign entities or sandbox test teams)"
-              className="w-full px-4 py-2.5 bg-white border border-[#DDE3EE] rounded-xl text-sm text-[#0B0F1A] placeholder-[#94A3B8] focus:outline-none focus:border-[#2A4BFF] focus:ring-2 focus:ring-[#2A4BFF]/10 transition-all shadow-2xs"
-            />
-          </div>
-          <p className="text-[11px] text-[#4B5565] mt-1.5 flex items-center gap-1.5">
-            <Info className="w-3.5 h-3.5 text-[#2A4BFF] shrink-0" />
-            <span>Not required for sandbox testing, international entities, or pre-incorporation startups.</span>
-          </p>
-        </div>
+
       </div>
 
       {/* Action Footer */}

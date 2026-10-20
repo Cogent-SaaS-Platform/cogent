@@ -30,6 +30,11 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   output: 'standalone',
   serverExternalPackages: ['pino', 'pino-pretty', 'inngest', '@logtail/pino'],
+  webpack: (config) => {
+    config.output = config.output || {};
+    config.output.hashFunction = 'sha256';
+    return config;
+  },
   async headers() {
     return [
       {

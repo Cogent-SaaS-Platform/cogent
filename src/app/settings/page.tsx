@@ -102,14 +102,14 @@ export default function SettingsPage() {
           fetch('/api/billing/history'),
         ]);
 
-        if (subRes.ok) {
+        if (subRes.ok && subRes.headers.get('content-type')?.includes('application/json')) {
           const subJson = await subRes.json();
           if (subJson.success && subJson.data?.subscription) {
             setSubscriptionData(subJson.data.subscription);
           }
         }
 
-        if (histRes.ok) {
+        if (histRes.ok && histRes.headers.get('content-type')?.includes('application/json')) {
           const histJson = await histRes.json();
           if (histJson.success && Array.isArray(histJson.data)) {
             setBillingHistory(histJson.data);
@@ -134,14 +134,20 @@ export default function SettingsPage() {
           tier,
           billingInterval,
           callbackUrl: `${window.location.origin}/settings?tab=plan&payment=success`,
+          userEmail: userEmail || undefined,
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
+      const isJson = res.headers.get('content-type')?.includes('application/json');
+      const data = isJson ? await res.json() : null;
+
+      if (!res.ok || !data?.success) {
         const errMsg =
-          data.error?.message ||
-          (typeof data.error === 'string' ? data.error : 'Payment initialization failed');
+          data?.error?.message ||
+          (typeof data?.error === 'string' ? data.error : null) ||
+          (res.status === 403
+            ? 'Access restricted: Only organization administrators may initiate billing checkouts.'
+            : `Payment initialization failed (${res.status}). Please check gateway configuration or contact support.`);
         setCheckoutFeedback(errMsg);
         return;
       }
@@ -1035,7 +1041,7 @@ export default function SettingsPage() {
                     {subscriptionData?.tier || 'STARTER'}
                   </span>
                   <span className="text-[11px] text-[#64748B] block">
-                    {subscriptionData?.status === 'trialing' ? '14-Day Free Evaluation' : 'Commercial Plan'}
+                    {subscriptionData?.status === 'trialing' ? '7-Day Free Evaluation' : 'Commercial Plan'}
                   </span>
                 </div>
 
@@ -1099,7 +1105,7 @@ export default function SettingsPage() {
                       </span>
                       <span className="text-[11px] text-[#64748B] font-mono">
                         {subscriptionData?.status === 'trialing'
-                          ? 'No charge required during 14-day evaluation'
+                          ? 'No charge required during 7-day evaluation'
                           : 'Settled in Nigerian Naira (NGN) via Paystack Secure Token'}
                       </span>
                     </div>
@@ -1193,7 +1199,7 @@ export default function SettingsPage() {
                     </div>
                     <h3 className="text-xs font-bold text-[#0B0F1A]">No Invoiced Charges Yet</h3>
                     <p className="text-[11px] text-[#64748B] max-w-sm mx-auto">
-                      Your tenant is operating on the 14-day free institutional trial. Subsequent Paystack subscription receipts will appear here automatically with downloadable VAT invoices.
+                      Your tenant is operating on the 7-day free institutional trial. Subsequent Paystack subscription receipts will appear here automatically with downloadable VAT invoices.
                     </p>
                   </div>
                 ) : (
@@ -1306,7 +1312,7 @@ export default function SettingsPage() {
                         : subscriptionData.isInGracePeriod
                         ? 'Payment renewal is past due. Full scanning and AI features remain active during your 7-day grace period. Please update payment method to avoid interruption.'
                         : subscriptionData.status === 'trialing'
-                        ? 'Your organization is currently operating on an unrestricted 14-day institutional evaluation trial.'
+                        ? 'Your organization is currently operating on an unrestricted 7-day institutional evaluation trial.'
                         : 'Your subscription is active with full access to institutional compliance engines.'}
                     </p>
                   </div>

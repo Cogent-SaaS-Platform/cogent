@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import {
   MarketingShieldViewModel,
   FindingPresentationCard,
@@ -815,45 +816,20 @@ export const MarketingShieldDashboard: React.FC<MarketingShieldDashboardProps> =
         return;
       }
 
-      throw new Error(json.error || 'Scan API returned non-success response');
+      const errorMsg =
+        json.error?.message ||
+        (typeof json.error === 'string' ? json.error : null) ||
+        (res.status === 403
+          ? 'Access restricted: Monthly scan quota reached or evaluation period expired. Please upgrade your plan to continue.'
+          : 'Marketing scan failed. Please verify campaign copy or try again.');
+      setScanError(errorMsg);
+      setIsScanning(false);
+      return;
     } catch (err: unknown) {
-      console.warn('API call encountered error, activating deterministic synthesis fallback:', err);
-      
-      const matchedPreset = PRESET_SCENARIOS.find((p) => p.id === activeCampaignKey);
-      let targetVm: MarketingShieldViewModel;
-
-      if (matchedPreset && PRESET_VIEW_MODELS[matchedPreset.id] && rawCopy.trim() === matchedPreset.copy.trim()) {
-        targetVm = {
-          ...PRESET_VIEW_MODELS[matchedPreset.id],
-          title: effectiveTitle,
-          channel,
-          productCategory,
-        };
-      } else {
-        targetVm = synthesizeClientScan(effectiveTitle, rawCopy.trim(), channel, productCategory);
-      }
-
-      const fallbackKey = 'scan_' + Date.now();
-      setActiveCampaignKey(fallbackKey);
-      setViewModel(targetVm);
-      setSelectedFindingId(null);
-      setHasCompletedScan(true);
-      setViewMode('workspace');
-
-      const fallbackRecord: PromotionalAssetRecord = {
-        id: fallbackKey,
-        campaignName: targetVm.title || effectiveTitle,
-        channel,
-        productCategory,
-        verdict: targetVm.verdict,
-        riskScore: targetVm.overallRiskScore,
-        fineExposureNaira: targetVm.deterministicPenaltyTotalNaira,
-        arconRequired: targetVm.arconPreclearanceRequired,
-        findingsCount: targetVm.findings.length,
-        vettedAt: new Date().toISOString(),
-        viewModel: targetVm,
-      };
-      setAssetRecords((prev) => [fallbackRecord, ...prev]);
+      console.warn('API call encountered network error:', err);
+      const errorMsg = err instanceof Error ? err.message : 'Connection error during pre-vetting scan.';
+      setScanError(errorMsg);
+      setIsScanning(false);
     } finally {
       setIsScanning(false);
     }
@@ -1339,10 +1315,8 @@ export const MarketingShieldDashboard: React.FC<MarketingShieldDashboardProps> =
                CLEAN INITIAL STATE: CAMPAIGN INPUT STUDIO FIRST (QA-07)
                ────────────────────────────────────────────────────────────────── */
             <div className="space-y-6">
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-                {/* ── LEFT COLUMN: CAMPAIGN INPUT STUDIO CANVAS ── */}
-                <div className="lg:col-span-7 xl:col-span-8 space-y-5">
-                  <div className="rounded-2xl border border-[#DDE3EE] bg-white p-5 sm:p-6 shadow-xs">
+              <div className="w-full space-y-5">
+                <div className="rounded-2xl border border-[#DDE3EE] bg-white p-5 sm:p-7 shadow-xs">
                     {/* Studio Header */}
                     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#DDE3EE] pb-4">
                       <div>
@@ -1364,55 +1338,7 @@ export const MarketingShieldDashboard: React.FC<MarketingShieldDashboardProps> =
                       </div>
                     </div>
 
-                    {/* One-Click 'Try Sample Ad' Presets */}
-                    <div className="pt-4 pb-2">
-                      <div className="flex items-center justify-between mb-2.5">
-                        <span className="text-xs font-semibold text-[#0B0F1A] flex items-center gap-1.5">
-                          <Sparkles className="h-3.5 w-3.5 text-[#2A4BFF]" />
-                          <span>1-Click Sample Ad Presets:</span>
-                        </span>
-                        <span className="text-[11px] text-[#8D99AE]">Click any preset to populate studio canvas</span>
-                      </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                        {PRESET_SCENARIOS.map((preset) => {
-                          const isSelected = activeCampaignKey === preset.id && rawCopy === preset.copy;
-                          return (
-                            <button
-                              key={preset.id}
-                              type="button"
-                              onClick={() => handleSelectPreset(preset)}
-                              className={`text-left p-3.5 rounded-xl border transition-all text-xs group relative shadow-xs cursor-pointer ${
-                                isSelected
-                                  ? 'border-[#2A4BFF] bg-[#2A4BFF]/5 ring-1 ring-[#2A4BFF]'
-                                  : 'border-[#DDE3EE] bg-white hover:border-[#2A4BFF]/40 hover:bg-[#F9FAFC]'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-1 mb-1.5">
-                                <span className={`font-bold transition-colors ${isSelected ? 'text-[#2A4BFF]' : 'text-[#0B0F1A] group-hover:text-[#2A4BFF]'}`}>
-                                  {preset.buttonLabel}
-                                </span>
-                                {preset.id === 'scenario_a' && (
-                                  <AlertTriangle className="h-3.5 w-3.5 text-red-500 shrink-0" />
-                                )}
-                                {preset.id === 'scenario_b' && (
-                                  <ShieldAlert className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                                )}
-                                {preset.id === 'scenario_c' && (
-                                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
-                                )}
-                              </div>
-                              <p className="text-[11px] text-[#4B5565] line-clamp-1 mb-2">
-                                {preset.badge}
-                              </p>
-                              <span className="inline-block text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#F5F6FA] text-[#8D99AE] border border-[#E2E8F0]">
-                                {preset.channel} • {preset.productCategory}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
 
                     {/* Campaign Input Form */}
                     <form onSubmit={handleRunScan} className="mt-4 space-y-4">
@@ -1563,9 +1489,22 @@ export const MarketingShieldDashboard: React.FC<MarketingShieldDashboardProps> =
                       </div>
 
                       {scanError && (
-                        <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-xs text-red-700 font-semibold flex items-center gap-2">
-                          <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
-                          <span>{scanError}</span>
+                        <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-xs text-red-700 font-semibold flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
+                            <span>{scanError}</span>
+                          </div>
+                          {(scanError.toLowerCase().includes('quota') ||
+                            scanError.toLowerCase().includes('trial') ||
+                            scanError.toLowerCase().includes('subscription') ||
+                            scanError.toLowerCase().includes('upgrade')) && (
+                            <Link
+                              href="/settings?tab=plan"
+                              className="px-3 py-1 rounded-lg bg-red-700 hover:bg-red-800 text-white font-bold text-[11px] shrink-0 transition-colors"
+                            >
+                              Upgrade Plan
+                            </Link>
+                          )}
                         </div>
                       )}
                     </form>
@@ -1664,7 +1603,6 @@ export const MarketingShieldDashboard: React.FC<MarketingShieldDashboardProps> =
                   </div>
                 </div>
               </div>
-            </div>
           ) : (
             /* ──────────────────────────────────────────────────────────────────
                LEVEL 2: SPLIT ZANGO DUAL-PANE CAMPAIGN WORKSPACE (POST-SCAN REVEAL)

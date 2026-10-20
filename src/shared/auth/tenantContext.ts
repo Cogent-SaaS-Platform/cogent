@@ -91,7 +91,7 @@ async function resolveOrganizationSubscription(
     return EntitlementEngine.computeSummary({
       tier: 'STARTER',
       status: 'trialing',
-      trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+      trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
     });
   } catch (err: unknown) {
     const error = err instanceof Error ? err : new Error(String(err));

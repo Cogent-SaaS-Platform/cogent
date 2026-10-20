@@ -1,5 +1,7 @@
 import { inngest, CircularIngestedPayload } from '@/shared/inngest';
 import { logger } from '@/shared/logger';
+import { getTenantContext } from '@/shared/auth';
+import { ClauseSegmentationEngine } from '../services/clauseSegmentationEngine';
 
 export interface InngestStepContext {
   run: <T>(name: string, fn: () => Promise<T>) => Promise<T>;
@@ -10,6 +12,7 @@ export interface CircularIngestionResult {
   circularId: string;
   circularNumber: string;
   processedAt: string;
+  clausesCount?: number;
 }
 
 /**
@@ -37,11 +40,61 @@ export async function handleCircularIngested(
       })
     : { verified: true, sourceFileHash };
 
+  // Step 2: Ensure Granular Clauses & Statutory Obligations are Indexed
+  let clausesCount = 0;
+  const indexClausesStep = async () => {
+    try {
+      const tenantCtx = await getTenantContext();
+      const db = tenantCtx.dbClient;
+      if (!db || !circularId) return 0;
+
+      const { data: circular } = await db
+        .from('radar_circulars')
+        .select('id, document_version_id, circular_number, subject, summary, raw_text, priority, statutory_deadline')
+        .eq('id', circularId)
+        .maybeSingle();
+
+      if (circular && circular.document_version_id && circular.raw_text) {
+        const { count } = await db
+          .from('regulatory_clauses')
+          .select('id', { count: 'exact', head: true })
+          .eq('document_version_id', circular.document_version_id);
+
+        if (!count || count === 0) {
+          const parsed = ClauseSegmentationEngine.segmentAndDecompose({
+            rawText: circular.raw_text,
+            circularNumber: circular.circular_number,
+            subject: circular.subject,
+            priority: circular.priority,
+            statutoryDeadline: circular.statutory_deadline,
+          });
+
+          const persisted = await ClauseSegmentationEngine.persistDocumentClauses(
+            db,
+            circular.document_version_id,
+            parsed
+          );
+          return persisted.length;
+        }
+        return count;
+      }
+      return 0;
+    } catch (err: any) {
+      logger.warn({ error: err.message, circularId }, 'Non-fatal notice indexing clauses during Inngest workflow');
+      return 0;
+    }
+  };
+
+  clausesCount = step
+    ? await step.run('index-statutory-clauses', indexClausesStep)
+    : await indexClausesStep();
+
   logger.info(
     {
       circularId,
       circularNumber,
       verified,
+      clausesCount,
     },
     'Inngest circular ingestion step completed successfully'
   );
@@ -51,6 +104,7 @@ export async function handleCircularIngested(
     circularId,
     circularNumber,
     processedAt: new Date().toISOString(),
+    clausesCount,
   };
 }
 

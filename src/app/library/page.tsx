@@ -28,6 +28,7 @@ import {
   ChevronRight,
   Globe,
   Sparkles,
+  Upload,
 } from 'lucide-react';
 import {
   RegulatoryDomainCode,
@@ -35,6 +36,7 @@ import {
   JurisdictionCode,
 } from '@/shared/types';
 import { ObligationRegisterCard, DecomposedObligationData } from '@/shared/ui/inspector/ObligationRegisterCard';
+import { CircularUploadDrawer } from '@/modules/radar/ui/CircularUploadDrawer';
 
 interface StatutoryCorpusItem {
   id: string;
@@ -94,6 +96,7 @@ export default function RegulatoryLibraryPage() {
   const [clauses, setClauses] = useState<StatutoryClause[]>([]);
   const [isLoadingClauses, setIsLoadingClauses] = useState(false);
   const [clauseSearchTerm, setClauseSearchTerm] = useState('');
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
 
   const fetchInstruments = useCallback(async () => {
     setIsLoading(true);
@@ -272,6 +275,13 @@ export default function RegulatoryLibraryPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsUploadOpen(true)}
+              className="btn-base btn-primary btn-sm gap-1.5 shadow-xs"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>Ingest Statutory Regulation</span>
+            </button>
             <button
               onClick={handleExportGazettes}
               disabled={isLoading || instruments.length === 0}
@@ -529,7 +539,7 @@ export default function RegulatoryLibraryPage() {
                     {/* Clauses & Obligations */}
                     <td className="text-xs text-[#4B5565] font-mono">
                       <span className="font-bold text-[#0B0F1A]">
-                        {item.sectionsCount > 0 ? `${item.sectionsCount} Sections` : '24 Sections'}
+                        {item.sectionsCount > 0 ? `${item.sectionsCount} Sections` : '0 Sections'}
                       </span>
                     </td>
 
@@ -719,6 +729,15 @@ export default function RegulatoryLibraryPage() {
             </div>
           </div>
         )}
+
+        {/* 5. Ingest Regulation Modal Drawer */}
+        <CircularUploadDrawer
+          isOpen={isUploadOpen}
+          onClose={() => setIsUploadOpen(false)}
+          onIngestSuccess={() => {
+            fetchInstruments();
+          }}
+        />
       </div>
     </AppShell>
   );

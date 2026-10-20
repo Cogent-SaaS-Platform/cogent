@@ -10,7 +10,7 @@ import {
   SubscriptionTier,
   PlanLimits,
 } from '@/shared/types';
-import { COGENT_PLANS } from './paystackClient';
+import { COGENT_PLANS, COGENT_TRIAL_LIMITS } from './paystackClient';
 
 export class EntitlementEngine {
   /**
@@ -27,10 +27,13 @@ export class EntitlementEngine {
       subscription.marketingScanQuota !== -1 &&
       currentUsageCount >= subscription.marketingScanQuota
     ) {
+      const isTrial = subscription.status === 'trialing';
+      const label = isTrial ? '7-day institutional evaluation trial' : `${subscription.tier} tier`;
       throw new SubscriptionRequiredError(
-        `QUOTA_EXCEEDED: You have reached your monthly limit of ${subscription.marketingScanQuota} marketing scans for the ${subscription.tier} tier. Please upgrade your plan for higher or unlimited volume.`,
+        `QUOTA_EXCEEDED: You have reached your scan limit of ${subscription.marketingScanQuota} marketing scans for the ${label}. Please upgrade your plan for higher or unlimited volume.`,
         {
           tier: subscription.tier,
+          status: subscription.status,
           quota: subscription.marketingScanQuota,
           currentUsage: currentUsageCount,
           actionUrl: '/settings?tab=plan',
@@ -48,16 +51,19 @@ export class EntitlementEngine {
   ): void {
     this.assertEngineActive(subscription, 'AI statutory conversion rewrite');
 
-    const limits = COGENT_PLANS[subscription.tier].limits;
-    if (
-      limits.aiRewritesPerMonth !== -1 &&
-      currentUsageCount >= limits.aiRewritesPerMonth
-    ) {
+    const isTrial = subscription.status === 'trialing';
+    const maxRewrites = isTrial
+      ? COGENT_TRIAL_LIMITS.aiRewritesPerMonth
+      : COGENT_PLANS[subscription.tier].limits.aiRewritesPerMonth;
+
+    if (maxRewrites !== -1 && currentUsageCount >= maxRewrites) {
+      const label = isTrial ? '7-day evaluation trial' : `${subscription.tier} tier`;
       throw new SubscriptionRequiredError(
-        `QUOTA_EXCEEDED: You have reached your monthly limit of ${limits.aiRewritesPerMonth} AI rewrites on the ${subscription.tier} tier. Upgrade to Pro for unlimited rewrites.`,
+        `QUOTA_EXCEEDED: You have reached your limit of ${maxRewrites} AI rewrites on the ${label}. Upgrade to Pro for unlimited rewrites.`,
         {
           tier: subscription.tier,
-          quota: limits.aiRewritesPerMonth,
+          status: subscription.status,
+          quota: maxRewrites,
           currentUsage: currentUsageCount,
           actionUrl: '/settings?tab=plan',
         }
@@ -78,10 +84,13 @@ export class EntitlementEngine {
       subscription.policyDocumentQuota !== -1 &&
       currentPolicyCount >= subscription.policyDocumentQuota
     ) {
+      const isTrial = subscription.status === 'trialing';
+      const label = isTrial ? '7-day evaluation trial' : `${subscription.tier} tier`;
       throw new SubscriptionRequiredError(
-        `QUOTA_EXCEEDED: You have reached your active policy document limit (${subscription.policyDocumentQuota} policies) for the ${subscription.tier} tier. Please upgrade to evaluate additional corporate policies.`,
+        `QUOTA_EXCEEDED: You have reached your active policy document limit (${subscription.policyDocumentQuota} policy documents) for the ${label}. Please upgrade to evaluate additional corporate policies.`,
         {
           tier: subscription.tier,
+          status: subscription.status,
           quota: subscription.policyDocumentQuota,
           currentPolicyCount,
           actionUrl: '/settings?tab=plan',
@@ -98,11 +107,12 @@ export class EntitlementEngine {
   ): void {
     this.assertEngineActive(subscription, 'Cryptographic Bank Examiner Defense Pack export');
 
-    if (subscription.tier === 'STARTER' && subscription.status !== 'trialing') {
+    if (subscription.tier === 'STARTER' || subscription.status === 'trialing') {
       throw new SubscriptionRequiredError(
-        'PLAN_UPGRADE_REQUIRED: Full cryptographic Bank Examiner Defense Packs and tamper-evident ZIP bundles require Cogent Pro or Enterprise tier.',
+        'PLAN_UPGRADE_REQUIRED: Full cryptographic Bank Examiner Defense Packs and tamper-evident ZIP bundles require Cogent Pro or Enterprise tier. Evaluation and Starter tiers include Standard PDF Dossiers.',
         {
           currentTier: subscription.tier,
+          status: subscription.status,
           requiredTier: 'PRO',
           actionUrl: '/settings?tab=plan',
         }
@@ -118,11 +128,12 @@ export class EntitlementEngine {
   ): void {
     this.assertEngineActive(subscription, 'Real-time compliance cascade automation');
 
-    if (subscription.tier === 'STARTER' && subscription.status !== 'trialing') {
+    if (subscription.tier === 'STARTER' || subscription.status === 'trialing') {
       throw new SubscriptionRequiredError(
         'PLAN_UPGRADE_REQUIRED: Real-time automated circular-to-policy compliance cascades require Cogent Pro or Enterprise tier.',
         {
           currentTier: subscription.tier,
+          status: subscription.status,
           requiredTier: 'PRO',
           actionUrl: '/settings?tab=plan',
         }
@@ -142,7 +153,7 @@ export class EntitlementEngine {
     if (subscription.isReadOnly) {
       let reasonMessage = `Your organization's subscription is currently ${subscription.status}.`;
       if (subscription.status === 'trialing') {
-        reasonMessage = 'Your 14-day free trial period has concluded.';
+        reasonMessage = 'Your 7-day institutional evaluation trial period has concluded.';
       } else if (subscription.status === 'past_due') {
         reasonMessage = 'Your billing payment is past due and the 7-day grace period has expired.';
       } else if (subscription.status === 'canceled') {
@@ -202,7 +213,8 @@ export class EntitlementEngine {
 
     const isActive = !isReadOnly;
 
-    const defaultLimits = COGENT_PLANS[tier].limits;
+    const defaultLimits =
+      status === 'trialing' ? COGENT_TRIAL_LIMITS : COGENT_PLANS[tier].limits;
 
     return {
       tier,

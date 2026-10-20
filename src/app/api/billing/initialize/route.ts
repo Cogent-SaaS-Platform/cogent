@@ -25,9 +25,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const tenantCtx = await getTenantContext();
 
-    // Only org admins may initiate billing checkout
+    // Only org admins or designated compliance leads may initiate billing checkout
     if (!tenantCtx.isDevFallback && tenantCtx.userOrgRole) {
-      await requireRole(tenantCtx, ['org:admin']);
+      await requireRole(tenantCtx, [
+        'org:admin',
+        'admin',
+        'OWNER',
+        'org:owner',
+        'compliance_officer',
+        'org:compliance_officer',
+      ]);
     }
 
     const body = await req.json();
@@ -61,8 +68,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       callbackUrl ||
       `${req.nextUrl.origin}/settings?tab=plan&payment=callback`;
 
-    // Attempt to acquire user email from request or fallback
-    const email = userEmail || `${tenantCtx.userId}@tenant.cogent.africa`;
+    // Acquire real user email from request, database, or tenant fallback
+    let email = userEmail;
+    if (!email) {
+      try {
+        const { data: userRow } = await tenantCtx.dbClient
+          .from('users')
+          .select('email')
+          .eq('id', tenantCtx.userId)
+          .maybeSingle();
+        if (userRow?.email) {
+          email = userRow.email;
+        }
+      } catch {
+        // Proceed with fallback
+      }
+    }
+    if (!email) {
+      email = `${tenantCtx.userId}@tenant.cogent.africa`;
+    }
 
     logger.info(
       {
