@@ -54,6 +54,27 @@ export async function POST(req: NextRequest) {
           })
           .eq('id', organizationId);
 
+        // 1b. Persist User Job Title and Department Mandate
+        const effectiveDept = department === 'OTHER' ? (customDepartment || 'OTHER') : (department || 'EXECUTIVE_LEADERSHIP');
+        if (tenantCtx.userId) {
+          await (dbClient.from('users') as any)
+            .update({
+              job_title: jobTitle || null,
+              department: effectiveDept,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', tenantCtx.userId);
+
+          await (dbClient.from('organization_memberships') as any)
+            .update({
+              job_title: jobTitle || null,
+              department: effectiveDept,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('organization_id', organizationId)
+            .eq('user_id', tenantCtx.userId);
+        }
+
         // 2. Persist All Selected Primary Regulators & Licenses
         const regulatorsToInsert: RegulatorCode[] =
           Array.isArray(primaryRegulators) && primaryRegulators.length > 0

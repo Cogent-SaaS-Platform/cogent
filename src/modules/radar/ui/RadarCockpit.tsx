@@ -593,8 +593,6 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
             <div className="flex items-center gap-3">
               {/* Breadcrumb Navigation */}
               <div className="flex items-center gap-2 text-xs">
-                <span className="font-extrabold tracking-wider text-[#2A4BFF] uppercase">Cogent</span>
-                <ChevronRight className="h-3.5 w-3.5 text-[#8D99AE]" />
                 <button
                   onClick={() => setViewMode('table')}
                   className="text-[#4B5565] hover:text-[#0B0F1A] font-medium transition-colors"

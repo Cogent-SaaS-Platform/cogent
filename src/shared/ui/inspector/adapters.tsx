@@ -85,7 +85,12 @@ export function circularToInspectorItem(
 
   const customSections: InspectorCustomSection[] = [];
 
-  // Multi-Role Impact Briefs custom section (CCO, COO, CTO, CFO)
+  // Multi-Role Impact Briefs custom section (adapts dynamically to user role, COO, CTO, CFO)
+  const userRole = typeof window !== 'undefined' ? localStorage.getItem('cogent_user_role') : null;
+  const executiveBriefLabel = userRole
+    ? `${userRole.toUpperCase()} / COMPLIANCE BRIEF`
+    : 'Executive Compliance & Legal Brief';
+
   if (
     circular.executiveBriefCco ||
     circular.actionBriefCoo ||
@@ -103,7 +108,7 @@ export function circularToInspectorItem(
           {circular.executiveBriefCco && (
             <div className="p-3 rounded-xl bg-[#F9FAFC] border border-[#E8EDF5] space-y-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-[#2A4BFF] block">
-                Chief Compliance Officer (CCO) Brief
+                {executiveBriefLabel}
               </span>
               <p className="text-xs text-[#4B5565] leading-relaxed">{circular.executiveBriefCco}</p>
             </div>

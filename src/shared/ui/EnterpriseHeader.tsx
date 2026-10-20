@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { OrganizationSwitcher, UserButton, Show, SignInButton } from '@clerk/nextjs';
 import { PlatformPillar } from '@/shared/types';
 import { ShieldCheck, Radar, FileSearch, LayoutDashboard } from 'lucide-react';
+import { useUserProfile } from '@/shared/hooks/useUserProfile';
 
 export interface EnterpriseHeaderProps {
   activePillar?: PlatformPillar;
@@ -12,6 +13,7 @@ export interface EnterpriseHeaderProps {
 }
 
 export function EnterpriseHeader({ activePillar = 'executive', onSwitchPillar }: EnterpriseHeaderProps) {
+  const { roleBadge } = useUserProfile();
   const pillars: { id: PlatformPillar; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: 'executive', label: 'Command Center', icon: LayoutDashboard },
     { id: 'marketing', label: 'Marketing Shield', icon: ShieldCheck },
@@ -126,7 +128,7 @@ export function EnterpriseHeader({ activePillar = 'executive', onSwitchPillar }:
                 <span>Tenant: Enterprise Compliance</span>
               </div>
               <div className="w-7 h-7 rounded-full bg-[#F5F6FA] border border-[#DDE3EE] flex items-center justify-center text-[10px] font-bold text-[#2A4BFF]">
-                CCO
+                {roleBadge}
               </div>
             </div>
           )}

@@ -102,8 +102,13 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
 
   // Form input fields for the active campaign - dynamically defaulted to active officer
   const [selectedOption, setSelectedOption] = useState<string>('sig_cco');
-  const [reviewerName, setReviewerName] = useState<string>('Chief Compliance Officer');
-  const [reviewerTitle, setReviewerTitle] = useState<string>('Chief Compliance Officer');
+  const [reviewerName, setReviewerName] = useState<string>('Designated Officer');
+  const [reviewerTitle, setReviewerTitle] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('cogent_user_role') || 'CSO';
+    }
+    return 'CSO';
+  });
   const [reviewerRegulatoryId, setReviewerRegulatoryId] = useState<string>('');
   const [attestationNotes, setAttestationNotes] = useState<string>(
     'Reviewed against ARCON Code 2022 and CBN Consumer Protection Framework 2019. Pre-clearance conditions attested.'
@@ -112,6 +117,10 @@ export const CcoGovernanceBlock: React.FC<CcoGovernanceBlockProps> = ({
   useEffect(() => {
     if (user?.fullName) {
       setReviewerName(user.fullName);
+    }
+    const storedRole = typeof window !== 'undefined' ? localStorage.getItem('cogent_user_role') : null;
+    if (storedRole) {
+      setReviewerTitle(storedRole);
     }
   }, [user]);
 

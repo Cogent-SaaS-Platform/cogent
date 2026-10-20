@@ -70,6 +70,9 @@ export function RoleBriefViewer({
     setTimeout(() => setCopiedRole(null), 2000);
   };
 
+  const userRole = typeof window !== 'undefined' ? localStorage.getItem('cogent_user_role') : null;
+  const executiveTabLabel = userRole ? `${userRole} / Legal` : 'Executive / Legal';
+
   const tabs: Array<{
     id: RoleTab;
     label: string;
@@ -78,7 +81,7 @@ export function RoleBriefViewer({
   }> = [
     {
       id: 'cco',
-      label: 'CCO / Legal',
+      label: executiveTabLabel,
       sublabel: 'Statutory Mandates & Fines',
       icon: <ShieldCheck className="h-4 w-4 text-[#2A4BFF]" />,
     },

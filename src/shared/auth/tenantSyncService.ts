@@ -121,15 +121,21 @@ export class TenantSyncService {
         orgId = newOrg.id;
       }
 
-      // 3. Sync Organization Membership
-      await this.adminClient
-        .from('organization_memberships')
+      // 3. Sync Organization Membership (preserve existing department & job title if configured)
+      const { data: existingMembership } = await (this.adminClient.from('organization_memberships') as any)
+        .select('department, job_title')
+        .eq('organization_id', orgId)
+        .eq('user_id', userRow.id)
+        .maybeSingle();
+
+      await (this.adminClient.from('organization_memberships') as any)
         .upsert(
           {
             organization_id: orgId,
             user_id: userRow.id,
             role,
-            department: 'COMPLIANCE_LEGAL',
+            department: existingMembership?.department || 'EXECUTIVE_LEADERSHIP',
+            job_title: existingMembership?.job_title || null,
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'organization_id,user_id' }

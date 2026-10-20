@@ -288,7 +288,9 @@ export function AuditDefenseDossierModal({
           <div className="p-5 rounded-xl bg-[#F0FDF4] border-2 border-[#A7F3D0] shadow-xs">
             <div className="flex items-center gap-2 text-[#059669] text-xs font-bold uppercase tracking-wider mb-2">
               <Key className="w-4 h-4" />
-              Chief Compliance Officer (CCO) Official Legal Attestation Block
+              {typeof window !== 'undefined' && localStorage.getItem('cogent_user_role')
+                ? `${localStorage.getItem('cogent_user_role')?.toUpperCase()} Official Legal Attestation Block`
+                : 'Executive Official Legal Attestation Block'}
             </div>
             <blockquote className="text-xs text-[#0B0F1A] italic leading-relaxed pl-3 border-l-2 border-[#059669] my-3">
               &ldquo;{dossier.ccoAttestation.attestationStatement}&rdquo;

@@ -67,59 +67,6 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 
-export interface PresetScenario {
-  id: string;
-  name: string;
-  buttonLabel: string;
-  badge: string;
-  channel: MarketingChannel;
-  productCategory: ProductCategoryCode;
-  campaignTitle: string;
-  targetAudience?: string;
-  copy: string;
-  description: string;
-}
-
-// Preset Scenarios for instant evaluation and demonstration
-const PRESET_SCENARIOS: PresetScenario[] = [
-  {
-    id: 'scenario_a',
-    name: 'QuickKash SMS Flash (Digital Lending Violations)',
-    buttonLabel: 'Try Sample Loan Ad',
-    badge: 'High Risk • ARCON & FCCPC',
-    channel: 'SMS_BLAST',
-    productCategory: 'DIGITAL_NANO_LOAN',
-    campaignTitle: 'QuickKash SMS Flash Promo',
-    targetAudience: 'Nigerian retail consumers seeking urgent credit',
-    copy: 'Urgent Cash Alert! Get ₦250,000 instant loan in 5 mins directly to your account! Zero interest, 100% guaranteed approval, no collateral, no credit checks. Download QuickKash app now!',
-    description: 'Triggers ARCON Art. 24, FCCPC Digital Lending Sec 5, and CBN CPF APR mandatory disclosures.',
-  },
-  {
-    id: 'scenario_b',
-    name: 'PrimeYield High-Yield Wealth Ad (Prohibited Promises)',
-    buttonLabel: 'Try Sample Wealth Ad',
-    badge: 'Critical Risk • SEC Rule 322',
-    channel: 'SOCIAL_MEDIA_POST',
-    productCategory: 'WEALTHTECH_INVEST',
-    campaignTitle: 'PrimeYield Wealth Growth Campaign',
-    targetAudience: 'Retail investors and high-yield wealth seekers',
-    copy: 'Tired of inflation? Invest your Naira in PrimeYield and earn 35% risk-free annual return guaranteed! Your capital is 100% safe and backed by the government. Limited slots available.',
-    description: 'Triggers SEC Rule 322 (Unregistered guaranteed returns) and ARCON deceptive claims.',
-  },
-  {
-    id: 'scenario_c',
-    name: 'KoraPay Compliant Cross-Border Promo (Clean Baseline)',
-    buttonLabel: 'Try Compliant Remittance',
-    badge: 'Clean Baseline • IMTO Disclosure',
-    channel: 'SOCIAL_MEDIA_POST',
-    productCategory: 'REMITTANCE_FX',
-    campaignTitle: 'KoraPay Cross-Border Remittance',
-    targetAudience: 'Diaspora and cross-border remittance senders',
-    copy: 'Send money home to Nigeria with KoraPay. Licensed by the Central Bank of Nigeria (CBN) as an International Money Transfer Operator. Transparent exchange rates and zero hidden charges. Terms and statutory fees apply. Visit korapay.ng/terms.',
-    description: 'Fully compliant baseline with statutory license disclosure and terms link.',
-  },
-];
-
 // Scenario A ViewModel
 const SCENARIO_A_VIEW_MODEL: MarketingShieldViewModel = {
   scanId: '00000000-0000-0000-0000-000000000001',
@@ -725,19 +672,6 @@ export const MarketingShieldDashboard: React.FC<MarketingShieldDashboardProps> =
     }
   }, [initialContext, viewModel.findings]);
 
-  // Handler to load a preset scenario into the Studio Canvas
-  const handleSelectPreset = (preset: PresetScenario) => {
-    setActiveCampaignKey(preset.id);
-    setCampaignName(preset.campaignTitle || preset.name.split('(')[0]?.trim() || preset.name);
-    setChannel(preset.channel);
-    setProductCategory(preset.productCategory || 'DIGITAL_NANO_LOAN');
-    setRawCopy(preset.copy);
-    if (preset.targetAudience) {
-      setTargetAudience(preset.targetAudience);
-    }
-    setSelectedFindingId(null);
-    setScanError(null);
-  };
 
   // Handler to reset Studio back to clean initial state
   const handleResetStudio = () => {
@@ -1123,8 +1057,6 @@ export const MarketingShieldDashboard: React.FC<MarketingShieldDashboardProps> =
             {/* Breadcrumb Lineage */}
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 text-xs">
-                <span className="font-extrabold tracking-wider text-[#2A4BFF] uppercase">Cogent</span>
-                <ChevronRight className="h-3.5 w-3.5 text-[#8D99AE]" />
                 <button
                   onClick={() => setViewMode('table')}
                   className="text-[#4B5565] hover:text-[#0B0F1A] font-medium transition-colors"
@@ -1508,98 +1440,6 @@ export const MarketingShieldDashboard: React.FC<MarketingShieldDashboardProps> =
                         </div>
                       )}
                     </form>
-                  </div>
-                </div>
-
-                {/* ── RIGHT COLUMN: READY TO PRE-VET STATUTORY CHECKLIST ── */}
-                <div className="lg:col-span-5 xl:col-span-4 space-y-4">
-                  <div className="rounded-2xl border border-[#DDE3EE] bg-white p-5 shadow-xs space-y-4">
-                    <div className="border-b border-[#DDE3EE] pb-3">
-                      <div className="flex items-center gap-2 text-xs font-bold text-[#0B0F1A]">
-                        <BookOpen className="h-4 w-4 text-[#2A4BFF]" />
-                        <span>Ready to Pre-Vet — Statutory Scope</span>
-                      </div>
-                      <p className="text-[11px] text-[#4B5565] mt-1">
-                        Cogent evaluates promotional campaigns against active gazetted Nigerian regulatory codes:
-                      </p>
-                    </div>
-
-                    <div className="space-y-3">
-                      {/* ARCON Card */}
-                      <div className="rounded-xl border border-[#DDE3EE] bg-[#F9FAFC] p-3 text-xs">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-bold text-[#0B0F1A]">ARCON Advertising Code 2022</span>
-                          <span className="text-[10px] font-bold text-[#2A4BFF] bg-[#2A4BFF]/10 px-1.5 py-0.5 rounded">
-                            Art. 24 & 18
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-[#4B5565] leading-relaxed">
-                          Checks for prohibited credit guarantees, deceptive claims, and mandatory Advertising Standards Panel (Form ARCON-PV1) pre-clearance.
-                        </p>
-                        <div className="mt-2 text-[10px] text-red-600 font-semibold flex items-center gap-1">
-                          <span>Statutory Exposure: Up to ₦5,000,000 fine per infraction</span>
-                        </div>
-                      </div>
-
-                      {/* CBN CPF Card */}
-                      <div className="rounded-xl border border-[#DDE3EE] bg-[#F9FAFC] p-3 text-xs">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-bold text-[#0B0F1A]">CBN Consumer Protection 2019</span>
-                          <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                            Sec. 5.2 APR
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-[#4B5565] leading-relaxed">
-                          Requires transparent disclosure of Annual Percentage Rate (APR), processing charges, and prohibits misleading &quot;Zero interest&quot; claims.
-                        </p>
-                        <div className="mt-2 text-[10px] text-red-600 font-semibold flex items-center gap-1">
-                          <span>Statutory Exposure: Up to ₦2,500,000 administrative fine</span>
-                        </div>
-                      </div>
-
-                      {/* FCCPC Card */}
-                      <div className="rounded-xl border border-[#DDE3EE] bg-[#F9FAFC] p-3 text-xs">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-bold text-[#0B0F1A]">FCCPC Digital Lending 2022</span>
-                          <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
-                            Sec. 5(3)
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-[#4B5565] leading-relaxed">
-                          Prohibits &quot;no credit checks&quot; promises, requires credit bureau underwriting notice, and verifies registered lender licensing.
-                        </p>
-                        <div className="mt-2 text-[10px] text-red-600 font-semibold flex items-center gap-1">
-                          <span>Statutory Exposure: Up to ₦4,000,000 & app store delisting</span>
-                        </div>
-                      </div>
-
-                      {/* SEC Rule 322 */}
-                      <div className="rounded-xl border border-[#DDE3EE] bg-[#F9FAFC] p-3 text-xs">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-bold text-[#0B0F1A]">SEC Rule 322 (WealthTech)</span>
-                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
-                            ISA 2007
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-[#4B5565] leading-relaxed">
-                          Prohibits promising guaranteed returns, &quot;risk-free&quot; yields, or unverified sovereign government backing without SEC Fund Manager license.
-                        </p>
-                        <div className="mt-2 text-[10px] text-red-600 font-semibold flex items-center gap-1">
-                          <span>Statutory Exposure: Up to ₦5,000,000 + license review</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Governance Seal Note */}
-                    <div className="rounded-xl border border-dashed border-[#DDE3EE] bg-white p-3 text-[11px] text-[#4B5565] flex items-start gap-2">
-                      <Lock className="h-4 w-4 text-[#2A4BFF] shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-bold text-[#0B0F1A]">Cryptographic Audit Trail</span>
-                        <p className="mt-0.5 text-[10px] text-[#8D99AE]">
-                          All pre-vetting scans generate a SHA-256 evidence digest sealed with CCO dual-key attestation, ready for ARCON ASP submission.
-                        </p>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>

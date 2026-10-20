@@ -16,6 +16,7 @@ import {
   AuditIcon,
   SettingsIcon,
 } from './DualStateIcons';
+import { useUserProfile } from '@/shared/hooks/useUserProfile';
 
 export interface NavItemDef {
   key: string;
@@ -92,6 +93,7 @@ export function NavigationRail({
   onNavigateOverride,
 }: NavigationRailProps) {
   const pathname = usePathname();
+  const { roleBadge, jobTitle } = useUserProfile();
   const [isPinnedExpanded, setIsPinnedExpanded] = useState<boolean>(true);
   const [isHovered, setIsHovered] = useState<boolean>(false);
   const [isMounted, setIsMounted] = useState<boolean>(false);
@@ -333,12 +335,12 @@ export function NavigationRail({
               title="Institution Context: CBN Tier-1 Sandbox"
             >
               <div className="w-8 h-8 rounded-full bg-[#EEF2FF] border border-[#C7D2FE] flex items-center justify-center shrink-0 text-[11px] font-bold text-[#2A4BFF]">
-                CCO
+                {roleBadge}
               </div>
               {isExpanded && (
                 <div className="flex flex-col min-w-0">
                   <span className="text-xs font-semibold text-[#0B0F1A] truncate">
-                    Licensed Institution
+                    {jobTitle || 'Licensed Institution'}
                   </span>
                   <span className="text-[10px] text-[#10B981] font-mono flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />

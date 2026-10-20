@@ -279,6 +279,8 @@ export interface Database {
           clerk_user_id: string;
           email: string;
           full_name: string;
+          job_title?: string | null;
+          department?: string | null;
           avatar_url: string | null;
           created_at: string;
           updated_at: string;
@@ -288,6 +290,8 @@ export interface Database {
           clerk_user_id: string;
           email: string;
           full_name: string;
+          job_title?: string | null;
+          department?: string | null;
           avatar_url?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -302,6 +306,7 @@ export interface Database {
           user_id: string;
           role: OrgRole;
           department: OrgDepartment;
+          job_title?: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -311,6 +316,7 @@ export interface Database {
           user_id: string;
           role?: OrgRole;
           department?: OrgDepartment;
+          job_title?: string | null;
           created_at?: string;
           updated_at?: string;
         };

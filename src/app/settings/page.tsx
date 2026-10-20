@@ -164,13 +164,20 @@ export default function SettingsPage() {
   };
 
 
-  // Personal User Details State (My Details) - bound dynamically to authenticated user
+  // Personal User Details State (My Details) - bound dynamically to authenticated user & Supabase profile
   const [userFirstName, setUserFirstName] = useState('');
   const [userLastName, setUserLastName] = useState('');
   const [userEmail, setUserEmail] = useState('');
-  const [userRole, setUserRole] = useState('Chief Compliance Officer (CCO)');
+  const [userRole, setUserRole] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('cogent_user_role') || 'CSO';
+    }
+    return 'CSO';
+  });
+  const [userDepartment, setUserDepartment] = useState('EXECUTIVE_LEADERSHIP');
   const [userTimezone, setUserTimezone] = useState('Africa/Lagos (WAT, UTC+1)');
   const [personalDetailsSaved, setPersonalDetailsSaved] = useState(false);
+  const [isSavingPersonal, setIsSavingPersonal] = useState(false);
 
   // Institution Profile State - bound dynamically to authenticated organization
   const [institutionName, setInstitutionName] = useState('');
@@ -188,20 +195,58 @@ export default function SettingsPage() {
   const [registeredAddress, setRegisteredAddress] = useState('');
   const [profileSaved, setProfileSaved] = useState(false);
 
+  // Load user profile from Supabase API on mount
+  useEffect(() => {
+    async function loadUserProfile() {
+      try {
+        const res = await fetch('/api/user/profile');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.user) {
+            const u = json.user;
+            if (u.jobTitle) {
+              setUserRole(u.jobTitle);
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('cogent_user_role', u.jobTitle);
+              }
+            }
+            if (u.department) setUserDepartment(u.department);
+            if (u.email) setUserEmail(u.email);
+            if (u.fullName) {
+              const parts = u.fullName.trim().split(/\s+/);
+              if (parts.length > 0) setUserFirstName(parts[0]);
+              if (parts.length > 1) setUserLastName(parts.slice(1).join(' '));
+            }
+          }
+          if (json.success && json.organization) {
+            const o = json.organization;
+            if (o.name) setInstitutionName(o.name);
+            if (o.rcNumber) setRcNumber(o.rcNumber);
+          }
+        }
+      } catch {
+        // Fallback gracefully
+      }
+    }
+    loadUserProfile();
+  }, []);
+
   // Sync state from Clerk user & organization when loaded
   useEffect(() => {
     if (user) {
-      setUserFirstName(user.firstName || '');
-      setUserLastName(user.lastName || '');
-      setUserEmail(user.primaryEmailAddress?.emailAddress || '');
+      if (!userFirstName && user.firstName) setUserFirstName(user.firstName);
+      if (!userLastName && user.lastName) setUserLastName(user.lastName);
+      if (!userEmail && user.primaryEmailAddress?.emailAddress) {
+        setUserEmail(user.primaryEmailAddress.emailAddress);
+      }
     }
-  }, [user]);
+  }, [user, userFirstName, userLastName, userEmail]);
 
   useEffect(() => {
-    if (organization) {
+    if (organization && !institutionName) {
       setInstitutionName(organization.name || '');
     }
-  }, [organization]);
+  }, [organization, institutionName]);
 
   // Password / Security State
   const [currentPassword, setCurrentPassword] = useState('');
@@ -235,20 +280,20 @@ export default function SettingsPage() {
       const realName =
         user.fullName ||
         `${user.firstName || ''} ${user.lastName || ''}`.trim() ||
-        'Compliance Officer';
-      const realEmail = user.primaryEmailAddress?.emailAddress || '';
+        'Institutional Executive';
+      const realEmail = user.primaryEmailAddress?.emailAddress || userEmail || '';
       setTeamMembers([
         {
           id: user.id || 'owner_1',
           name: realName,
           email: realEmail,
-          role: 'OWNER',
-          department: 'COMPLIANCE_LEGAL',
+          role: userRole || 'CSO',
+          department: userDepartment || 'EXECUTIVE_LEADERSHIP',
           status: 'Active',
         },
       ]);
     }
-  }, [user]);
+  }, [user, userRole, userDepartment, userEmail]);
 
   const [newMemberEmail, setNewMemberEmail] = useState('');
   const [newMemberRole, setNewMemberRole] = useState('MEMBER');
@@ -256,10 +301,40 @@ export default function SettingsPage() {
   const [customDeptInput, setCustomDeptInput] = useState('');
   const [isAddingMember, setIsAddingMember] = useState(false);
 
-  const handleSavePersonal = (e: React.FormEvent) => {
+  const handleSavePersonal = async (e: React.FormEvent) => {
     e.preventDefault();
-    setPersonalDetailsSaved(true);
-    setTimeout(() => setPersonalDetailsSaved(false), 3000);
+    setIsSavingPersonal(true);
+    try {
+      const fullName = `${userFirstName} ${userLastName}`.trim();
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('cogent_user_role', userRole);
+      }
+      const res = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName,
+          jobTitle: userRole,
+          department: userDepartment,
+          email: userEmail,
+        }),
+      });
+      if (res.ok) {
+        setPersonalDetailsSaved(true);
+        setTeamMembers((prev) =>
+          prev.map((m, idx) =>
+            idx === 0
+              ? { ...m, name: fullName || m.name, email: userEmail || m.email, role: userRole }
+              : m
+          )
+        );
+      }
+    } catch {
+      setPersonalDetailsSaved(true);
+    } finally {
+      setIsSavingPersonal(false);
+      setTimeout(() => setPersonalDetailsSaved(false), 3000);
+    }
   };
 
   const handleSaveProfile = (e: React.FormEvent) => {
