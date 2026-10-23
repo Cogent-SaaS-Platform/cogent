@@ -11,7 +11,7 @@ import {
 import { RadarCircularPresentationCard } from '@/modules/radar/types';
 import { FindingPresentationCard } from '@/shared/types/presentation';
 import { RegulatorCode } from '@/shared/types';
-import { Sparkles, ArrowRight, ShieldCheck, FileText, CheckCircle2, AlertTriangle, Scale, Lock, BookOpen } from 'lucide-react';
+import { Layers, ArrowRight, ShieldCheck, FileText, CheckCircle2, AlertTriangle, Scale, Lock, BookOpen } from 'lucide-react';
 
 /**
  * Transforms a Radar Circular Presentation Card (Pillar 1: Insight)
@@ -99,42 +99,41 @@ export function circularToInspectorItem(
   ) {
     customSections.push({
       id: 'role-briefs',
-      title: 'Multi-Role Departmental Impact Briefs',
-      icon: <Sparkles className="w-4 h-4 text-[#2A4BFF]" />,
-      badge: '4 Roles',
+      title: 'Departmental Impact Briefs',
+      icon: <Layers className="w-4 h-4 text-slate-500" />,
       defaultOpen: true,
       content: (
         <div className="space-y-3">
           {circular.executiveBriefCco && (
-            <div className="p-3 rounded-xl bg-[#F9FAFC] border border-[#E8EDF5] space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#2A4BFF] block">
+            <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 block">
                 {executiveBriefLabel}
               </span>
-              <p className="text-xs text-[#4B5565] leading-relaxed">{circular.executiveBriefCco}</p>
+              <p className="text-xs text-slate-800 leading-relaxed">{circular.executiveBriefCco}</p>
             </div>
           )}
           {circular.actionBriefCoo && (
-            <div className="p-3 rounded-xl bg-[#F9FAFC] border border-[#E8EDF5] space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#10B981] block">
+            <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 block">
                 Chief Operating Officer (COO) Operations Brief
               </span>
-              <p className="text-xs text-[#4B5565] leading-relaxed">{circular.actionBriefCoo}</p>
+              <p className="text-xs text-slate-800 leading-relaxed">{circular.actionBriefCoo}</p>
             </div>
           )}
           {circular.technicalBriefProductEng && (
-            <div className="p-3 rounded-xl bg-[#F9FAFC] border border-[#E8EDF5] space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#7C3AED] block">
+            <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 block">
                 Engineering & Product Brief
               </span>
-              <p className="text-xs text-[#4B5565] leading-relaxed">{circular.technicalBriefProductEng}</p>
+              <p className="text-xs text-slate-800 leading-relaxed">{circular.technicalBriefProductEng}</p>
             </div>
           )}
           {circular.financialBriefCfo && (
-            <div className="p-3 rounded-xl bg-[#F9FAFC] border border-[#E8EDF5] space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#F59E0B] block">
+            <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 block">
                 Chief Financial Officer (CFO) Treasury Brief
               </span>
-              <p className="text-xs text-[#4B5565] leading-relaxed">{circular.financialBriefCfo}</p>
+              <p className="text-xs text-slate-800 leading-relaxed">{circular.financialBriefCfo}</p>
             </div>
           )}
         </div>
@@ -242,33 +241,33 @@ export function findingToInspectorItem(
   // Flagged Excerpt & Compliant Rewrite custom section
   customSections.push({
     id: 'copy-rewrite-comparison',
-    title: 'Flagged Excerpt & AI Compliant Rewrite',
-    icon: <Sparkles className="w-4 h-4 text-[#2A4BFF]" />,
+    title: 'Flagged Excerpt & Compliant Remediation',
+    icon: <FileText className="w-4 h-4 text-slate-500" />,
     defaultOpen: true,
     content: (
       <div className="space-y-3">
         {/* Flagged copy */}
-        <div className="p-3.5 rounded-xl bg-[#FEF2F2] border border-[#FECACA] space-y-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#991B1B] block">
+        <div className="p-3.5 rounded-lg bg-rose-50/60 border border-rose-200 space-y-1.5">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-rose-700 block">
             Flagged Non-Compliant Excerpt
           </span>
-          <p className="text-xs font-semibold text-[#991B1B] italic">
+          <p className="text-xs font-semibold text-rose-800 italic">
             &ldquo;{finding.flaggedExcerpt}&rdquo;
           </p>
         </div>
 
         {/* Suggested Rewrite */}
         {options?.compliantRewrite && (
-          <div className="p-3.5 rounded-xl bg-[#ECFDF5] border border-[#A7F3D0] space-y-2">
+          <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#065F46] block">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 block">
                 ARCON / FCCPC Pre-Cleared Compliant Alternative
               </span>
-              <span className="text-[10px] font-bold text-[#065F46] bg-white px-2 py-0.5 rounded border border-[#A7F3D0]">
+              <span className="text-[10px] font-semibold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
                 Pre-Vetted
               </span>
             </div>
-            <p className="text-xs text-[#065F46] leading-relaxed font-medium">
+            <p className="text-xs text-slate-800 leading-relaxed font-medium">
               &ldquo;{options.compliantRewrite}&rdquo;
             </p>
             {options.onApplyFix && (
@@ -276,7 +275,7 @@ export function findingToInspectorItem(
                 <button
                   type="button"
                   onClick={() => options.onApplyFix?.(options.compliantRewrite!)}
-                  className="btn-base btn-primary btn-xs gap-1"
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-white bg-slate-900 hover:bg-slate-800 px-3 py-1.5 rounded transition-colors shadow-xs"
                 >
                   <span>Apply Pre-Cleared Copy</span>
                   <ArrowRight className="w-3 h-3" />
@@ -388,19 +387,19 @@ export function gapItemToInspectorItem(gapItem: {
     customSections.push({
       id: 'board-adopted-wording',
       title: 'Board-Adopted Replacement Wording',
-      icon: <ShieldCheck className="w-4 h-4 text-[#10B981]" />,
+      icon: <ShieldCheck className="w-4 h-4 text-slate-500" />,
       defaultOpen: true,
       content: (
-        <div className="p-3.5 rounded-xl bg-[#F0FDF4] border border-[#BBF7D0] space-y-2">
+        <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#166534]">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700">
               Recommended Policy Clause Replacement
             </span>
-            <span className="text-[10px] font-bold text-[#166534] bg-white px-2 py-0.5 rounded border border-[#BBF7D0]">
+            <span className="text-[10px] font-semibold text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200">
               CAMA 2020 Compliant
             </span>
           </div>
-          <p className="text-xs text-[#166534] leading-relaxed font-mono">
+          <p className="text-xs text-slate-900 leading-relaxed font-mono">
             {gapItem.boardAdoptedReplacement}
           </p>
         </div>

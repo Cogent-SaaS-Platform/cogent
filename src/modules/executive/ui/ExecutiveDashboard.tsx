@@ -187,40 +187,23 @@ export function ExecutiveDashboard({
       {/* 1. Cockpit Header Toolbar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 md:p-5 rounded-2xl border border-[#DDE3EE] shadow-xs">
         <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[#EEF2FF] text-[#2A4BFF] border border-[#C7D2FE]">
-              Executive Overview
-            </span>
-            <div className="flex items-center gap-1.5 text-xs text-[#10B981] font-semibold">
-              <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse" />
-              <span>Sovereign Enclave Active</span>
-            </div>
-          </div>
-          <h1 className="text-xl md:text-2xl font-bold text-[#0B0F1A] tracking-tight">
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">
             Executive Command Center & Board Attestation
           </h1>
-          <p className="text-xs text-[#4B5565]">
+          <p className="text-xs text-slate-500">
             Unified supervisory intelligence across 7 Nigerian financial regulators with connected cascade telemetry.
           </p>
         </div>
 
-        {/* Institutional Badge & Top Actions */}
+        {/* Top Actions */}
         <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#F5F6FA] border border-[#DDE3EE] text-xs">
-            <Building className="w-3.5 h-3.5 text-[#2A4BFF]" />
-            <span className="font-semibold text-[#0B0F1A]">{organizationName}</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#ECFDF5] text-[#065F46] font-semibold border border-[#A7F3D0]">
-              PSSP / Commercial Bank
-            </span>
-          </div>
-
           <button
             id="btn-orchestrate-cascade"
             onClick={() => setIsSimulatorOpen(true)}
             className="btn-base btn-secondary btn-sm gap-1.5"
             title="Open Interactive Cascade Orchestration Simulator"
           >
-            <Zap className="w-3.5 h-3.5 text-[#2A4BFF]" />
+            <Zap className="w-3.5 h-3.5 text-slate-600" />
             <span>Simulate Cascade</span>
           </button>
 
@@ -237,284 +220,14 @@ export function ExecutiveDashboard({
           <button
             onClick={fetchOverview}
             disabled={isLoading}
-            className="p-2 text-[#4B5565] hover:text-[#0B0F1A] bg-white hover:bg-[#F5F6FA] rounded-xl border border-[#DDE3EE] transition-colors"
+            className="p-2 text-slate-500 hover:text-slate-900 bg-white hover:bg-slate-50 rounded-xl border border-slate-200 transition-colors"
             title="Refresh Telemetry"
             aria-label="Refresh telemetry"
           >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-[#2A4BFF]' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-slate-600' : ''}`} />
           </button>
         </div>
       </div>
-
-      {/* 2. Composite Health Hero Banner (Zango 1:00) */}
-      <section className="relative overflow-hidden rounded-2xl bg-white border border-[#DDE3EE] p-6 md:p-8 shadow-sm">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
-          <div className="space-y-4 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EEF2FF] border border-[#C7D2FE] text-xs font-semibold text-[#2A4BFF]">
-              <Sparkles className="w-3.5 h-3.5 text-[#2A4BFF]" />
-              <span>Sovereign Compliance Posture: {healthGrade}</span>
-            </div>
-
-            <h2 className="text-2xl md:text-3xl font-extrabold text-[#0B0F1A] tracking-tight leading-tight">
-              Enterprise Multi-Regulator Defense & Supervisory Index
-            </h2>
-
-            <p className="text-xs md:text-sm text-[#4B5565] leading-relaxed">
-              Continuous compliance telemetry verified across <strong className="text-[#0B0F1A]">Central Bank of Nigeria (CBN)</strong>, <strong className="text-[#0B0F1A]">SEC</strong>, <strong className="text-[#0B0F1A]">NDPC</strong>, <strong className="text-[#0B0F1A]">FCCPC</strong>, <strong className="text-[#0B0F1A]">NFIU</strong>, <strong className="text-[#0B0F1A]">ARCON</strong>, and <strong className="text-[#0B0F1A]">NDIC</strong>. The Connected Compliance Cascade ensures that upstream circulars automatically trigger downstream policy concordance re-evaluations and marketing drift checks in real time.
-            </p>
-
-            {/* Quick Cross-Pillar Launch Pills */}
-            <div className="flex flex-wrap items-center gap-2.5 pt-1">
-              <button
-                id="action-scan-marketing"
-                onClick={() => handleNavigate('/marketing', 'marketing')}
-                className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#0B0F1A] bg-[#F5F6FA] hover:bg-[#EEF2FF] hover:text-[#2A4BFF] border border-[#DDE3EE] rounded-xl transition-all shadow-2xs"
-              >
-                <Shield className="w-3.5 h-3.5 text-[#2A4BFF]" />
-                <span>Pre-Vet Marketing Copy</span>
-              </button>
-              <button
-                id="action-view-radar"
-                onClick={() => handleNavigate('/insight', 'radar')}
-                className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#0B0F1A] bg-[#F5F6FA] hover:bg-[#EEF2FF] hover:text-[#2A4BFF] border border-[#DDE3EE] rounded-xl transition-all shadow-2xs"
-              >
-                <Radio className="w-3.5 h-3.5 text-[#2A4BFF]" />
-                <span>Track Horizon Circulars</span>
-              </button>
-              <button
-                id="action-evaluate-policy"
-                onClick={() => handleNavigate('/gap', 'gap-matrix')}
-                className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[#0B0F1A] bg-[#F5F6FA] hover:bg-[#EEF2FF] hover:text-[#2A4BFF] border border-[#DDE3EE] rounded-xl transition-all shadow-2xs"
-              >
-                <Scale className="w-3.5 h-3.5 text-[#2A4BFF]" />
-                <span>Evaluate 5-W Policy Gap</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Health Gauge & Fine Avoidance Summary Box */}
-          <div className="flex flex-col sm:flex-row items-center gap-6 bg-[#F9FAFC] border border-[#DDE3EE] rounded-2xl p-6 shadow-2xs">
-            {/* Radial Meter Simulation */}
-            <div className="relative w-32 h-32 flex items-center justify-center shrink-0">
-              <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 120 120">
-                <circle
-                  cx="60"
-                  cy="60"
-                  r="48"
-                  className="stroke-[#E8EDF5]"
-                  strokeWidth="10"
-                  fill="transparent"
-                />
-                <circle
-                  cx="60"
-                  cy="60"
-                  r="48"
-                  stroke="#2A4BFF"
-                  strokeWidth="10"
-                  strokeDasharray={301.6}
-                  strokeDashoffset={301.6 - (301.6 * compositeScore) / 100}
-                  strokeLinecap="round"
-                  fill="transparent"
-                  className="transition-all duration-1000 ease-out"
-                />
-              </svg>
-              <div className="absolute flex flex-col items-center justify-center text-center">
-                <span className="text-3xl font-extrabold text-[#0B0F1A] font-mono">{compositeScore}%</span>
-                <span
-                  className={`text-[10px] font-bold uppercase tracking-wider ${
-                    healthGrade === 'EXEMPLARY'
-                      ? 'text-[#10B981]'
-                      : healthGrade === 'SATISFACTORY'
-                      ? 'text-[#2A4BFF]'
-                      : 'text-[#F59E0B]'
-                  }`}
-                >
-                  {healthGrade}
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-3 min-w-[200px]">
-              <div>
-                <span className="text-[10px] font-bold text-[#8D99AE] uppercase tracking-wider block">
-                  Composite Attestation Weighting
-                </span>
-                <span className="text-xs text-[#4B5565] font-medium">
-                  30% Marketing + 35% Horizon + 35% Gap
-                </span>
-              </div>
-
-              <div className="pt-2 border-t border-[#DDE3EE]">
-                <span className="text-[10px] font-bold text-[#8D99AE] uppercase tracking-wider block">
-                  Aggregate Sanctions Prevented
-                </span>
-                <span className="text-2xl font-black text-[#10B981] font-mono tracking-tight block">
-                  ₦{(totalFineAvoided / 1_000_000).toFixed(1)}M
-                </span>
-                <span className="text-[10px] text-[#4B5565] block">
-                  Deterministic penalty engine quantification
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 3. 3-Pillar Operational Scorecard Grid */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {/* Card 1: Marketing Shield */}
-        <div className="group rounded-2xl bg-white border border-[#DDE3EE] p-5 hover:border-[#2A4BFF] transition-all shadow-xs flex flex-col justify-between">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded-xl bg-[#EEF2FF] border border-[#C7D2FE] flex items-center justify-center text-[#2A4BFF]">
-                <Shield className="w-5 h-5" />
-              </div>
-              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0]">
-                {data?.pillars.marketing.healthPercentage ?? 100}% Clean
-              </span>
-            </div>
-
-            <div>
-              <span className="text-[11px] font-bold text-[#2A4BFF] uppercase tracking-wider block">
-                Marketing Shield
-              </span>
-              <h3 className="text-base font-bold text-[#0B0F1A] group-hover:text-[#2A4BFF] transition-colors">
-                Marketing Pre-Vetting Shield
-              </h3>
-              <p className="text-xs text-[#4B5565] mt-1 leading-relaxed">
-                Deterministic pre-vetting for credit promotions, fee disclosures, and ARCON Code 2022 vetting.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#E8EDF5] text-xs">
-              <div>
-                <span className="text-[#8D99AE] block text-[10px] font-semibold uppercase">Pre-Cleared Rate</span>
-                <span className="font-bold text-[#0B0F1A] font-mono">
-                  {data?.pillars.marketing.primaryMetricValue ?? '0 Scans'}
-                </span>
-              </div>
-              <div>
-                <span className="text-[#8D99AE] block text-[10px] font-semibold uppercase">Fines Prevented</span>
-                <span className="font-bold text-[#10B981] font-mono">
-                  {(data?.pillars.marketing.fineExposureAvoidedNaira ?? 0) > 0
-                    ? `₦${((data!.pillars.marketing.fineExposureAvoidedNaira) / 1000000).toFixed(1)}M`
-                    : '₦0'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={() => handleNavigate('/marketing', 'marketing')}
-            className="mt-4 w-full flex items-center justify-between px-3.5 py-2 rounded-xl bg-[#F5F6FA] hover:bg-[#EEF2FF] hover:text-[#2A4BFF] text-xs font-semibold text-[#0B0F1A] transition-colors"
-          >
-            <span>Inspect Marketing Shield</span>
-            <ArrowRight className="w-3.5 h-3.5 text-[#2A4BFF] group-hover:translate-x-1 transition-transform" />
-          </button>
-        </div>
-
-        {/* Card 2: Regulatory Radar */}
-        <div className="group rounded-2xl bg-white border border-[#DDE3EE] p-5 hover:border-[#2A4BFF] transition-all shadow-xs flex flex-col justify-between">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded-xl bg-[#EEF2FF] border border-[#C7D2FE] flex items-center justify-center text-[#2A4BFF]">
-                <Radio className="w-5 h-5" />
-              </div>
-              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0]">
-                {data?.pillars.radar.healthPercentage ?? 100}% Optimal
-              </span>
-            </div>
-
-            <div>
-              <span className="text-[11px] font-bold text-[#2A4BFF] uppercase tracking-wider block">
-                Regulatory Radar
-              </span>
-              <h3 className="text-base font-bold text-[#0B0F1A] group-hover:text-[#2A4BFF] transition-colors">
-                Insight & Horizon Scanner
-              </h3>
-              <p className="text-xs text-[#4B5565] mt-1 leading-relaxed">
-                Relational applicability scanner with 4-Way Multi-Role briefs and circular supersession lineage.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#E8EDF5] text-xs">
-              <div>
-                <span className="text-[#8D99AE] block text-[10px] font-semibold uppercase">Active Directives</span>
-                <span className="font-bold text-[#0B0F1A] font-mono">
-                  {data?.pillars.radar.primaryMetricValue ?? '0 Directives'}
-                </span>
-              </div>
-              <div>
-                <span className="text-[#8D99AE] block text-[10px] font-semibold uppercase">Fines Prevented</span>
-                <span className="font-bold text-[#10B981] font-mono">
-                  {(data?.pillars.radar.fineExposureAvoidedNaira ?? 0) > 0
-                    ? `₦${((data!.pillars.radar.fineExposureAvoidedNaira) / 1000000).toFixed(1)}M`
-                    : '₦0'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={() => handleNavigate('/insight', 'radar')}
-            className="mt-4 w-full flex items-center justify-between px-3.5 py-2 rounded-xl bg-[#F5F6FA] hover:bg-[#EEF2FF] hover:text-[#2A4BFF] text-xs font-semibold text-[#0B0F1A] transition-colors"
-          >
-            <span>Inspect Horizon Scanner</span>
-            <ArrowRight className="w-3.5 h-3.5 text-[#2A4BFF] group-hover:translate-x-1 transition-transform" />
-          </button>
-        </div>
-
-        {/* Card 3: Policy Gap Matrix */}
-        <div className="group rounded-2xl bg-white border border-[#DDE3EE] p-5 hover:border-[#2A4BFF] transition-all shadow-xs flex flex-col justify-between">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="w-10 h-10 rounded-xl bg-[#EEF2FF] border border-[#C7D2FE] flex items-center justify-center text-[#2A4BFF]">
-                <Scale className="w-5 h-5" />
-              </div>
-              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0]">
-                {data?.pillars.gapMatrix.healthPercentage ?? 100}% Aligned
-              </span>
-            </div>
-
-            <div>
-              <span className="text-[11px] font-bold text-[#2A4BFF] uppercase tracking-wider block">
-                Policy Gap Matrix
-              </span>
-              <h3 className="text-base font-bold text-[#0B0F1A] group-hover:text-[#2A4BFF] transition-colors">
-                Gap Matrix & Policy Concordance
-              </h3>
-              <p className="text-xs text-[#4B5565] mt-1 leading-relaxed">
-                Atomic chunking & pgvector concordance engine with Bank Examiner CAMA 2020 defense dossiers.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#E8EDF5] text-xs">
-              <div>
-                <span className="text-[#8D99AE] block text-[10px] font-semibold uppercase">Concordance</span>
-                <span className="font-bold text-[#0B0F1A] font-mono">
-                  {data?.pillars.gapMatrix.primaryMetricValue ?? 'Concordance Pending'}
-                </span>
-              </div>
-              <div>
-                <span className="text-[#8D99AE] block text-[10px] font-semibold uppercase">Fines Prevented</span>
-                <span className="font-bold text-[#10B981] font-mono">
-                  {(data?.pillars.gapMatrix.fineExposureAvoidedNaira ?? 0) > 0
-                    ? `₦${((data!.pillars.gapMatrix.fineExposureAvoidedNaira) / 1000000).toFixed(1)}M`
-                    : '₦0'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={() => handleNavigate('/gap', 'gap-matrix')}
-            className="mt-4 w-full flex items-center justify-between px-3.5 py-2 rounded-xl bg-[#F5F6FA] hover:bg-[#EEF2FF] hover:text-[#2A4BFF] text-xs font-semibold text-[#0B0F1A] transition-colors"
-          >
-            <span>Inspect 5-W Gap Matrix</span>
-            <ArrowRight className="w-3.5 h-3.5 text-[#2A4BFF] group-hover:translate-x-1 transition-transform" />
-          </button>
-        </div>
-      </section>
 
       {/* 4. Imminent Statutory Compliance Gates */}
       <section className="rounded-2xl bg-white border border-[#DDE3EE] p-5 shadow-xs space-y-4">

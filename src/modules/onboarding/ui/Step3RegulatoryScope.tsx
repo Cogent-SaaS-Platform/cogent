@@ -129,7 +129,7 @@ export function Step3RegulatoryScope({ state, onChange, onNext, onBack }: Step3P
             <label className="text-xs font-bold text-[#0B0F1A]">
               License / Approval Reference Number
             </label>
-            <span className="text-[11px] font-semibold text-[#059669] bg-[#ECFDF5] px-2 py-0.5 rounded-full border border-[#A7F3D0]">
+            <span className="text-xs text-slate-400 font-normal">
               Optional
             </span>
           </div>
@@ -138,7 +138,7 @@ export function Step3RegulatoryScope({ state, onChange, onNext, onBack }: Step3P
             value={state.licenseNumber}
             onChange={(e) => onChange({ licenseNumber: e.target.value })}
             placeholder="e.g. CBN/PSSP/LIC/2024/092"
-            className="w-full px-4 py-2.5 bg-white border border-[#DDE3EE] rounded-xl text-sm text-[#0B0F1A] placeholder-[#94A3B8] focus:outline-none focus:border-[#2A4BFF] focus:ring-2 focus:ring-[#2A4BFF]/10 transition-all shadow-2xs"
+            className="w-full px-4 py-2.5 bg-white border border-[#DDE3EE] rounded-xl text-sm text-[#0B0F1A] placeholder-[#94A3B8] focus:outline-none focus:border-slate-800 focus:ring-1 focus:ring-slate-800 transition-all shadow-2xs font-mono"
           />
         </div>
       </div>
@@ -157,10 +157,10 @@ export function Step3RegulatoryScope({ state, onChange, onNext, onBack }: Step3P
           <button
             type="button"
             onClick={() => onChange({ operatingEnvironment: 'LIVE_PRODUCTION' })}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
               state.operatingEnvironment === 'LIVE_PRODUCTION'
-                ? 'bg-[#2A4BFF] text-white shadow-xs'
-                : 'text-[#4B5565] hover:text-[#0B0F1A]'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             Live Production
@@ -168,10 +168,10 @@ export function Step3RegulatoryScope({ state, onChange, onNext, onBack }: Step3P
           <button
             type="button"
             onClick={() => onChange({ operatingEnvironment: 'SANDBOX' })}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
               state.operatingEnvironment === 'SANDBOX'
-                ? 'bg-[#2A4BFF] text-white shadow-xs'
-                : 'text-[#4B5565] hover:text-[#0B0F1A]'
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             Sandbox Staging

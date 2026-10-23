@@ -344,7 +344,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
             Regulatory Context Inspector
           </span>
         </div>
-        <span className="rounded-full bg-[#2A4BFF]/10 border border-[#2A4BFF]/20 px-2.5 py-0.5 text-[11px] text-[#2A4BFF] font-mono font-bold">
+        <span className="font-mono text-xs text-slate-600 font-medium">
           {viewModel.channel}
         </span>
       </div>
@@ -363,13 +363,12 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
             <span className="text-xs font-bold uppercase tracking-wider text-[#0B0F1A]">
               ARCON ASP Clearance
             </span>
-            <span
-              className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
-                viewModel.arconPreclearanceRequired
-                  ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                  : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
-              }`}
-            >
+            <span className="inline-flex items-center gap-1.5 text-xs text-slate-700 font-medium">
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  viewModel.arconPreclearanceRequired ? 'bg-amber-500' : 'bg-emerald-500'
+                }`}
+              />
               {viewModel.arconPreclearanceRequired ? 'Mandatory Submission' : 'Standard Compliance'}
             </span>
           </div>

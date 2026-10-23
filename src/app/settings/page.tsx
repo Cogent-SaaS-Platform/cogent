@@ -849,14 +849,15 @@ export default function SettingsPage() {
               {/* Two-Factor Authentication Box */}
               <div className="pt-6 border-t border-[#DDE3EE] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-xs font-bold text-[#0B0F1A]">
-                      Two-Factor Authentication (2FA)
-                    </h3>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0]">
-                      Active
-                    </span>
-                  </div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-xs font-bold text-[#0B0F1A]">
+                        Two-Factor Authentication (2FA)
+                      </h3>
+                      <span className="inline-flex items-center gap-1.5 text-xs text-slate-700 font-medium">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        Active
+                      </span>
+                    </div>
                   <p className="text-[11px] text-[#4B5565] mt-0.5">
                     Protected by Clerk Multi-Factor Authentication enclave and cryptographic SMS/TOTP.
                   </p>
@@ -1034,15 +1035,16 @@ export default function SettingsPage() {
                         </div>
                       </td>
                       <td className="p-3.5">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#EEF2FF] text-[#2A4BFF] border border-[#C7D2FE]">
+                        <span className="text-xs font-mono text-slate-700">
                           {member.role}
                         </span>
                       </td>
-                      <td className="p-3.5 font-medium text-[#0B0F1A]">
+                      <td className="p-3.5 font-medium text-slate-900">
                         {member.department.replace(/_/g, ' ')}
                       </td>
                       <td className="p-3.5">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0]">
+                        <span className="inline-flex items-center gap-1.5 text-xs text-slate-700">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                           {member.status}
                         </span>
                       </td>
@@ -1076,18 +1078,19 @@ export default function SettingsPage() {
             <div className="bg-white border border-[#DDE3EE] rounded-2xl p-7 space-y-6 shadow-xs">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E8EDF5] pb-5">
                 <div>
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-3">
                     <h2 className="text-base font-bold text-[#0B0F1A]">Subscription &amp; Billing Overview</h2>
                     {subscriptionData && (
-                      <span
-                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                          subscriptionData.isReadOnly
-                            ? 'bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA]'
-                            : subscriptionData.isInGracePeriod
-                            ? 'bg-[#FEF3C7] text-[#D97706] border border-[#FDE68A]'
-                            : 'bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0]'
-                        }`}
-                      >
+                      <span className="inline-flex items-center gap-1.5 text-xs text-slate-700 font-medium">
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            subscriptionData.isReadOnly
+                              ? 'bg-rose-600'
+                              : subscriptionData.isInGracePeriod
+                              ? 'bg-amber-500'
+                              : 'bg-emerald-500'
+                          }`}
+                        />
                         {subscriptionData.status.toUpperCase()}
                       </span>
                     )}

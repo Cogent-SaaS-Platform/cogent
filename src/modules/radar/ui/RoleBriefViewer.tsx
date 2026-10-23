@@ -2,14 +2,9 @@
 
 import React, { useState } from 'react';
 import {
-  Briefcase,
-  ShieldCheck,
-  Code2,
-  Coins,
   Copy,
   Check,
-  Sparkles,
-  Building,
+  FileText,
 } from 'lucide-react';
 
 export interface RoleBriefViewerProps {
@@ -77,65 +72,60 @@ export function RoleBriefViewer({
     id: RoleTab;
     label: string;
     sublabel: string;
-    icon: React.ReactNode;
   }> = [
     {
       id: 'cco',
       label: executiveTabLabel,
       sublabel: 'Statutory Mandates & Fines',
-      icon: <ShieldCheck className="h-4 w-4 text-[#2A4BFF]" />,
     },
     {
       id: 'cfo',
       label: 'CFO / Treasury',
       sublabel: 'Capital Reserves & Margins',
-      icon: <Coins className="h-4 w-4 text-[#10B981]" />,
     },
     {
       id: 'cto',
       label: 'CTO / Product & Eng',
       sublabel: 'APIs, 2FA & Auth Thresholds',
-      icon: <Code2 className="h-4 w-4 text-[#7C3AED]" />,
     },
     {
       id: 'ceo_cro',
       label: 'CEO / CRO Governance',
       sublabel: 'Board Risk & Oversight',
-      icon: <Briefcase className="h-4 w-4 text-[#F59E0B]" />,
     },
   ];
 
   return (
-    <div className="rounded-2xl border border-[#DDE3EE] bg-white p-5 shadow-xs space-y-4">
+    <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-xs space-y-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-[#E8EDF5] pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-200 pb-4">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#EEF2FF] text-[#2A4BFF]">
-            <Sparkles className="h-4 w-4" />
+          <div className="flex h-8 w-8 items-center justify-center rounded border border-slate-200 bg-slate-50 text-slate-700">
+            <FileText className="h-4 w-4" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-[#0B0F1A]">
-              Multi-Role Departmental Impact Briefs
+            <h3 className="text-sm font-semibold text-slate-900">
+              Departmental Impact Briefs
             </h3>
-            <p className="text-[11px] text-[#4B5565]">
-              Tailored synthesis generated for executive leadership teams
+            <p className="text-xs text-slate-500">
+              Operational synthesis for executive leadership teams
             </p>
           </div>
         </div>
 
         <button
           onClick={() => handleCopy(activeTab)}
-          className="btn-base btn-secondary btn-xs gap-1.5 self-start sm:self-auto"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 px-2.5 py-1 rounded shadow-xs transition-colors self-start sm:self-auto"
           title="Copy active role brief"
         >
           {copiedRole === activeTab ? (
             <>
-              <Check className="h-3.5 w-3.5 text-[#10B981]" />
-              <span className="text-[#10B981]">Copied</span>
+              <Check className="h-3.5 w-3.5 text-emerald-600" />
+              <span className="text-emerald-700">Copied</span>
             </>
           ) : (
             <>
-              <Copy className="h-3.5 w-3.5 text-[#4B5565]" />
+              <Copy className="h-3.5 w-3.5 text-slate-500" />
               <span>Copy Brief</span>
             </>
           )}
@@ -150,42 +140,39 @@ export function RoleBriefViewer({
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between space-y-1 ${
+              className={`p-3 rounded-lg border text-left transition-colors flex flex-col justify-between space-y-1 ${
                 isActive
-                  ? 'border-[#2A4BFF] bg-[#EEF2FF]/50 shadow-2xs'
-                  : 'border-[#DDE3EE] bg-[#F9FAFC] hover:bg-[#F5F6FA]'
+                  ? 'border-slate-900 bg-white ring-1 ring-slate-900 shadow-2xs'
+                  : 'border-slate-200 bg-slate-50 hover:bg-slate-100/70'
               }`}
             >
               <div className="flex items-center justify-between">
-                {tab.icon}
-                {isActive && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#2A4BFF]" />
-                )}
-              </div>
-              <div>
-                <span className="text-xs font-bold text-[#0B0F1A] block">
+                <span className="text-xs font-semibold text-slate-900 block">
                   {tab.label}
                 </span>
-                <span className="text-[10px] text-[#4B5565] block truncate">
-                  {tab.sublabel}
-                </span>
+                {isActive && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-900" />
+                )}
               </div>
+              <span className="text-[11px] text-slate-500 block truncate">
+                {tab.sublabel}
+              </span>
             </button>
           );
         })}
       </div>
 
       {/* Brief Content Card */}
-      <div className="p-4 rounded-xl bg-[#F9FAFC] border border-[#E8EDF5] space-y-2">
-        <div className="flex items-center justify-between text-xs border-b border-[#E8EDF5] pb-2">
-          <span className="font-bold text-[#0B0F1A]">
+      <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 space-y-2">
+        <div className="flex items-center justify-between text-xs border-b border-slate-200 pb-2">
+          <span className="font-semibold text-slate-800">
             {tabs.find((t) => t.id === activeTab)?.label} Directive Memo
           </span>
-          <span className="font-mono text-[10px] text-[#8D99AE]">
+          <span className="font-mono text-xs text-slate-500">
             Directive: {circularNumber}
           </span>
         </div>
-        <p className="text-xs text-[#0B0F1A] leading-relaxed whitespace-pre-line pt-1">
+        <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-line pt-1">
           {getBriefContent(activeTab)}
         </p>
       </div>

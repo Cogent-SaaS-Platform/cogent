@@ -311,19 +311,19 @@ export function DetailInspector({
 
         {/* 4. Statutory Evidence Action Button (Zango 2:10) */}
         {item.statutoryReference && onOpenReference && (
-          <div className="p-3.5 rounded-xl bg-gradient-to-r from-[#EEF2FF] to-[#F5F6FA] border border-[#C7D2FE] flex items-center justify-between gap-3 shadow-2xs">
+          <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between gap-3 shadow-2xs">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-lg bg-[#2A4BFF] text-white flex items-center justify-center shrink-0 shadow-xs">
+              <div className="w-8 h-8 rounded border border-slate-200 bg-white text-slate-700 flex items-center justify-center shrink-0">
                 <Scale className="w-4 h-4" />
               </div>
               <div className="min-w-0">
-                <span className="text-[10px] font-bold text-[#2A4BFF] uppercase tracking-wider block">
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                   Official Statutory Evidence
                 </span>
-                <span className="text-xs font-semibold text-[#0B0F1A] block truncate">
+                <span className="text-xs font-semibold text-slate-900 block truncate">
                   {item.statutoryReference.statutoryInstrumentTitle}
                 </span>
-                <span className="text-[11px] text-[#4B5565] block font-mono">
+                <span className="text-xs text-slate-500 block font-mono">
                   Clause: {item.statutoryReference.citationClause}
                 </span>
               </div>
@@ -331,7 +331,7 @@ export function DetailInspector({
 
             <button
               onClick={() => onOpenReference(item.statutoryReference!.id)}
-              className="btn-base btn-primary btn-xs shrink-0 gap-1.5 shadow-xs"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-900 bg-white hover:bg-slate-100 border border-slate-300 px-3 py-1.5 rounded transition-colors shadow-xs shrink-0"
               title="Open dual-pane statutory evidence viewer"
             >
               <span>Inspect Evidence</span>
@@ -417,27 +417,31 @@ export function DetailInspector({
                         </p>
                       </div>
 
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold shrink-0 ${
-                          crit.status === 'MET'
-                            ? 'bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0]'
-                            : crit.status === 'PARTIAL'
-                            ? 'bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A]'
-                            : 'bg-[#FEF2F2] text-[#991B1B] border border-[#FECACA]'
-                        }`}
-                      >
-                        {crit.status.replace('_', ' ')}
+                      <span className="inline-flex items-center gap-1.5 text-xs text-slate-700 shrink-0">
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            crit.status === 'MET'
+                              ? 'bg-emerald-500'
+                              : crit.status === 'PARTIAL'
+                              ? 'bg-amber-500'
+                              : 'bg-rose-600'
+                          }`}
+                        />
+                        {crit.status === 'MET'
+                          ? 'Met'
+                          : crit.status === 'PARTIAL'
+                          ? 'Partial'
+                          : 'Not Met'}
                       </span>
                     </div>
 
-                    {/* AI Reason Callout Box (per Zango 3:25 & notic.webp) */}
+                    {/* Deterministic Evaluation Callout Box */}
                     {crit.aiReason && (
-                      <div className="ml-6 p-2.5 rounded-lg bg-[#F9FAFC] border border-[#E8EDF5] space-y-1">
-                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-[#2A4BFF] uppercase tracking-wider">
-                          <Sparkles className="w-3 h-3 text-[#2A4BFF]" />
-                          <span>AI Deterministic Rationale</span>
+                      <div className="ml-6 p-2.5 rounded-md bg-slate-50 border border-slate-200 space-y-1">
+                        <div className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider">
+                          Deterministic Rule Evaluation
                         </div>
-                        <p className="text-[11px] text-[#4B5565] leading-relaxed">
+                        <p className="text-xs text-slate-700 leading-relaxed">
                           {crit.aiReason}
                         </p>
                       </div>

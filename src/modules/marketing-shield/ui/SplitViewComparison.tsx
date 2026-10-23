@@ -184,27 +184,27 @@ export const SplitViewComparison: React.FC<SplitViewComparisonProps> = ({
         </div>
 
         {/* Right Pane: Compliant Rewrite */}
-        <div className="flex flex-col rounded-2xl border border-emerald-200 bg-emerald-50/20 shadow-xs overflow-hidden">
+        <div className="flex flex-col rounded-xl border border-slate-200 bg-white shadow-xs overflow-hidden">
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-emerald-200 px-5 py-3.5 bg-emerald-50/60">
+          <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3.5 bg-slate-50">
             <div className="flex items-center gap-2">
-              <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
-              <span className="text-xs font-bold text-emerald-900">
-                Verified Compliant Rewrite (ARCON / FCCPC)
+              <ShieldCheck className="h-4 w-4 text-slate-700" />
+              <span className="text-xs font-semibold text-slate-900">
+                Compliant Rewrite (ARCON / FCCPC Pre-Cleared)
               </span>
             </div>
             <button
               onClick={handleCopy}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-white border border-emerald-300 px-3 py-1 text-xs font-bold text-emerald-800 hover:bg-emerald-50 transition-all shadow-xs"
+              className="inline-flex items-center gap-1.5 rounded bg-white border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-xs"
             >
               {copied ? (
                 <>
                   <Check className="h-3.5 w-3.5 text-emerald-600" />
-                  <span>Copied!</span>
+                  <span>Copied</span>
                 </>
               ) : (
                 <>
-                  <Copy className="h-3.5 w-3.5 text-emerald-600" />
+                  <Copy className="h-3.5 w-3.5 text-slate-500" />
                   <span>Copy Rewrite</span>
                 </>
               )}

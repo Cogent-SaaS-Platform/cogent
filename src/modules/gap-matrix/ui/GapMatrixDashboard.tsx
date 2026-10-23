@@ -401,34 +401,34 @@ export function GapMatrixDashboard({
     customSections.push({
       id: '5w-operational-matrix',
       title: '5-W Operational Decision Matrix',
-      icon: <Sparkles className="w-4 h-4 text-[#2A4BFF]" />,
+      icon: <Layers className="w-4 h-4 text-slate-500" />,
       defaultOpen: true,
       content: (
         <div className="space-y-3 font-sans">
-          <div className="p-3.5 rounded-xl bg-[#F9FAFC] border border-[#DDE3EE] space-y-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#059669] block">
+          <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 block">
               1. What Happened? (Operational Baseline)
             </span>
-            <p className="text-xs text-[#0B0F1A] leading-relaxed">{activeEvaluatedItem.whatHappened}</p>
+            <p className="text-xs text-slate-900 leading-relaxed">{activeEvaluatedItem.whatHappened}</p>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-[#F9FAFC] border border-[#DDE3EE] space-y-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#2A4BFF] block">
+          <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 block">
               2. What to Know? (Regulator Severity & Risk)
             </span>
-            <p className="text-xs text-[#0B0F1A] leading-relaxed">{activeEvaluatedItem.whatToKnow}</p>
+            <p className="text-xs text-slate-900 leading-relaxed">{activeEvaluatedItem.whatToKnow}</p>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-[#F9FAFC] border border-[#DDE3EE] space-y-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#D97706] block">
+          <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 block">
               3. What Has Changed? (Statutory Revision)
             </span>
-            <p className="text-xs text-[#0B0F1A] leading-relaxed">{activeEvaluatedItem.whatHasChanged}</p>
+            <p className="text-xs text-slate-900 leading-relaxed">{activeEvaluatedItem.whatHasChanged}</p>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-[#EEF2FF] border border-[#C7D2FE] space-y-2">
+          <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#2A4BFF] block">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 block">
                 4. What to Do? (Board-Approved Remediation)
               </span>
               <button
@@ -439,31 +439,31 @@ export function GapMatrixDashboard({
                   setCopiedReplacementId(activeEvaluatedItem.id);
                   setTimeout(() => setCopiedReplacementId(null), 2000);
                 }}
-                className="flex items-center gap-1 text-[11px] font-semibold text-[#2A4BFF] bg-white px-2 py-0.5 rounded border border-[#C7D2FE] hover:bg-[#F5F6FA] transition-colors"
+                className="flex items-center gap-1.5 text-xs font-medium text-slate-700 bg-white px-2.5 py-1 rounded border border-slate-300 hover:bg-slate-50 transition-colors shadow-xs"
               >
                 {copiedReplacementId === activeEvaluatedItem.id ? (
                   <>
-                    <Check className="w-3 h-3 text-[#059669]" />
-                    <span>Copied!</span>
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Copied</span>
                   </>
                 ) : (
                   <>
-                    <Copy className="w-3 h-3" />
+                    <Copy className="w-3.5 h-3.5 text-slate-500" />
                     <span>Copy Clause</span>
                   </>
                 )}
               </button>
             </div>
-            <p className="text-xs text-[#0B0F1A] leading-relaxed font-mono">
+            <p className="text-xs text-slate-900 leading-relaxed font-mono">
               &ldquo;{activeEvaluatedItem.draftReplacementLanguage || activeEvaluatedItem.whatToDo}&rdquo;
             </p>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-[#F9FAFC] border border-[#DDE3EE] space-y-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#7C3AED] block">
+          <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 block">
               5. Derived Insight (Balance Sheet Protection)
             </span>
-            <p className="text-xs text-[#0B0F1A] leading-relaxed">{activeEvaluatedItem.derivedInsight}</p>
+            <p className="text-xs text-slate-900 leading-relaxed">{activeEvaluatedItem.derivedInsight}</p>
           </div>
         </div>
       ),
@@ -615,7 +615,7 @@ export function GapMatrixDashboard({
         }));
         setEvaluationItems(mappedItems);
         setEvaluationNotice(
-          `Live 5-W synthesis completed via Gemini AI. Evaluated ${result.items.length} statutory obligations with deterministic penalty calculation.`
+          `Statutory evaluation complete. Evaluated ${result.items.length} obligations against benchmark frameworks with deterministic penalty quantification.`
         );
       } else {
         setEvaluationNotice('Evaluation completed with no gap items identified.');
@@ -757,13 +757,13 @@ export function GapMatrixDashboard({
       width: '110px',
       render: (p) =>
         p.criticalGapsCount > 0 ? (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA] inline-flex items-center gap-1">
-            <ShieldAlert className="w-3 h-3" />
+          <span className="inline-flex items-center gap-1.5 text-xs text-rose-700">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />
             {p.criticalGapsCount} Level 1
           </span>
         ) : (
-          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0] inline-flex items-center gap-1">
-            <ShieldCheck className="w-3 h-3" />
+          <span className="inline-flex items-center gap-1.5 text-xs text-slate-600">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             0 Gaps
           </span>
         ),
@@ -773,7 +773,7 @@ export function GapMatrixDashboard({
       header: 'Fine Exposure (₦)',
       width: '140px',
       render: (p) => (
-        <span className="font-mono font-semibold text-xs text-[#0B0F1A]">
+        <span className="font-mono font-semibold text-xs text-slate-900">
           {p.fineExposureNaira > 0
             ? `₦${(p.fineExposureNaira / 1_000_000).toFixed(1)}M`
             : '₦0'}
@@ -795,7 +795,7 @@ export function GapMatrixDashboard({
               setActiveTab('CLAUSE_MATRIX');
               handleRunEvaluation(p.id, p.title);
             }}
-            className="px-2.5 py-1 text-[11px] font-semibold text-[#2A4BFF] bg-[#EEF2FF] hover:bg-[#E0E7FF] border border-[#C7D2FE] rounded-lg transition-colors"
+            className="px-2.5 py-1 text-xs font-medium text-slate-700 bg-white hover:bg-slate-50 border border-slate-300 rounded shadow-xs transition-colors"
           >
             Evaluate
           </button>
@@ -807,7 +807,7 @@ export function GapMatrixDashboard({
               setActivePolicyTitle(p.title);
               setActiveTab('CLAUSE_MATRIX');
             }}
-            className="px-2.5 py-1 text-[11px] font-semibold text-[#4B5565] bg-white hover:bg-[#F5F6FA] border border-[#DDE3EE] rounded-lg transition-colors"
+            className="px-2.5 py-1 text-xs font-medium text-slate-500 hover:text-slate-800 transition-colors"
           >
             Clauses
           </button>
@@ -823,10 +823,10 @@ export function GapMatrixDashboard({
       header: 'Statutory Obligation',
       render: (item) => (
         <div>
-          <span className="font-bold font-mono text-xs text-[#2A4BFF] block">
+          <span className="font-semibold font-mono text-xs text-slate-900 block">
             {item.regulatoryClauseReference}
           </span>
-          <span className="text-[11px] text-[#4B5565] line-clamp-1">{item.whatHappened}</span>
+          <span className="text-xs text-slate-500 line-clamp-1">{item.whatHappened}</span>
         </div>
       ),
     },
@@ -836,11 +836,11 @@ export function GapMatrixDashboard({
       width: '140px',
       render: (item) =>
         item.matchedPolicySection ? (
-          <span className="px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-[#EEF2FF] text-[#2A4BFF] border border-[#C7D2FE]">
+          <span className="text-xs font-mono text-slate-700">
             {item.matchedPolicySection}
           </span>
         ) : (
-          <span className="px-2 py-0.5 rounded text-[11px] font-mono font-semibold bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA]">
+          <span className="text-xs font-mono text-rose-600">
             Omitted
           </span>
         ),
@@ -850,19 +850,21 @@ export function GapMatrixDashboard({
       header: 'Status',
       width: '130px',
       render: (item) => (
-        <span
-          className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border inline-flex items-center gap-1 ${
-            item.complianceStatus === 'ADEQUATELY_MET'
-              ? 'bg-[#ECFDF5] text-[#059669] border-[#A7F3D0]'
-              : item.complianceStatus === 'PARTIALLY_MET'
-              ? 'bg-[#FFFBEB] text-[#D97706] border-[#FDE68A]'
-              : 'bg-[#FEF2F2] text-[#DC2626] border-[#FECACA]'
-          }`}
-        >
-          {item.complianceStatus === 'ADEQUATELY_MET' && <CheckCircle className="w-3 h-3" />}
-          {item.complianceStatus === 'PARTIALLY_MET' && <AlertTriangle className="w-3 h-3" />}
-          {item.complianceStatus === 'CRITICAL_GAP' && <ShieldAlert className="w-3 h-3" />}
-          {item.complianceStatus.replace('_', ' ')}
+        <span className="inline-flex items-center gap-1.5 text-xs text-slate-700">
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${
+              item.complianceStatus === 'ADEQUATELY_MET'
+                ? 'bg-emerald-500'
+                : item.complianceStatus === 'PARTIALLY_MET'
+                ? 'bg-amber-500'
+                : 'bg-rose-600'
+            }`}
+          />
+          {item.complianceStatus === 'ADEQUATELY_MET'
+            ? 'Adequately Met'
+            : item.complianceStatus === 'PARTIALLY_MET'
+            ? 'Partially Met'
+            : 'Critical Gap'}
         </span>
       ),
     },
@@ -871,11 +873,7 @@ export function GapMatrixDashboard({
       header: 'Fine Liability',
       width: '120px',
       render: (item) => (
-        <span
-          className={`font-mono font-bold text-xs ${
-            item.statutoryPenaltyNaira > 0 ? 'text-[#DC2626]' : 'text-[#059669]'
-          }`}
-        >
+        <span className="font-mono font-medium text-xs text-slate-900">
           {item.statutoryPenaltyNaira > 0
             ? `₦${(item.statutoryPenaltyNaira / 1_000_000).toFixed(1)}M`
             : '₦0'}
@@ -887,7 +885,7 @@ export function GapMatrixDashboard({
       header: 'Remediation Lead',
       width: '160px',
       render: (item) => (
-        <span className="text-xs text-[#0B0F1A] font-medium">
+        <span className="text-xs text-slate-700 font-medium">
           {item.responsibleRole || 'Chief Compliance Officer'}
         </span>
       ),
@@ -903,9 +901,9 @@ export function GapMatrixDashboard({
             e.stopPropagation();
             inspector.openInspector(item.id);
           }}
-          className="p-1.5 rounded-lg bg-[#EEF2FF] hover:bg-[#2A4BFF] text-[#2A4BFF] hover:text-white transition-colors"
+          className="p-1 rounded border border-slate-200 text-slate-400 hover:text-slate-900 hover:border-slate-300 transition-colors"
         >
-          <ChevronRight className="w-4 h-4" />
+          <ChevronRight className="w-3.5 h-3.5" />
         </button>
       ),
     },
@@ -926,16 +924,11 @@ export function GapMatrixDashboard({
                 <Scale className="w-5 h-5" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-lg font-bold text-[#0B0F1A] tracking-tight">
-                    5-W Policy Gap Matrix & Audit Defense Pack
-                  </h1>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#EEF2FF] text-[#2A4BFF] border border-[#C7D2FE]">
-                    Policy Gap Matrix
-                  </span>
-                </div>
-                <p className="text-xs text-[#4B5565] mt-0.5">
-                  Clause-by-clause statutory gap evaluation & supervisory defense dossier generator
+                <h1 className="text-lg font-bold text-slate-900 tracking-tight">
+                  5-W Policy Gap Matrix &amp; Audit Defense Pack
+                </h1>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Clause-by-clause statutory gap evaluation &amp; supervisory defense dossier generator
                 </p>
               </div>
             </div>
@@ -945,17 +938,17 @@ export function GapMatrixDashboard({
               <button
                 type="button"
                 onClick={() => setIsUploadDrawerOpen(true)}
-                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-[#4B5565] bg-white hover:text-[#0B0F1A] hover:bg-[#F9FAFC] rounded-xl border border-[#DDE3EE] transition-colors shadow-xs"
+                className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white hover:text-slate-900 hover:bg-slate-50 rounded-xl border border-slate-200 transition-colors shadow-xs"
               >
-                <Upload className="w-3.5 h-3.5 text-[#2A4BFF]" />
+                <Upload className="w-3.5 h-3.5 text-slate-600" />
                 <span>Upload Policy Manual</span>
               </button>
               <button
                 type="button"
                 onClick={() => setIsDossierModalOpen(true)}
-                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-[#059669] hover:bg-[#047857] rounded-xl shadow-sm transition-all"
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs transition-all"
               >
-                <ShieldCheck className="w-4 h-4" />
+                <ShieldCheck className="w-4 h-4 text-slate-300" />
                 <span>Bank Examiner Defense Pack</span>
               </button>
             </div>
@@ -1113,216 +1106,35 @@ export function GapMatrixDashboard({
 
               {/* Evaluation Notice Banner */}
               {evaluationNotice && (
-                <div className="p-3.5 rounded-xl bg-[#EEF2FF] border border-[#C7D2FE] flex items-center justify-between gap-3 text-xs text-[#2A4BFF] animate-in fade-in">
-                  <div className="flex items-center gap-2.5">
-                    <Sparkles className="w-4 h-4 text-[#2A4BFF] shrink-0" />
-                    <span className="font-medium">{evaluationNotice}</span>
-                  </div>
+                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 border-l-4 border-l-slate-900 flex items-center justify-between gap-3 text-xs text-slate-700 animate-in fade-in">
+                  <span className="font-medium">{evaluationNotice}</span>
                   <button
                     type="button"
                     onClick={() => setEvaluationNotice(null)}
-                    className="text-[#4B5565] hover:text-[#0B0F1A] text-xs px-2 py-0.5 rounded font-semibold"
+                    className="text-slate-400 hover:text-slate-800 text-xs px-2 py-0.5 rounded font-semibold"
                   >
                     Dismiss
                   </button>
                 </div>
               )}
 
-              {/* 5-Card Executive Health Metric Strip */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                {/* Metric 1: Overall Health */}
-                <div className="p-5 rounded-2xl bg-white border border-[#DDE3EE] shadow-xs flex flex-col justify-between">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-[#4B5565] uppercase tracking-wider">
-                      Compliance Health
-                    </span>
-                    <ShieldCheck className="w-4 h-4 text-[#059669]" />
-                  </div>
-                  <div className="flex items-baseline gap-2">
-                    <span
-                      className={`text-3xl font-black font-mono ${
-                        metrics.healthPercentage >= 80
-                          ? 'text-[#059669]'
-                          : metrics.healthPercentage >= 60
-                          ? 'text-[#D97706]'
-                          : 'text-[#DC2626]'
-                      }`}
-                    >
-                      {metrics.healthPercentage.toFixed(1)}%
-                    </span>
-                    <span className="text-xs text-[#4B5565]">overall</span>
-                  </div>
-                  <div className="w-full bg-[#E8EDF5] h-1.5 rounded-full mt-3 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        metrics.healthPercentage >= 80
-                          ? 'bg-[#059669]'
-                          : metrics.healthPercentage >= 60
-                          ? 'bg-[#D97706]'
-                          : 'bg-[#DC2626]'
-                      }`}
-                      style={{ width: `${metrics.healthPercentage}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Metric 2: Critical Gaps */}
-                <div className="p-5 rounded-2xl bg-white border border-[#DDE3EE] shadow-xs flex flex-col justify-between">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-[#4B5565] uppercase tracking-wider">
-                      Critical Gaps
-                    </span>
-                    <ShieldAlert className="w-4 h-4 text-[#DC2626]" />
-                  </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-black font-mono text-[#DC2626]">
-                      {metrics.critical}
-                    </span>
-                    <span className="text-xs text-[#4B5565]">Level 1 Material</span>
-                  </div>
-                  <span className="text-[11px] text-[#DC2626] font-medium mt-2 block">
-                    Immediate statutory fine risk
-                  </span>
-                </div>
-
-                {/* Metric 3: Partially Met */}
-                <div className="p-5 rounded-2xl bg-white border border-[#DDE3EE] shadow-xs flex flex-col justify-between">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-[#4B5565] uppercase tracking-wider">
-                      Partially Met
-                    </span>
-                    <AlertTriangle className="w-4 h-4 text-[#D97706]" />
-                  </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-black font-mono text-[#D97706]">
-                      {metrics.partial}
-                    </span>
-                    <span className="text-xs text-[#4B5565]">Level 2 Findings</span>
-                  </div>
-                  <span className="text-[11px] text-[#D97706] font-medium mt-2 block">
-                    30-day remediation order
-                  </span>
-                </div>
-
-                {/* Metric 4: Adequately Met */}
-                <div className="p-5 rounded-2xl bg-white border border-[#DDE3EE] shadow-xs flex flex-col justify-between">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-[#4B5565] uppercase tracking-wider">
-                      Adequately Met
-                    </span>
-                    <CheckCircle className="w-4 h-4 text-[#059669]" />
-                  </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-black font-mono text-[#059669]">
-                      {metrics.adequate}
-                    </span>
-                    <span className="text-xs text-[#4B5565]">Clean Findings</span>
-                  </div>
-                  <span className="text-[11px] text-[#059669] font-medium mt-2 block">
-                    Examiner Green Light
-                  </span>
-                </div>
-
-                {/* Metric 5: Fine Avoidance */}
-                <div className="p-5 rounded-2xl bg-white border border-[#DDE3EE] shadow-xs flex flex-col justify-between">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold text-[#4B5565] uppercase tracking-wider">
-                      Fine Avoidance (₦)
-                    </span>
-                    <Scale className="w-4 h-4 text-[#2A4BFF]" />
-                  </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-black font-mono text-[#059669] truncate">
-                      {formattedTotalFine}
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-[#4B5565] mt-2 block truncate">
-                    Statutory balance sheet liability
-                  </span>
-                </div>
-              </div>
-
-              {/* Status Filter & Search Bar */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 rounded-xl bg-white border border-[#DDE3EE] shadow-xs">
-                <div className="flex items-center gap-1.5 overflow-x-auto">
-                  <button
-                    type="button"
-                    onClick={() => setStatusFilter('ALL')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-                      statusFilter === 'ALL'
-                        ? 'bg-[#2A4BFF] text-white shadow-xs'
-                        : 'bg-white text-[#4B5565] hover:text-[#0B0F1A] border border-[#DDE3EE]'
-                    }`}
-                  >
-                    All Clauses ({evaluationItems.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setStatusFilter('CRITICAL_GAP')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
-                      statusFilter === 'CRITICAL_GAP'
-                        ? 'bg-[#DC2626] text-white shadow-xs'
-                        : 'bg-white text-[#DC2626] hover:bg-[#FEF2F2] border border-[#DDE3EE]'
-                    }`}
-                  >
-                    <ShieldAlert className="w-3.5 h-3.5" />
-                    <span>Critical Gaps ({metrics.critical})</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setStatusFilter('PARTIALLY_MET')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
-                      statusFilter === 'PARTIALLY_MET'
-                        ? 'bg-[#D97706] text-white shadow-xs'
-                        : 'bg-white text-[#D97706] hover:bg-[#FFFBEB] border border-[#DDE3EE]'
-                    }`}
-                  >
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    <span>Partially Met ({metrics.partial})</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setStatusFilter('ADEQUATELY_MET')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
-                      statusFilter === 'ADEQUATELY_MET'
-                        ? 'bg-[#059669] text-white shadow-xs'
-                        : 'bg-white text-[#059669] hover:bg-[#ECFDF5] border border-[#DDE3EE]'
-                    }`}
-                  >
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    <span>Adequately Met ({metrics.adequate})</span>
-                  </button>
-                </div>
-
-                <div className="relative w-full sm:w-72">
-                  <Search className="w-4 h-4 text-[#94A3B8] absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search clause, section, or role..."
-                    className="w-full pl-9 pr-3 py-1.5 bg-white border border-[#DDE3EE] rounded-lg text-xs text-[#0B0F1A] placeholder-[#94A3B8] focus:outline-none focus:border-[#2A4BFF]"
-                  />
-                </div>
-              </div>
-
-              {/* Master Evaluation View: Empty State, Card Stream or Dense Table */}
+              {/* Master Evaluation View: Clean Empty State OR Active Concordance Workspace */}
               {evaluationItems.length === 0 ? (
                 <div className="p-12 text-center rounded-2xl bg-white border border-[#DDE3EE] shadow-xs">
-                  <div className="w-14 h-14 rounded-2xl bg-[#EEF2FF] text-[#2A4BFF] flex items-center justify-center mx-auto mb-4 border border-[#C7D2FE]">
-                    <Scale className="w-7 h-7" />
+                  <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center mx-auto mb-4 border border-slate-200">
+                    <Scale className="w-6 h-6" />
                   </div>
-                  <h3 className="text-base font-bold text-[#0B0F1A]">
+                  <h3 className="text-base font-bold text-slate-900">
                     No Gap Evaluation Performed Yet
                   </h3>
-                  <p className="text-xs text-[#4B5565] mt-1.5 max-w-md mx-auto leading-relaxed">
+                  <p className="text-xs text-slate-500 mt-1.5 max-w-md mx-auto leading-relaxed">
                     Upload your organization&apos;s internal policy manual (PDF, DOCX, or TXT) to evaluate clause concordance against Nigerian statutory frameworks with instant 5-W synthesis.
                   </p>
                   <div className="flex items-center justify-center gap-3 mt-6">
                     <button
                       type="button"
                       onClick={() => setIsUploadDrawerOpen(true)}
-                      className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-white bg-[#2A4BFF] hover:bg-[#1E3BD9] rounded-xl shadow-xs transition-colors"
+                      className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs transition-colors"
                     >
                       <Upload className="w-4 h-4" />
                       <span>Upload Policy Manual</span>
@@ -1332,16 +1144,177 @@ export function GapMatrixDashboard({
                         type="button"
                         onClick={() => handleRunEvaluation()}
                         disabled={isEvaluating}
-                        className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-[#4B5565] bg-white hover:bg-[#F9FAFC] rounded-xl border border-[#DDE3EE] transition-colors shadow-xs"
+                        className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 rounded-xl border border-slate-200 transition-colors shadow-xs"
                       >
-                        <Sparkles className="w-4 h-4 text-[#2A4BFF]" />
+                        <RefreshCw className={`w-3.5 h-3.5 ${isEvaluating ? 'animate-spin' : ''}`} />
                         <span>Run 5-W Evaluation</span>
                       </button>
                     )}
                   </div>
                 </div>
-              ) : viewMode === 'STREAM' ? (
-                <div className="space-y-3">
+              ) : (
+                <>
+                  {/* Unified 5-KPI Metric Bar with 1px Vertical Dividers */}
+                  <div className="bg-white rounded-xl border border-slate-200 shadow-xs divide-y sm:divide-y-0 sm:divide-x divide-slate-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5">
+                    {/* Metric 1: Overall Health */}
+                    <div className="p-4 sm:p-5 flex flex-col justify-between">
+                      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">
+                        Compliance Health
+                      </span>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold font-mono text-slate-900">
+                          {metrics.healthPercentage.toFixed(1)}%
+                        </span>
+                        <span className="text-xs text-slate-400">overall</span>
+                      </div>
+                      <div className="w-full bg-slate-100 h-1.5 rounded-full mt-3 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-slate-900 transition-all duration-500"
+                          style={{ width: `${metrics.healthPercentage}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Metric 2: Critical Gaps */}
+                    <div className="p-4 sm:p-5 flex flex-col justify-between">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                          Critical Gaps
+                        </span>
+                        {metrics.critical > 0 && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
+                        )}
+                      </div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold font-mono text-slate-900">
+                          {metrics.critical}
+                        </span>
+                        <span className="text-xs text-slate-400">Level 1 Material</span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 mt-2 block">
+                        {metrics.critical > 0 ? 'Immediate statutory fine risk' : 'No material breaches'}
+                      </span>
+                    </div>
+
+                    {/* Metric 3: Partially Met */}
+                    <div className="p-4 sm:p-5 flex flex-col justify-between">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                          Partially Met
+                        </span>
+                        {metrics.partial > 0 && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                        )}
+                      </div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold font-mono text-slate-900">
+                          {metrics.partial}
+                        </span>
+                        <span className="text-xs text-slate-400">Level 2 Findings</span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 mt-2 block">
+                        30-day remediation order
+                      </span>
+                    </div>
+
+                    {/* Metric 4: Adequately Met */}
+                    <div className="p-4 sm:p-5 flex flex-col justify-between">
+                      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">
+                        Adequately Met
+                      </span>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold font-mono text-slate-900">
+                          {metrics.adequate}
+                        </span>
+                        <span className="text-xs text-slate-400">Clean Findings</span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 mt-2 block">
+                        Examiner green light
+                      </span>
+                    </div>
+
+                    {/* Metric 5: Fine Avoidance */}
+                    <div className="p-4 sm:p-5 flex flex-col justify-between">
+                      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">
+                        Fine Avoidance (₦)
+                      </span>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold font-mono text-slate-900 truncate">
+                          {formattedTotalFine}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 mt-2 block truncate">
+                        Statutory balance sheet liability
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Status Filter & Search Bar */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-3 rounded-xl bg-white border border-slate-200 shadow-xs">
+                    <div className="flex items-center gap-1.5 overflow-x-auto">
+                      <button
+                        type="button"
+                        onClick={() => setStatusFilter('ALL')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                          statusFilter === 'ALL'
+                            ? 'bg-slate-900 text-white shadow-xs'
+                            : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
+                        }`}
+                      >
+                        All Clauses ({evaluationItems.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setStatusFilter('CRITICAL_GAP')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                          statusFilter === 'CRITICAL_GAP'
+                            ? 'bg-slate-900 text-white shadow-xs'
+                            : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
+                        }`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
+                        <span>Critical Gaps ({metrics.critical})</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setStatusFilter('PARTIALLY_MET')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                          statusFilter === 'PARTIALLY_MET'
+                            ? 'bg-slate-900 text-white shadow-xs'
+                            : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
+                        }`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                        <span>Partially Met ({metrics.partial})</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setStatusFilter('ADEQUATELY_MET')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 ${
+                          statusFilter === 'ADEQUATELY_MET'
+                            ? 'bg-slate-900 text-white shadow-xs'
+                            : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
+                        }`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        <span>Adequately Met ({metrics.adequate})</span>
+                      </button>
+                    </div>
+
+                    <div className="relative w-full sm:w-72">
+                      <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Search clause, section, or role..."
+                        className="w-full pl-9 pr-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-slate-800"
+                      />
+                    </div>
+                  </div>
+
+                  {viewMode === 'STREAM' ? (
+                    <div className="space-y-3">
                   {filteredItems.map((item, index) => {
                     const fineFormatted =
                       item.statutoryPenaltyNaira > 0
@@ -1358,81 +1331,77 @@ export function GapMatrixDashboard({
                       <div
                         key={item.id || index}
                         onClick={() => inspector.openInspector(item.id)}
-                        className={`group p-5 rounded-xl bg-white border transition-all cursor-pointer shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                        className={`group p-4 rounded-lg bg-white border transition-colors cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-4 ${
                           isSelected
-                            ? 'border-[#2A4BFF] ring-2 ring-[#2A4BFF]/20 bg-[#F9FAFC]'
-                            : 'border-[#DDE3EE] hover:border-[#2A4BFF]/60 hover:bg-[#F9FAFC]'
+                            ? 'border-slate-900 ring-1 ring-slate-900 bg-slate-50/40'
+                            : 'border-slate-200 hover:border-slate-400'
                         }`}
                       >
                         <div className="space-y-2 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-mono text-xs font-bold text-[#2A4BFF]">
+                          <div className="flex flex-wrap items-center gap-3">
+                            <span className="font-mono text-xs font-semibold text-slate-900">
                               {item.regulatoryClauseReference}
                             </span>
 
                             {item.complianceStatus === 'ADEQUATELY_MET' && (
-                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0] flex items-center gap-1">
-                                <CheckCircle className="w-3 h-3" />
+                              <span className="inline-flex items-center gap-1.5 text-xs text-slate-700">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                                 Adequately Met
                               </span>
                             )}
 
                             {item.complianceStatus === 'PARTIALLY_MET' && (
-                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#FFFBEB] text-[#D97706] border border-[#FDE68A] flex items-center gap-1">
-                                <AlertTriangle className="w-3 h-3" />
+                              <span className="inline-flex items-center gap-1.5 text-xs text-slate-700">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                                 Partially Met
                               </span>
                             )}
 
                             {item.complianceStatus === 'CRITICAL_GAP' && (
-                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#FEF2F2] text-[#DC2626] border border-[#FECACA] flex items-center gap-1">
-                                <ShieldAlert className="w-3 h-3" />
+                              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />
                                 Critical Gap
                               </span>
                             )}
 
                             {item.matchedPolicySection ? (
-                              <span className="text-[11px] text-[#2A4BFF] font-mono font-semibold bg-[#EEF2FF] px-2 py-0.5 rounded border border-[#C7D2FE]">
-                                Matched: {item.matchedPolicySection}
+                              <span className="text-xs text-slate-600 font-mono">
+                                Matched: <span className="text-slate-800 font-medium">{item.matchedPolicySection}</span>
                               </span>
                             ) : (
-                              <span className="text-[11px] text-[#DC2626] font-mono font-semibold bg-[#FEF2F2] px-2 py-0.5 rounded border border-[#FECACA]">
+                              <span className="text-xs text-rose-600 font-mono">
                                 Omitted from Policy
                               </span>
                             )}
 
                             {item.carriesPersonalCriminalLiability && (
-                              <span className="text-[10px] text-[#DC2626] bg-[#FEF2F2] border border-[#FECACA] px-2 py-0.5 rounded font-bold">
+                              <span className="text-[11px] text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded font-medium">
                                 Personal Officer Liability
                               </span>
                             )}
                           </div>
 
-                          <p className="text-xs text-[#4B5565] line-clamp-2 leading-relaxed">
+                          <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
                             {item.whatHappened}
                           </p>
 
-                          <div className="flex items-center gap-4 text-[11px] text-[#4B5565]">
+                          <div className="flex items-center gap-4 text-xs text-slate-500">
                             <span>
-                              Role: <strong className="text-[#0B0F1A]">{item.responsibleRole || 'Chief Compliance Officer'}</strong>
+                              Role: <strong className="font-medium text-slate-800">{item.responsibleRole || 'Chief Compliance Officer'}</strong>
                             </span>
                             <span>
-                              Remediation: <strong className="text-[#D97706] font-semibold">{item.statutoryRemediationTimelineDays || 30} Days</strong>
+                              Remediation: <strong className="font-medium text-slate-800 font-mono">{item.statutoryRemediationTimelineDays || 30}d</strong>
                             </span>
                             <span>
-                              Citation: <strong className="text-[#0B0F1A] font-mono">{item.statutoryLegalCitation || 'BOFIA 2020'}</strong>
+                              Citation: <strong className="font-medium text-slate-800 font-mono">{item.statutoryLegalCitation || 'BOFIA 2020'}</strong>
                             </span>
                           </div>
                         </div>
 
                         <div className="flex items-center gap-4 shrink-0">
                           <div className="text-right">
-                            <span className="text-[10px] text-[#4B5565] block font-medium">Fine Liability</span>
-                            <span
-                              className={`text-sm font-bold font-mono ${
-                                item.statutoryPenaltyNaira > 0 ? 'text-[#DC2626]' : 'text-[#059669]'
-                              }`}
-                            >
+                            <span className="text-[10px] text-slate-500 block uppercase font-medium tracking-wider">Fine Liability</span>
+                            <span className="text-sm font-semibold font-mono text-slate-900">
                               {fineFormatted}
                             </span>
                           </div>
@@ -1443,8 +1412,8 @@ export function GapMatrixDashboard({
                               e.stopPropagation();
                               inspector.openInspector(item.id);
                             }}
-                            className="p-2 rounded-lg bg-[#EEF2FF] group-hover:bg-[#2A4BFF] text-[#2A4BFF] group-hover:text-white transition-colors"
-                            title="Inspect Clause in Zango Multi-Pane"
+                            className="p-1.5 rounded border border-slate-200 text-slate-400 group-hover:text-slate-800 group-hover:border-slate-300 transition-colors"
+                            title="Inspect Clause"
                           >
                             <ChevronRight className="w-4 h-4" />
                           </button>
@@ -1475,8 +1444,10 @@ export function GapMatrixDashboard({
                   searchPlaceholder="Filter clause table..."
                 />
               )}
-            </div>
+            </>
           )}
+        </div>
+      )}
 
           {/* TAB 2: POLICIES INVENTORY (Level 1 Feed) */}
           {activeTab === 'POLICIES_INVENTORY' && (
