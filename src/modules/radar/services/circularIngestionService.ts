@@ -22,6 +22,7 @@ import { LineageStatus } from '@/shared/types';
 import { inngestDispatcher } from '../inngest/client';
 import { ApplicabilityEngine } from './applicabilityEngine';
 import { ClauseSegmentationEngine } from './clauseSegmentationEngine';
+import { RoleSynthesisService } from './roleSynthesisService';
 
 /**
  * Circular Ingestion Service (Task 9.1 & 10.2)
@@ -87,6 +88,8 @@ export class CircularIngestionService {
     const metadata = this.metadataExtractor.extractMetadata(extractedStructure, {
       regulator: input.manualRegulator,
       circularNumber: input.manualReferenceCode,
+      subject: input.manualSubject,
+      publicationDate: input.manualPublicationDate,
     });
 
     // Step 4: Storage Upload
@@ -107,7 +110,8 @@ export class CircularIngestionService {
       storagePath,
       sourceFileHash,
       extractedStructure.rawText,
-      extractedStructure.sections
+      extractedStructure.sections,
+      input.sourceUrl
     );
 
     // Step 6: Dispatch Inngest Event (ADR-006)
@@ -246,7 +250,8 @@ export class CircularIngestionService {
     storagePath: string,
     sourceFileHash: string,
     rawText?: string,
-    sections?: Array<{ sectionNumber: string; heading: string; content: string }>
+    sections?: Array<{ sectionNumber: string; heading: string; content: string }>,
+    sourceUrl?: string
   ): Promise<{ circularId: string; documentVersionId: string; deduplicated?: boolean; lineageStatus?: LineageStatus }> {
     const circularId = crypto.randomUUID();
     const documentVersionId = crypto.randomUUID();
@@ -326,7 +331,8 @@ export class CircularIngestionService {
           }
         }
 
-        // 3. Insert document version
+        // 3. Insert document version with real canonical source URL
+        const canonicalUrl = sourceUrl || storagePath;
         await client.from('regulatory_document_versions').insert({
           id: documentVersionId,
           instrument_id: instrumentId,
@@ -334,11 +340,11 @@ export class CircularIngestionService {
           reference_code: metadata.circularNumber,
           publication_date: metadata.publicationDate,
           effective_date: metadata.effectiveDate,
-          canonical_source_url: storagePath,
-          source_file_url: storagePath,
+          canonical_source_url: canonicalUrl,
+          source_file_url: canonicalUrl,
           source_file_hash: sourceFileHash,
-          verification_status: 'HUMAN_VERIFIED',
-          verification_notes: 'Ingested and verified via Cogent Regulatory Ingestion Pipeline.',
+          verification_status: 'UNVERIFIED_INGESTION',
+          verification_notes: 'Ingested via Cogent Automated Regulatory Ingestion Pipeline.',
           is_active: true,
         });
 
@@ -411,6 +417,27 @@ export class CircularIngestionService {
                 targetingCtx
               );
 
+              const roleSynth = new RoleSynthesisService({ dbClient: client });
+              const synthesizedImpact = roleSynth.generateDeterministicFallback({
+                circular: {
+                  id: circularId,
+                  circularNumber: metadata.circularNumber,
+                  regulatorCode: metadata.regulatorCode,
+                  subject: metadata.subject,
+                  summary: metadata.summary,
+                  statutoryDeadline: metadata.statutoryDeadline,
+                  rawText,
+                  sections,
+                },
+                tenant: {
+                  organizationId: org.id,
+                  organizationName: org.name,
+                  matchedLicenses: evalResult.matchedLicenses,
+                  matchedRails: evalResult.matchedRails,
+                  applicabilityReason: evalResult.reason,
+                },
+              });
+
               const impactId = crypto.randomUUID();
               await client.from('radar_tenant_impacts').insert({
                 id: impactId,
@@ -418,22 +445,29 @@ export class CircularIngestionService {
                 circular_id: circularId,
                 is_applicable: evalResult.isApplicable,
                 applicability_reason: evalResult.reason,
-                executive_brief_cco: `Statutory mandate from ${metadata.regulatorCode}. Full compliance required by ${metadata.statutoryDeadline || 'statutory timeline'}.`,
-                action_brief_coo: `Verify operational controls and rail continuity for ${(metadata.affectedPaymentRails || []).join(', ') || 'payment infrastructure'}.`,
-                technical_brief_product_eng: 'Implement required schema limits, validation logging, and authentication rules.',
-                financial_brief_cfo: 'Evaluate balance sheet exposure and daily penalty provisions.',
+                executive_brief_cco: synthesizedImpact.executiveBriefCco,
+                action_brief_coo: synthesizedImpact.actionBriefCoo,
+                technical_brief_product_eng: synthesizedImpact.technicalBriefProductEng,
+                financial_brief_cfo: synthesizedImpact.financialBriefCfo,
+                role_briefs: synthesizedImpact,
+                brief_cco: { brief: synthesizedImpact.executiveBriefCco },
+                brief_cfo: { brief: synthesizedImpact.financialBriefCfo },
+                brief_cto: { brief: synthesizedImpact.technicalBriefCto || synthesizedImpact.technicalBriefProductEng },
+                brief_ceo_cro: { brief: synthesizedImpact.governanceBriefCeoCro || synthesizedImpact.actionBriefCoo },
+                status: 'SYNTHESIZED',
               });
 
-              if (evalResult.isApplicable) {
-                await client.from('radar_action_items').insert({
+              if (evalResult.isApplicable && synthesizedImpact.actionChecklist?.length > 0) {
+                const actionRows = synthesizedImpact.actionChecklist.map((act) => ({
                   organization_id: org.id,
                   impact_id: impactId,
-                  target_department: 'COMPLIANCE_LEGAL',
-                  action_title: `Statutory Review: ${metadata.circularNumber}`,
-                  action_description: `Execute operational impact assessment against ${evalResult.matchedLicenses.join(', ') || 'tenant license'} requirements.`,
-                  suggested_deadline: metadata.statutoryDeadline || null,
+                  target_department: act.targetDepartment,
+                  action_title: act.actionTitle,
+                  action_description: act.actionDescription,
+                  suggested_deadline: act.suggestedDeadline,
                   is_completed: false,
-                });
+                }));
+                await client.from('radar_action_items').insert(actionRows);
               }
             }
           }

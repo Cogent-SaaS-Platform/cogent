@@ -20,6 +20,8 @@ export class DeterministicMetadataExtractor {
     manualOverrides?: {
       regulator?: RegulatorCode;
       circularNumber?: string;
+      subject?: string;
+      publicationDate?: string;
     }
   ): DeterministicMetadataResult {
     const text = structure.rawText;
@@ -36,7 +38,7 @@ export class DeterministicMetadataExtractor {
       this.detectReferenceCode(text, regulatorCode);
 
     // 3. Date Parsing (Publication, Effective, Deadline)
-    const publicationDate = this.detectPublicationDate(text);
+    const publicationDate = manualOverrides?.publicationDate || this.detectPublicationDate(text);
     const effectiveDate = this.detectEffectiveDate(text, publicationDate);
     const statutoryDeadline = this.detectStatutoryDeadline(text, publicationDate, effectiveDate);
 
@@ -55,7 +57,7 @@ export class DeterministicMetadataExtractor {
     const appliesUniversally = this.checkUniversalApplicability(text, structure.addresseeText);
 
     // 7. Subject & Summary
-    const subject = structure.subject || 'Regulatory Directive';
+    const subject = manualOverrides?.subject || structure.subject || 'Regulatory Directive';
     const summary = this.generateDeterministicSummary({
       regulatorCode,
       circularNumber,
@@ -488,13 +490,58 @@ export class DeterministicMetadataExtractor {
 
     const executiveSummary = `${p1}\n\n${p2}\n\n${p3}`;
 
-    const keyPoints = [
-      `Formal statutory enactment under ${params.regulatorCode} supervisory authority: Establishes binding operating rules across all licensed entities.`,
-      `Mandatory operational controls and policy concordance: Demands immediate review and update of internal standard operating procedures (SOPs).`,
-      `Enforced reporting & documentation obligations: All records, audit trails, and transactional evidence must be systematically preserved for examination.`,
-      `Supervisory deadline & compliance escalation: Strict enforcement schedule with auto-escalation to the Chief Compliance Officer and Board Risk Committee.`,
-      `Statutory liability & fine exposure: Non-compliance carries progressive daily default fines and administrative remediation orders under applicable Nigerian financial law.`,
-    ];
+    const subjLower = (params.subject || '').toLowerCase();
+    const isPayments = /payment|settlement|switch|interchange|pos|card|terminal|contactless|mmo|pssp|direct debit|open banking/i.test(subjLower);
+    const isFx = /foreign exchange|fx|bureau de change|bdc|export proceeds|remittance|domiciliary|currency/i.test(subjLower);
+    const isAml = /anti-money|aml|cft|counter-terrorism|kyc|politically exposed|pep|suspicious transaction|str|sanction/i.test(subjLower);
+    const isPrivacy = /data protection|privacy|ndpa|ndpc|breach|personal data|consent|data subject/i.test(subjLower);
+    const isLending = /digital lend|consumer credit|fair interest|debt recovery|fccpc|borrower|loan/i.test(subjLower);
+
+    let keyPoints: string[];
+
+    if (isPayments) {
+      keyPoints = [
+        `Mandatory Payment Rail & Interchange Compliance: Aligns payment orchestration with statutory fee margin thresholds and terminal certification baselines under ${params.regulatorCode}.`,
+        `Clearing & Settlement Cut-Off Adherence: Enforces strict daily reconciliation and settlement windows with clearing banks without transaction drop-offs.`,
+        `Cryptographic Authentication & 2FA Enforcement: Mandates multi-factor authentication and transaction parameter validation on all digital payment channels.`,
+        `Dispute Resolution SLAs: Establishes binding operational timelines for customer transaction dispute resolution, reversals, and audit logging.`,
+        `Tamper-Evident Audit Ledger Preservation: Systemic requirement to maintain 6-year immutable event logs conforming to CAMA and BOFIA statutory examination baselines.`,
+      ];
+    } else if (isFx) {
+      keyPoints = [
+        `Statutory FX Conduit & Documentation Controls: Enforces strict documentation verification across all foreign exchange settlement channels.`,
+        `Net Open Position (NOP) Prudential Calibration: Mandatory alignment of corporate treasury exposure with Central Bank prudential risk limits.`,
+        `Prohibition of Unauthorized Corridors: Strict liability for transacting on non-approved exchange windows with heavy administrative fine penalties.`,
+        `Electronic Regulatory Reporting: Requires same-day transmission of completed foreign currency transactions to the official regulatory supervisory portal.`,
+      ];
+    } else if (isAml) {
+      keyPoints = [
+        `Continuous Sanctions & PEP Screening: Enforces real-time screening of all customer profiles against domestic and international consolidated watchlists.`,
+        `24-Hour Mandatory STR Filing with NFIU: Strict statutory window to file Suspicious Transaction Reports upon identifying anomalous transaction patterns.`,
+        `Ultimate Beneficial Ownership (UBO) Verification: Mandates multi-tier verification of controlling natural persons behind corporate institutional accounts.`,
+        `Zero AML Defense Compromise: Strict liability on compliance leadership for failing to maintain comprehensive compliance examination proof.`,
+      ];
+    } else if (isPrivacy) {
+      keyPoints = [
+        `Lawful Basis & Explicit Consent Validation: Mandates documented lawful bases for all personal data collection under the Nigeria Data Protection Act 2023.`,
+        `72-Hour Statutory Breach Escalation to NDPC: Enforces mandatory reporting to supervisory authorities upon detection of security incidents.`,
+        `Data Subject Rights Infrastructure: Engineering obligation to provide automated user mechanisms for data access, rectification, and erasure.`,
+        `Annual Privacy Audit & DPCO Certification: Obligation to undergo comprehensive compliance assessments by licensed data protection professionals.`,
+      ];
+    } else if (isLending) {
+      keyPoints = [
+        `Prohibition of Unlawful Recovery Practices: Strict ban on unauthorized contact scraping, third-party disclosure, and coercive collection tactics.`,
+        `Full APR & Fee Transparency: Mandatory clear disclosure of all financing charges and terms prior to consumer credit agreement execution.`,
+        `Regulatory Registration Proof: Mandatory certification and registration proof under FCCPC digital lending frameworks.`,
+      ];
+    } else {
+      keyPoints = [
+        `Formal Statutory Enactment under ${params.regulatorCode}: Establishes legally binding operating baselines across all authorized institutional departments.`,
+        `Operational SOP & Internal Policy Concordance: Demands immediate gap assessment and Board-level revision of internal operating manuals.`,
+        `Supervisory Compliance Deadlines: Strict implementation timetable with automatic escalation to the Chief Compliance Officer and Board Risk Committee.`,
+        `Statutory Defense & Fine Containment: Active implementation eliminates exposure to daily compounding default penalties under applicable Nigerian law.`,
+      ];
+    }
 
     const departments = [
       'COMPLIANCE_LEGAL',

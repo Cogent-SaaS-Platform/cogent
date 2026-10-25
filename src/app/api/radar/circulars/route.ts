@@ -6,6 +6,7 @@ import { ApplicabilityEngine } from '@/modules/radar/services/applicabilityEngin
 import { RegulatorCode, RadarPriority, LicenseType, PaymentRail, LineageStatus } from '@/shared/types';
 import { CircularTargetingContext } from '@/modules/radar/types';
 import { DeterministicMetadataExtractor } from '@/modules/radar/services/deterministicMetadataExtractor';
+import { RoleSynthesisService } from '@/modules/radar/services/roleSynthesisService';
 
 export async function GET(req: NextRequest) {
   try {
@@ -54,7 +55,10 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 4. Enrich each circular with dynamic statutory countdowns and tenant applicability
+    // 4. Instantiate RoleSynthesisService for executive-grade briefs
+    const roleSynthService = new RoleSynthesisService({ dbClient: db });
+
+    // 5. Enrich each circular with dynamic statutory countdowns and tenant applicability
     const enrichedCirculars = rawCirculars.map((c) => {
       let regulatorCode: RegulatorCode = 'CBN';
       const refPrefix = (c.circular_number || '').split('/')[0]?.toUpperCase();
@@ -107,29 +111,6 @@ export async function GET(req: NextRequest) {
           : 'Pending institutional license onboarding configuration.';
       }
 
-      // Resolve action items from stored impact or default synthesized task
-      const actionItems = existingImpact?.radar_action_items?.length
-        ? existingImpact.radar_action_items.map((act: any) => ({
-            id: act.id,
-            targetDepartment: act.target_department,
-            actionTitle: act.action_title,
-            actionDescription: act.action_description,
-            suggestedDeadline: act.suggested_deadline,
-            isCompleted: act.is_completed,
-          }))
-        : [
-            {
-              id: `act_${c.id.slice(0, 8)}`,
-              targetDepartment: 'COMPLIANCE_LEGAL',
-              actionTitle: `Statutory Compliance Review: ${c.circular_number}`,
-              actionDescription: isApplicable
-                ? `Execute operational impact assessment against ${matchedLicenses.join(', ') || 'tenant license'} requirements.`
-                : 'Informational regulatory monitoring item.',
-              suggestedDeadline: c.statutory_deadline,
-              isCompleted: false,
-            },
-          ];
-
       const pubDate = c.issuance_date || c.created_at?.slice(0, 10) || '2025-01-15';
       const effDate = c.effective_date || c.issuance_date || c.created_at?.slice(0, 10) || pubDate;
 
@@ -144,8 +125,76 @@ export async function GET(req: NextRequest) {
         appliesUniversally: circularTargeting.appliesUniversally,
       });
 
+      // Generate deep multi-paragraph executive briefings across CCO, COO, CTO, CFO, CEO/CRO
+      const richBriefs = roleSynthService.generateDeterministicFallback({
+        circular: {
+          id: c.id,
+          circularNumber: c.circular_number,
+          regulatorCode,
+          subject: c.subject,
+          summary: c.summary,
+          statutoryDeadline: c.statutory_deadline,
+          rawText: c.raw_text,
+        },
+        tenant: {
+          organizationId,
+          matchedLicenses,
+          matchedRails,
+          applicabilityReason,
+        },
+      });
+
+      const executiveBriefCco =
+        existingImpact?.executive_brief_cco && existingImpact.executive_brief_cco.length > 120
+          ? existingImpact.executive_brief_cco
+          : richBriefs.executiveBriefCco;
+
+      const actionBriefCoo =
+        existingImpact?.action_brief_coo && existingImpact.action_brief_coo.length > 120
+          ? existingImpact.action_brief_coo
+          : richBriefs.actionBriefCoo;
+
+      const technicalBriefProductEng =
+        existingImpact?.technical_brief_product_eng && existingImpact.technical_brief_product_eng.length > 120
+          ? existingImpact.technical_brief_product_eng
+          : richBriefs.technicalBriefCto || richBriefs.technicalBriefProductEng;
+
+      const technicalBriefCto =
+        existingImpact?.brief_cto?.summary && existingImpact.brief_cto.summary.length > 120
+          ? existingImpact.brief_cto.summary
+          : richBriefs.technicalBriefCto || richBriefs.technicalBriefProductEng;
+
+      const financialBriefCfo =
+        existingImpact?.financial_brief_cfo && existingImpact.financial_brief_cfo.length > 120
+          ? existingImpact.financial_brief_cfo
+          : richBriefs.financialBriefCfo;
+
+      const governanceBriefCeoCro =
+        existingImpact?.brief_ceo_cro?.summary && existingImpact.brief_ceo_cro.summary.length > 120
+          ? existingImpact.brief_ceo_cro.summary
+          : richBriefs.governanceBriefCeoCro;
+
+      const actionItems =
+        existingImpact?.radar_action_items && existingImpact.radar_action_items.length > 1
+          ? existingImpact.radar_action_items.map((act: any) => ({
+              id: act.id,
+              targetDepartment: act.target_department,
+              actionTitle: act.action_title,
+              actionDescription: act.action_description,
+              suggestedDeadline: act.suggested_deadline,
+              isCompleted: act.is_completed,
+            }))
+          : richBriefs.actionChecklist.map((act, idx) => ({
+              id: `act_${c.id.slice(0, 8)}_${idx}`,
+              targetDepartment: act.targetDepartment,
+              actionTitle: act.actionTitle,
+              actionDescription: act.actionDescription,
+              suggestedDeadline: act.suggestedDeadline,
+              isCompleted: false,
+            }));
+
       const isActionable = c.priority === 'CRITICAL_EMERGENCY' || c.priority === 'HIGH' || Boolean(c.statutory_deadline);
-      const severityCode = c.priority === 'CRITICAL_EMERGENCY' ? 'G1 | 89%' : c.priority === 'HIGH' ? 'G2 | 64%' : c.priority === 'MEDIUM' ? 'G3 | 38%' : 'G4 | 15%';
+      const severityCode = c.priority === 'CRITICAL_EMERGENCY' ? 'P1' : c.priority === 'HIGH' ? 'P2' : c.priority === 'MEDIUM' ? 'P3' : 'P4';
 
       const importantDates = [
         { id: `dt-pub-${c.id}`, label: 'Publication Date', date: pubDate, description: 'Official notice gazetted by regulatory authority' },
@@ -153,21 +202,24 @@ export async function GET(req: NextRequest) {
         ...(c.statutory_deadline ? [{ id: `dt-dl-${c.id}`, label: 'Compliance Deadline', date: c.statutory_deadline, description: 'Statutory deadline for institutional certification & audit proof' }] : [])
       ];
 
-      const comments = [
-        {
-          id: `cmt-1-${c.id}`,
-          author: 'Sam Johnson',
-          avatar: 'SJ',
-          text: `Preliminary review complete. Identified operational obligations for internal audit and risk teams. Escalating to CCO.`,
-          timestamp: '2 hours ago',
-        }
+      const auditDate = (c.created_at || pubDate).slice(0, 10);
+      const auditLogs = [
+        { id: `log-1-${c.id}`, timestamp: `${pubDate} 08:30 WAT`, action: `Official directive gazetted by ${regulatorCode}`, author: regulatorCode },
+        { id: `log-2-${c.id}`, timestamp: `${auditDate} 09:12 WAT`, action: 'Automated regulatory ingestion & classification completed', author: 'Cogent Ingestion Engine' },
+        { id: `log-3-${c.id}`, timestamp: `${auditDate} 09:15 WAT`, action: isApplicable ? `Applicability evaluated: matched ${matchedLicenses.join(', ') || 'tenant operations'}` : 'Applicability evaluated: no active license conflict', author: 'Applicability Engine' },
       ];
 
-      const auditLogs = [
-        { id: `log-1-${c.id}`, timestamp: `${pubDate} 08:30 WAT`, action: `Statutory circular gazetted by ${regulatorCode}`, author: regulatorCode },
-        { id: `log-2-${c.id}`, timestamp: `${pubDate} 09:12 WAT`, action: 'Automated regulatory ingestion & classification completed', author: 'Cogent Ingestion Engine' },
-        { id: `log-3-${c.id}`, timestamp: 'Today 10:15 WAT', action: isApplicable ? `Applicability confirmed: matched ${matchedLicenses.join(', ') || 'tenant rail'}` : 'Applicability scanned: no direct license conflict', author: 'Applicability Engine' },
-      ];
+      const topics = Array.from(new Set([
+        regulatorCode,
+        ...(c.targeted_license_types || []),
+        ...(c.affected_payment_rails || []),
+        c.applies_universally ? 'Universal Directive' : null,
+      ])).filter(Boolean) as string[];
+
+      const docVersions = c.regulatory_document_versions;
+      const sourceUrl = Array.isArray(docVersions)
+        ? docVersions[0]?.source_file_url
+        : docVersions?.source_file_url || (c as any).source_file_url || (c as any).canonical_source_url;
 
       return {
         id: c.id,
@@ -183,11 +235,11 @@ export async function GET(req: NextRequest) {
         isStarred: false,
         severityMatrixCode: severityCode,
         importantDates,
-        comments,
+        comments: [],
         auditLogs,
         workflowStatus: 'Pending Review' as const,
-        assignee: { id: 'usr-1', name: 'Sam Johnson', avatar: 'SJ' },
-        topics: ['Payments', 'Fintech', 'Prudential Guidelines', 'Compliance Oversight'],
+        assignee: undefined,
+        topics: topics.length > 0 ? topics : [regulatorCode, 'Regulatory Directive'],
         publicationDate: pubDate,
         effectiveDate: effDate,
         statutoryDeadline: c.statutory_deadline,
@@ -208,29 +260,15 @@ export async function GET(req: NextRequest) {
           matchedLicenses,
           matchedRails,
         },
-        executiveBriefCco:
-          existingImpact?.brief_cco?.summary ||
-          existingImpact?.executive_brief_cco ||
-          `Statutory mandate from ${regulatorCode}. Compliance required by ${c.statutory_deadline || 'statutory directive'}.`,
-        actionBriefCoo:
-          existingImpact?.brief_cfo?.summary ||
-          existingImpact?.action_brief_coo ||
-          `Review active payment rail routing and operational parameters.`,
-        technicalBriefProductEng:
-          existingImpact?.brief_cto?.summary ||
-          existingImpact?.technical_brief_product_eng ||
-          'Implement required system logic, API constraints, and validation logging.',
-        technicalBriefCto:
-          existingImpact?.brief_cto?.summary ||
-          'Audit microservice architecture, API integration contracts, and key security stores.',
-        financialBriefCfo:
-          existingImpact?.brief_cfo?.summary ||
-          existingImpact?.financial_brief_cfo ||
-          'Evaluate balance sheet exposure, capital buffers, and penalty contingencies.',
-        governanceBriefCeoCro:
-          existingImpact?.brief_ceo_cro?.summary ||
-          'Board oversight of regulatory governance and statutory risk posture.',
+        executiveBriefCco,
+        actionBriefCoo,
+        technicalBriefProductEng,
+        technicalBriefCto,
+        financialBriefCfo,
+        governanceBriefCeoCro,
         actionItems,
+        sourceFileUrl: sourceUrl || undefined,
+        rawText: c.raw_text || undefined,
       };
     });
 

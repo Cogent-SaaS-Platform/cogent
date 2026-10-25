@@ -182,8 +182,8 @@ Return a valid JSON object matching the requested schema.`;
       }
 
       // Subject detection
-      if (/^(?:SUBJECT|RE)[:\s]+/i.test(line)) {
-        subject = line.replace(/^(?:SUBJECT|RE)[:\s]+/i, '').trim();
+      if (/^(?:SUBJECT|TITLE|RE)[:\s]+/i.test(line)) {
+        subject = line.replace(/^(?:SUBJECT|TITLE|RE)[:\s]+/i, '').trim();
       }
     }
 
@@ -197,7 +197,11 @@ Return a valid JSON object matching the requested schema.`;
           !line.includes('CENTRAL BANK') &&
           !line.includes('CIRCULAR') &&
           !line.includes('FEDERAL REPUBLIC') &&
-          !line.includes('TEL:')
+          !line.includes('TEL:') &&
+          !line.startsWith('AND ') &&
+          !line.startsWith('TO:') &&
+          !line.includes('DEPOSIT MONEY') &&
+          !line.includes('GENERAL PUBLIC')
         ) {
           subject = line;
           break;

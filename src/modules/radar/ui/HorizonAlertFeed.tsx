@@ -291,7 +291,7 @@ export function HorizonAlertFeed({
               className="h-8 pl-2.5 pr-6 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md hover:border-slate-300 focus:outline-hidden appearance-none cursor-pointer"
             >
               <option value="ALL">All Assignees</option>
-              <option value="SJ">Sam Johnson (CCO)</option>
+              <option value="CCO">Chief Compliance Officer</option>
               <option value="AM">Alex Marco</option>
               <option value="UN">Unassigned</option>
             </select>

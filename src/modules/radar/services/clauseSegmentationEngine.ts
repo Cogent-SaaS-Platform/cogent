@@ -88,23 +88,6 @@ export class ClauseSegmentationEngine {
       clauses.push(...textClauses);
     }
 
-    // Strategy 3: Guaranteed statutory fallback (even for concise notices)
-    if (clauses.length === 0) {
-      const fallbackText = rawText.trim() || subject || 'Mandatory regulatory compliance directive issued by supervisory authority.';
-      clauses.push(
-        this.buildClauseRecord(
-          'Section 1.0',
-          subject && subject.length < 80 ? subject : 'General Statutory Mandate',
-          fallbackText,
-          1,
-          regulatorCode,
-          circularNumber,
-          priority,
-          statutoryDeadline
-        )
-      );
-    }
-
     return clauses;
   }
 
@@ -321,9 +304,9 @@ export class ClauseSegmentationEngine {
 
     // 5. Parse Statutory Financial Penalties & Liabilities
     const penaltyMatch = text.match(/(?:₦|Naira|fine of)\s*([\d,]+(?:\.\d+)?)\s*(?:million|billion|thousand)?/i);
-    let minPenalty = 1000000;
-    let maxPenalty = 5000000;
-    let dailyFine = 50000;
+    let minPenalty = 0;
+    let maxPenalty = 0;
+    let dailyFine = 0;
 
     if (penaltyMatch) {
       const numStr = penaltyMatch[1].replace(/,/g, '');
@@ -340,17 +323,12 @@ export class ClauseSegmentationEngine {
           maxPenalty = parsed * 2;
         }
       }
-    } else if (severityFloor === 'CRITICAL') {
-      minPenalty = 10000000;
-      maxPenalty = 50000000;
     }
 
     const dailyMatch = text.match(/(?:daily|each continuous day|compounding).*?(?:₦|Naira)\s*([\d,]+)/i);
     if (dailyMatch) {
       const parsedDaily = parseFloat(dailyMatch[1].replace(/,/g, ''));
       if (!isNaN(parsedDaily)) dailyFine = parsedDaily;
-    } else {
-      dailyFine = Math.round(minPenalty * 0.02);
     }
 
     const carriesPersonalCriminalLiability =
@@ -366,11 +344,34 @@ export class ClauseSegmentationEngine {
       textLower.includes('cease-and-desist') ||
       textLower.includes('disconnection');
 
-    // Synthesize an actionable statutory requirement summary instead of raw heading
-    const firstSentence = text.split(/(?<=[.?!])\s+/)[0]?.trim() || text.trim();
-    const cleanFirstSentence = firstSentence.replace(/^[\d\.\-\s]+/, '').trim();
-    const obligationSummary = cleanFirstSentence.length >= 25
-      ? (cleanFirstSentence.length > 220 ? cleanFirstSentence.substring(0, 220) + '...' : cleanFirstSentence)
+    const penalties: ParsedPenalty[] = [];
+    if (minPenalty > 0 || maxPenalty > 0 || dailyFine > 0 || carriesPersonalCriminalLiability || carriesLicenseSuspensionRisk) {
+      penalties.push({
+        penaltyMinNaira: minPenalty,
+        penaltyMaxNaira: maxPenalty,
+        dailyFineNaira: dailyFine,
+        carriesPersonalCriminalLiability,
+        carriesLicenseSuspensionRisk,
+        penaltyLegalCitation: `${regulatorCode} Directive ${circularNumber} / Statutory Enforcement`,
+      });
+    }
+
+    // Synthesize an actionable statutory requirement summary with operative legal verbs
+    const sentences = text
+      .split(/(?<=[.?!])\s+/)
+      .map((s) => s.replace(/^[\d\.\-\s]+/, '').trim())
+      .filter((s) => s.length > 15);
+
+    // Prioritize sentences containing operative statutory mandates
+    const operativeSentence = sentences.find((s) =>
+      /\b(shall|must|mandat|prohibit|requir|ensure|liable|submit|maintain|comply|penalty|sanction|forbidden)\b/i.test(s)
+    );
+
+    const chosenSentence = operativeSentence || sentences[0] || text.trim();
+    const cleanSentence = chosenSentence.length > 260 ? chosenSentence.substring(0, 257) + '...' : chosenSentence;
+
+    const obligationSummary = cleanSentence.length >= 25
+      ? `${heading}: ${cleanSentence}`
       : `${heading}: Mandatory statutory compliance requirement under ${regulatorCode} Directive ${circularNumber}. The institution must implement operational controls to ensure complete conformity.`;
 
     return {
@@ -386,16 +387,7 @@ export class ClauseSegmentationEngine {
           severityFloor,
           statutoryTimelineDays,
           targetRole,
-          penalties: [
-            {
-              penaltyMinNaira: minPenalty,
-              penaltyMaxNaira: maxPenalty,
-              dailyFineNaira: dailyFine,
-              carriesPersonalCriminalLiability,
-              carriesLicenseSuspensionRisk,
-              penaltyLegalCitation: `${regulatorCode} Directive ${circularNumber} / Statutory Enforcement`,
-            },
-          ],
+          penalties,
         },
       ],
     };

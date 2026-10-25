@@ -3,6 +3,7 @@ import { getTenantContext } from '@/shared/auth';
 import { CircularIngestionService } from '@/modules/radar/services/circularIngestionService';
 import { logger } from '@/shared/logger';
 import { RegulatorCode } from '@/shared/types';
+import { resilientFetch } from '@/shared/network/resilientHttp';
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,6 +16,10 @@ export async function POST(req: NextRequest) {
     let mimeType = 'application/pdf';
     let manualRegulator: RegulatorCode | undefined;
     let manualReferenceCode: string | undefined;
+    let manualSubject: string | undefined;
+    let sourceUrl: string | undefined;
+
+    const validRegulators = ['CBN', 'SEC', 'ARCON', 'NDPC', 'FCCPC', 'NFIU', 'NDIC'];
 
     if (contentType.includes('multipart/form-data')) {
       const formData = await req.formData();
@@ -33,34 +38,92 @@ export async function POST(req: NextRequest) {
       mimeType = file.type || 'application/pdf';
 
       const regulatorVal = formData.get('regulator') as string | null;
-      if (regulatorVal && ['CBN', 'SEC', 'ARCON', 'NDPC', 'FCCPC', 'NFIU'].includes(regulatorVal)) {
+      if (regulatorVal && validRegulators.includes(regulatorVal)) {
         manualRegulator = regulatorVal as RegulatorCode;
       }
       manualReferenceCode = (formData.get('referenceCode') as string) || undefined;
+      manualSubject = (formData.get('subject') as string) || undefined;
     } else {
-      // JSON payload support
+      // JSON payload support (supports rawText, base64Content, OR direct web URL/portal)
       const body = await req.json();
-      const rawText = body.rawText || '';
 
-      if (!rawText && !body.base64Content) {
+      if (body.url) {
+        // Direct Web Portal / Framework Ingestion (e.g. https://www.cbn.gov.ng/PaymentsSystem/)
+        sourceUrl = body.url.trim();
+        logger.info({ url: sourceUrl }, 'Fetching regulatory web framework from URL');
+
+        try {
+          const resp = await resilientFetch(sourceUrl);
+          const html = await resp.text();
+
+          // Extract title
+          const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+          const h1Match = html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
+          const rawTitle = (titleMatch ? titleMatch[1] : (h1Match ? h1Match[1] : 'Regulatory Framework Directive'))
+            .replace(/\s+/g, ' ')
+            .trim();
+
+          manualSubject = body.subject || rawTitle;
+
+          // Strip HTML tags and boilerplate to produce clean readable text
+          const cleanText = html
+            .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+            .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+            .replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, '')
+            .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, '')
+            .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&amp;/g, '&')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/\s{2,}/g, '\n\n')
+            .trim();
+
+          fileBuffer = Buffer.from(cleanText, 'utf8');
+          mimeType = 'text/plain';
+          fileName = `${(manualSubject || 'web_framework').slice(0, 40).replace(/[^a-zA-Z0-9]/g, '_')}.txt`;
+
+          // Detect regulator from URL if not specified
+          if (!body.regulator) {
+            if (sourceUrl.includes('cbn.gov.ng')) manualRegulator = 'CBN';
+            else if (sourceUrl.includes('sec.gov.ng')) manualRegulator = 'SEC';
+            else if (sourceUrl.includes('ndpc.gov.ng')) manualRegulator = 'NDPC';
+            else if (sourceUrl.includes('fccpc.gov.ng')) manualRegulator = 'FCCPC';
+            else if (sourceUrl.includes('nfiu.gov.ng')) manualRegulator = 'NFIU';
+            else if (sourceUrl.includes('ndic.gov.ng')) manualRegulator = 'NDIC';
+          }
+        } catch (fetchErr) {
+          const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+          return NextResponse.json(
+            { error: `Failed to fetch content from portal URL: ${msg}` },
+            { status: 502 }
+          );
+        }
+      } else if (body.base64Content) {
+        fileBuffer = Buffer.from(body.base64Content, 'base64');
+        fileName = body.fileName || 'circular.pdf';
+        mimeType = body.mimeType || 'application/pdf';
+      } else if (body.rawText) {
+        fileBuffer = Buffer.from(body.rawText, 'utf8');
+        mimeType = 'text/plain';
+        fileName = body.fileName || 'circular.txt';
+      } else {
         return NextResponse.json(
-          { error: 'Invalid JSON request: Provide either rawText or base64Content' },
+          { error: 'Invalid JSON request: Provide url, rawText, or base64Content' },
           { status: 400 }
         );
       }
 
-      if (body.base64Content) {
-        fileBuffer = Buffer.from(body.base64Content, 'base64');
-      } else {
-        fileBuffer = Buffer.from(rawText, 'utf8');
-        mimeType = 'text/plain';
-      }
-
-      fileName = body.fileName || 'circular.txt';
-      if (body.regulator && ['CBN', 'SEC', 'ARCON', 'NDPC', 'FCCPC', 'NFIU'].includes(body.regulator)) {
+      if (body.regulator && validRegulators.includes(body.regulator)) {
         manualRegulator = body.regulator as RegulatorCode;
       }
-      manualReferenceCode = body.referenceCode;
+      if (body.referenceCode) {
+        manualReferenceCode = body.referenceCode;
+      }
+      if (body.subject && !manualSubject) {
+        manualSubject = body.subject;
+      }
     }
 
     const result = await circularIngestionService.ingestCircular({
@@ -69,6 +132,8 @@ export async function POST(req: NextRequest) {
       mimeType,
       manualRegulator,
       manualReferenceCode,
+      manualSubject,
+      sourceUrl,
     });
 
     const statusCode = result.deduplicated ? 409 : 201;
@@ -79,7 +144,7 @@ export async function POST(req: NextRequest) {
         deduplicated: result.deduplicated,
         message: result.deduplicated
           ? 'Circular with matching SHA-256 checksum or reference code already exists (deduplicated)'
-          : 'Circular successfully ingested and indexed',
+          : 'Circular successfully ingested and indexed into compliance pipeline',
         data: result,
       },
       { status: statusCode }

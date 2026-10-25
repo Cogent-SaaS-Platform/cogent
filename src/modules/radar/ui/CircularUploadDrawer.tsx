@@ -24,8 +24,11 @@ export function CircularUploadDrawer({
   onClose,
   onIngestSuccess,
 }: CircularUploadDrawerProps) {
+  const [inputMode, setInputMode] = useState<'url' | 'pdf' | 'text'>('url');
+  const [portalUrl, setPortalUrl] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [rawText, setRawText] = useState('');
+  const [subject, setSubject] = useState('');
   const [regulator, setRegulator] = useState<RegulatorCode>('CBN');
   const [referenceCode, setReferenceCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -35,8 +38,17 @@ export function CircularUploadDrawer({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file && !rawText.trim()) {
-      setErrorMessage('Please either select a PDF circular file or paste the circular text.');
+
+    if (inputMode === 'url' && !portalUrl.trim()) {
+      setErrorMessage('Please provide a valid regulatory portal, framework, or article URL.');
+      return;
+    }
+    if (inputMode === 'pdf' && !file) {
+      setErrorMessage('Please select a PDF circular file to upload.');
+      return;
+    }
+    if (inputMode === 'text' && !rawText.trim()) {
+      setErrorMessage('Please paste the verbatim circular or framework text.');
       return;
     }
 
@@ -46,17 +58,27 @@ export function CircularUploadDrawer({
     try {
       let res: Response;
 
-      if (file) {
+      if (inputMode === 'pdf' && file) {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('regulator', regulator);
-        if (referenceCode.trim()) {
-          formData.append('referenceCode', referenceCode.trim());
-        }
+        if (referenceCode.trim()) formData.append('referenceCode', referenceCode.trim());
+        if (subject.trim()) formData.append('subject', subject.trim());
 
         res = await fetch('/api/radar/circulars/ingest', {
           method: 'POST',
           body: formData,
+        });
+      } else if (inputMode === 'url') {
+        res = await fetch('/api/radar/circulars/ingest', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: portalUrl.trim(),
+            regulator,
+            referenceCode: referenceCode.trim() || undefined,
+            subject: subject.trim() || undefined,
+          }),
         });
       } else {
         res = await fetch('/api/radar/circulars/ingest', {
@@ -67,6 +89,7 @@ export function CircularUploadDrawer({
             fileName: `${regulator.toLowerCase()}_circular.txt`,
             regulator,
             referenceCode: referenceCode.trim() || undefined,
+            subject: subject.trim() || undefined,
           }),
         });
       }
@@ -92,28 +115,28 @@ export function CircularUploadDrawer({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-end bg-[#0B0F1A]/40 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="h-full w-full max-w-lg border-l border-[#DDE3EE] bg-white p-6 shadow-2xl overflow-y-auto flex flex-col justify-between animate-in slide-in-from-right duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-end bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="h-full w-full max-w-lg border-l border-slate-200 bg-white p-6 shadow-2xl overflow-y-auto flex flex-col justify-between animate-in slide-in-from-right duration-200">
         <div>
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-[#DDE3EE] pb-4 mb-6">
+          <div className="flex items-center justify-between border-b border-slate-200 pb-4 mb-5">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#EEF2FF] text-[#2A4BFF] border border-[#C7D2FE]">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-800 border border-slate-200">
                 <FileUp className="h-5 w-5" />
               </div>
               <div>
-                <h2 className="text-base font-bold text-[#0B0F1A]">
+                <h2 className="text-sm font-bold text-slate-900">
                   Ingest Regulatory Directive
                 </h2>
-                <p className="text-xs text-[#4B5565]">
-                  Upload official gazette PDF or transcript text
+                <p className="text-xs text-slate-500">
+                  Web Frameworks, Gazette PDFs, Articles & Text Transcripts
                 </p>
               </div>
             </div>
 
             <button
               onClick={onClose}
-              className="rounded-lg p-1.5 text-[#8D99AE] hover:bg-[#F5F6FA] hover:text-[#0B0F1A] transition-colors"
+              className="rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-800 transition-colors"
               aria-label="Close drawer"
             >
               <X className="h-5 w-5" />
@@ -121,116 +144,180 @@ export function CircularUploadDrawer({
           </div>
 
           {errorMessage && (
-            <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-[#FECACA] bg-[#FEF2F2] p-3.5 text-xs text-[#991B1B]">
-              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-[#EF4444]" />
+            <div className="mb-4 flex items-start gap-2.5 rounded-md border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-rose-600" />
               <span>{errorMessage}</span>
             </div>
           )}
 
+          {/* Mode Switcher Tabs */}
+          <div className="mb-4 grid grid-cols-3 gap-1 rounded-lg border border-slate-200 bg-slate-100 p-1">
+            <button
+              type="button"
+              onClick={() => setInputMode('url')}
+              className={`rounded-md py-1.5 text-xs font-semibold transition-colors ${
+                inputMode === 'url'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Web URL / Portal
+            </button>
+            <button
+              type="button"
+              onClick={() => setInputMode('pdf')}
+              className={`rounded-md py-1.5 text-xs font-semibold transition-colors ${
+                inputMode === 'pdf'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Upload PDF
+            </button>
+            <button
+              type="button"
+              onClick={() => setInputMode('text')}
+              className={`rounded-md py-1.5 text-xs font-semibold transition-colors ${
+                inputMode === 'text'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Paste Text
+            </button>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Regulator Select */}
             <div>
-              <label className="block text-xs font-semibold text-[#0B0F1A] mb-1.5">
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
                 Issuing Regulatory Body
               </label>
               <select
                 value={regulator}
                 onChange={(e) => setRegulator(e.target.value as RegulatorCode)}
-                className="w-full rounded-xl border border-[#DDE3EE] bg-[#F5F6FA] px-3 py-2 text-xs text-[#0B0F1A] focus:border-[#2A4BFF] focus:outline-none"
+                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:border-slate-400 focus:outline-hidden"
               >
                 <option value="CBN">Central Bank of Nigeria (CBN)</option>
                 <option value="SEC">Securities and Exchange Commission (SEC)</option>
-                <option value="ARCON">Advertising Regulatory Council of Nigeria (ARCON)</option>
                 <option value="NDPC">Nigeria Data Protection Commission (NDPC)</option>
                 <option value="FCCPC">Federal Competition & Consumer Protection Commission (FCCPC)</option>
                 <option value="NFIU">Nigerian Financial Intelligence Unit (NFIU)</option>
                 <option value="NDIC">Nigeria Deposit Insurance Corporation (NDIC)</option>
+                <option value="ARCON">Advertising Regulatory Council of Nigeria (ARCON)</option>
               </select>
             </div>
 
             {/* Optional Reference Code */}
             <div>
-              <label className="block text-xs font-semibold text-[#0B0F1A] mb-1.5">
-                Circular Reference Code <span className="text-[#8D99AE] font-normal">(Optional, parsed automatically if omitted)</span>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Reference Code <span className="text-slate-400 font-normal">(Optional, parsed automatically if omitted)</span>
               </label>
               <input
                 type="text"
                 value={referenceCode}
                 onChange={(e) => setReferenceCode(e.target.value)}
                 placeholder="e.g. PSM/DIR/CON/CWS/08/014"
-                className="w-full rounded-xl border border-[#DDE3EE] bg-[#F5F6FA] px-3 py-2 text-xs text-[#0B0F1A] placeholder-[#8D99AE] focus:border-[#2A4BFF] focus:outline-none font-mono"
+                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:border-slate-400 focus:outline-hidden font-mono"
               />
             </div>
 
-            {/* File Upload Box */}
+            {/* Subject / Title */}
             <div>
-              <label className="block text-xs font-semibold text-[#0B0F1A] mb-1.5">
-                Official PDF Document
+              <label className="block text-xs font-semibold text-slate-700 mb-1">
+                Document Title / Subject <span className="text-slate-400 font-normal">(Optional)</span>
               </label>
-              <div className="relative rounded-xl border-2 border-dashed border-[#DDE3EE] bg-[#F9FAFC] p-6 text-center hover:border-[#2A4BFF] transition-colors">
+              <input
+                type="text"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="e.g. Regulatory Framework for Payments System Operations"
+                className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:border-slate-400 focus:outline-hidden"
+              />
+            </div>
+
+            {/* Mode 1: Web URL */}
+            {inputMode === 'url' && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Live Regulatory Portal or Framework Link
+                </label>
                 <input
-                  type="file"
-                  accept="application/pdf,text/plain"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
-                  className="absolute inset-0 opacity-0 cursor-pointer"
+                  type="url"
+                  value={portalUrl}
+                  onChange={(e) => setPortalUrl(e.target.value)}
+                  placeholder="https://www.cbn.gov.ng/PaymentsSystem/ or article URL"
+                  className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:border-slate-400 focus:outline-hidden font-mono"
                 />
-                <Upload className="mx-auto h-8 w-8 text-[#8D99AE] mb-2" />
-                {file ? (
-                  <div className="text-xs text-[#2A4BFF] font-semibold truncate">
-                    {file.name} ({(file.size / 1024).toFixed(1)} KB)
-                  </div>
-                ) : (
-                  <>
-                    <p className="text-xs text-[#0B0F1A] font-semibold">
-                      Click to browse or drag & drop circular PDF
-                    </p>
-                    <p className="text-[11px] text-[#8D99AE] mt-1">
-                      PDF, Official Nigerian Gazette scans up to 25MB
-                    </p>
-                  </>
-                )}
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Cogent captures HTML portals, articles, and legal advisories through Anycast DNS and decomposes them into statutory obligations.
+                </p>
               </div>
-            </div>
+            )}
 
-            {/* Divider */}
-            <div className="relative my-4 text-center">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-[#DDE3EE]" />
+            {/* Mode 2: PDF Upload */}
+            {inputMode === 'pdf' && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Official PDF Document
+                </label>
+                <div className="relative rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 p-6 text-center hover:border-slate-400 transition-colors">
+                  <input
+                    type="file"
+                    accept="application/pdf,text/plain"
+                    onChange={(e) => setFile(e.target.files?.[0] || null)}
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                  />
+                  <Upload className="mx-auto h-8 w-8 text-slate-400 mb-2" />
+                  {file ? (
+                    <div className="text-xs text-slate-900 font-semibold truncate font-mono">
+                      {file.name} ({(file.size / 1024).toFixed(1)} KB)
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-xs text-slate-800 font-semibold">
+                        Click to browse or drag & drop circular PDF
+                      </p>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        Official Nigerian Gazette scans up to 25MB
+                      </p>
+                    </>
+                  )}
+                </div>
               </div>
-              <span className="relative bg-white px-2 text-[11px] font-semibold text-[#8D99AE] uppercase">
-                Or Paste Directive Text
-              </span>
-            </div>
+            )}
 
-            {/* Raw Text Textarea */}
-            <div>
-              <label className="block text-xs font-semibold text-[#0B0F1A] mb-1.5">
-                Circular Transcript / Text Content
-              </label>
-              <textarea
-                value={rawText}
-                onChange={(e) => setRawText(e.target.value)}
-                placeholder="Paste verbatim text of circular directive here..."
-                rows={5}
-                className="w-full rounded-xl border border-[#DDE3EE] bg-[#F5F6FA] p-3 text-xs text-[#0B0F1A] placeholder-[#8D99AE] focus:border-[#2A4BFF] focus:outline-none font-mono"
-              />
-            </div>
+            {/* Mode 3: Text Paste */}
+            {inputMode === 'text' && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Directive Transcript / Verbatim Text
+                </label>
+                <textarea
+                  value={rawText}
+                  onChange={(e) => setRawText(e.target.value)}
+                  placeholder="Paste verbatim text of circular directive or framework here..."
+                  rows={6}
+                  className="w-full rounded-md border border-slate-200 bg-white p-3 text-xs text-slate-800 placeholder-slate-400 focus:border-slate-400 focus:outline-hidden font-mono"
+                />
+              </div>
+            )}
 
             <div className="pt-2">
               <button
                 type="submit"
                 disabled={isLoading}
-                className="btn-base btn-primary btn-md w-full gap-2 shadow-xs"
+                className="w-full py-2 px-3 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white rounded-md flex items-center justify-center gap-2 transition-colors shadow-xs disabled:opacity-50"
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin text-slate-300" />
                     <span>Executing Layout Parsing & Checksum...</span>
                   </>
                 ) : (
                   <>
                     <Upload className="h-4 w-4" />
-                    <span>Ingest & Process Circular</span>
+                    <span>Ingest into Compliance Pipeline</span>
                   </>
                 )}
               </button>

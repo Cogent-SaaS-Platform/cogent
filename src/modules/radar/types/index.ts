@@ -75,6 +75,9 @@ export interface CircularIngestInput {
   organizationId?: string;
   manualRegulator?: RegulatorCode;
   manualReferenceCode?: string;
+  manualSubject?: string;
+  manualPublicationDate?: string;
+  sourceUrl?: string;
 }
 
 /**
@@ -147,6 +150,7 @@ export interface RadarCircularPresentationCard {
   governanceBriefCeoCro?: string;
   actionItems?: RadarActionItemPresentation[];
   sourceFileUrl?: string;
+  rawText?: string;
   executiveSummary?: string;
   keyPoints?: string[];
   departments?: string[];

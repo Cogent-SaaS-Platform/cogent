@@ -183,18 +183,41 @@ export class PolicyVectorIndexService {
   ): Promise<PolicyClauseMatch[]> {
     if (!this.dbClient) return [];
 
+    const keywords = queryText
+      .toLowerCase()
+      .replace(/[^\w\s]/g, '')
+      .split(/\s+/)
+      .filter((w) => w.length > 3);
+
+    if (keywords.length === 0) return [];
+
+    // Filter using ilike on top keywords (up to 3)
+    const topKeywords = keywords.slice(0, 3);
+    const orFilter = topKeywords.map((k) => `clause_text.ilike.%${k}%`).join(',');
+
     const { data } = await this.dbClient
       .from('policy_clauses')
       .select('id, section_number, clause_text')
       .eq('organization_id', organizationId)
       .eq('policy_id', policyId)
+      .or(orFilter)
       .limit(limit);
 
-    return (data || []).map((row) => ({
-      policyClauseId: row.id,
-      sectionNumber: row.section_number,
-      clauseText: row.clause_text,
-      similarity: 0.5,
-    }));
+    if (!data || data.length === 0) return [];
+
+    // Calculate lexical overlap
+    return data
+      .map((row) => {
+        const textLower = (row.clause_text || '').toLowerCase();
+        const matched = keywords.filter((k) => textLower.includes(k)).length;
+        const score = Math.min(0.85, Math.max(0.1, matched / keywords.length));
+        return {
+          policyClauseId: row.id,
+          sectionNumber: row.section_number,
+          clauseText: row.clause_text,
+          similarity: Math.round(score * 100) / 100,
+        };
+      })
+      .sort((a, b) => b.similarity - a.similarity);
   }
 }

@@ -2,6 +2,7 @@ import { serve } from 'inngest/next';
 import { inngest } from '@/shared/inngest';
 import { circularIngestionJob } from '@/modules/radar/inngest/circularIngestionHandler';
 import { policyIngestionJob } from '@/modules/gap-matrix/inngest/policyIngestionHandler';
+import { scheduledRegulatoryFeedSync } from '@/modules/radar/inngest/scheduledFeedSync';
 
 /**
  * Inngest Next.js App Router Webhook Mount Point (Task A3.2)
@@ -12,5 +13,5 @@ import { policyIngestionJob } from '@/modules/gap-matrix/inngest/policyIngestion
  */
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [circularIngestionJob, policyIngestionJob],
+  functions: [circularIngestionJob, policyIngestionJob, scheduledRegulatoryFeedSync],
 });

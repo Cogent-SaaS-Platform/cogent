@@ -118,54 +118,70 @@ export class GapSynthesisService {
     }[] = [];
 
     for (const statClause of statutoryClauses) {
-      const obligation = statClause.obligations[0];
-      const penalty = obligation?.penalties[0];
+      const obligationsToEvaluate = statClause.obligations.length > 0
+        ? statClause.obligations
+        : [
+            {
+              obligationId: null as string | null,
+              obligationType: 'GENERAL_COMPLIANCE' as const,
+              summary: statClause.clauseText.slice(0, 150),
+              severityFloor: 'HIGH' as const,
+              statutoryTimelineDays: null as number | null,
+              mandatoryDisclosureText: null as string | null,
+              penalties: [],
+            },
+          ];
 
-      // Perform tenant-isolated vector search in policy_clauses
-      const matches = await this.vectorIndexService.searchSimilarClauses({
-        organizationId,
-        policyId,
-        queryText: `${statClause.sectionHeading}: ${statClause.clauseText}`,
-        matchThreshold: 0.1,
-        matchCount: 1,
-      });
+      for (const obligation of obligationsToEvaluate) {
+        const penalty = obligation.penalties?.[0];
 
-      const topMatch = matches.length > 0 ? matches[0] : null;
+        // Search top matching internal clauses using obligation summary and clause heading
+        const queryText = `${statClause.sectionHeading}: ${obligation.summary || statClause.clauseText}`;
+        const matches = await this.vectorIndexService.searchSimilarClauses({
+          organizationId,
+          policyId,
+          queryText,
+          matchThreshold: 0.1,
+          matchCount: 3,
+        });
 
-      promptPairs.push({
-        statutoryClause: {
-          sectionReference: statClause.sectionReference,
-          sectionHeading: statClause.sectionHeading,
-          clauseText: statClause.clauseText,
-          obligationSummary: obligation ? obligation.summary : 'Statutory compliance obligation',
-          severity: obligation ? obligation.severityFloor : 'HIGH',
-          statutoryTimelineDays: obligation?.statutoryTimelineDays || null,
-          mandatoryDisclosure: obligation?.mandatoryDisclosureText || null,
-          legalCitation: penalty?.penaltyLegalCitation || 'BOFIA 2020 / Relevant Act',
-        },
-        matchedInternalClause: topMatch
-          ? {
-              sectionNumber: topMatch.sectionNumber,
-              clauseText: topMatch.clauseText,
-              similarity: topMatch.similarity,
-            }
-          : null,
-        policyTitle,
-        department: policyDepartment,
-        benchmarkTitle: 'Statutory Regulatory Framework',
-        issuingRegulator: 'CBN',
-      });
+        const topMatch = matches.length > 0 ? matches[0] : null;
 
-      matchedMetadataList.push({
-        statutoryClauseId: statClause.clauseId,
-        obligationId: obligation ? obligation.obligationId : null,
-        statutoryPenaltyNaira: penalty ? penalty.penaltyMaxNaira : 0,
-        statutoryLegalCitation: penalty?.penaltyLegalCitation || 'BOFIA 2020',
-        carriesCriminalLiability: penalty?.carriesPersonalCriminalLiability || false,
-        carriesLicenseSuspension: penalty?.carriesLicenseSuspensionRisk || false,
-        matchedPolicyClauseId: topMatch ? topMatch.policyClauseId : null,
-        matchedSectionNumber: topMatch ? topMatch.sectionNumber : null,
-      });
+        promptPairs.push({
+          statutoryClause: {
+            sectionReference: statClause.sectionReference,
+            sectionHeading: statClause.sectionHeading,
+            clauseText: statClause.clauseText,
+            obligationSummary: obligation.summary || 'Statutory compliance obligation',
+            severity: obligation.severityFloor || 'HIGH',
+            statutoryTimelineDays: obligation.statutoryTimelineDays || null,
+            mandatoryDisclosure: obligation.mandatoryDisclosureText || null,
+            legalCitation: penalty?.penaltyLegalCitation || 'BOFIA 2020 / Relevant Act',
+          },
+          matchedInternalClause: topMatch
+            ? {
+                sectionNumber: topMatch.sectionNumber,
+                clauseText: topMatch.clauseText,
+                similarity: topMatch.similarity,
+              }
+            : null,
+          policyTitle,
+          department: policyDepartment,
+          benchmarkTitle: 'Statutory Regulatory Framework',
+          issuingRegulator: 'CBN',
+        });
+
+        matchedMetadataList.push({
+          statutoryClauseId: statClause.clauseId,
+          obligationId: obligation.obligationId || null,
+          statutoryPenaltyNaira: penalty ? penalty.penaltyMaxNaira : 0,
+          statutoryLegalCitation: penalty?.penaltyLegalCitation || 'BOFIA 2020',
+          carriesCriminalLiability: penalty?.carriesPersonalCriminalLiability || false,
+          carriesLicenseSuspension: penalty?.carriesLicenseSuspensionRisk || false,
+          matchedPolicyClauseId: topMatch ? topMatch.policyClauseId : null,
+          matchedSectionNumber: topMatch ? topMatch.sectionNumber : null,
+        });
+      }
     }
 
     // 4. Construct prompt and execute structured Gemini generation
@@ -283,35 +299,15 @@ export class GapSynthesisService {
         const isUuid = (val: string | null | undefined): boolean =>
           Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
 
-        let resolvedVersionId = benchmarkDocumentVersionId;
-        if (!isUuid(resolvedVersionId)) {
-          const { data: defaultVersion } = await client
-            .from('regulatory_document_versions')
-            .select('id')
-            .limit(1)
-            .single();
-          if (defaultVersion?.id) {
-            resolvedVersionId = defaultVersion.id;
-          }
-        }
-
-        let fallbackClauseId: string | null = null;
-        if (evaluatedItems.some((item) => !isUuid(item.regulatoryClauseId))) {
-          const { data: defaultClause } = await client
-            .from('regulatory_clauses')
-            .select('id')
-            .limit(1)
-            .single();
-          if (defaultClause?.id) {
-            fallbackClauseId = defaultClause.id;
-          }
+        if (!isUuid(benchmarkDocumentVersionId)) {
+          throw new Error(`Invalid benchmarkDocumentVersionId "${benchmarkDocumentVersionId}": must be a valid UUID`);
         }
 
         await client.from('gap_evaluations').insert({
           id: evaluationId,
           organization_id: organizationId,
           policy_id: policyId,
-          benchmark_document_version_id: resolvedVersionId,
+          benchmark_document_version_id: benchmarkDocumentVersionId,
           analysis_run_id: analysisRunId,
           overall_compliance_percentage: overallCompliancePercentage,
           critical_gaps_count: criticalGapsCount,
@@ -321,9 +317,7 @@ export class GapSynthesisService {
 
         // Insert individual gap matrix items with denormalized organization_id
         const itemsToInsert = evaluatedItems.map((item) => {
-          const regClauseId = isUuid(item.regulatoryClauseId)
-            ? item.regulatoryClauseId
-            : (fallbackClauseId || item.regulatoryClauseId);
+          const regClauseId = isUuid(item.regulatoryClauseId) ? item.regulatoryClauseId : null;
 
           return {
             id: item.id,
@@ -451,21 +445,47 @@ export class GapSynthesisService {
       status = 'ADEQUATELY_MET';
     }
 
+    let whatHappened = '';
+    let whatToKnow = '';
+    let whatHasChanged = '';
+    let whatToDo = '';
+    let derivedInsight = '';
+
+    if (status === 'CRITICAL_GAP') {
+      whatHappened = `Statutory mandate ${stat.sectionReference} under ${stat.legalCitation} requires that "${stat.obligationSummary}". Comprehensive audit of the internal policy manual (${pair.policyTitle}) reveals that this control is completely absent. Zero internal procedures or operational safeguards have been codified.`;
+      whatToKnow = `Enacted under ${stat.legalCitation} supervisory powers. The apex regulator conducts mandatory on-site bank examinations testing institutional compliance with ${stat.sectionReference}. Failure to codify this control constitutes a Level-1 supervisory deficiency, exposing the institution to direct administrative sanctions and license review.`;
+      whatHasChanged = `Material operational gap. While statutory baselines mandate verified controls regarding ${stat.sectionHeading.toLowerCase()}, company operating procedures operate with zero formalized compliance architecture or assigned departmental accountability.`;
+      whatToDo = `Immediate 3-Step Remediation Playbook:\n1. Policy Amendment: Chief Compliance Officer must sponsor adoption of the replacement policy clause below at the next Board Risk Committee.\n2. Standard Operating Procedure (SOP): Operations & Tech leads must implement mandatory verification queues and dual-custody approval.\n3. Regulatory Attestation: Prepare signed attestation proof for examination inspection within ${stat.statutoryTimelineDays || 30} calendar days.`;
+      derivedInsight = `Adopting this remediated clause provides a complete statutory defense during Central Bank examinations, proves institutional governance integrity, and eliminates exposure to statutory fine liabilities.`;
+    } else if (status === 'PARTIALLY_MET') {
+      whatHappened = `Statute demands "${stat.obligationSummary}" under ${stat.legalCitation}. Internal policy references this domain in Section ${match?.sectionNumber} ("${match?.clauseText.slice(0, 100)}..."), but diverges on specific Nigerian supervisory parameters, timeline cut-offs, or mandatory reporting escalations.`;
+      whatToKnow = `Regulatory authorities enforce strict liability on procedural timelines under ${stat.sectionReference}. Bank examiners routinely penalize institutions where high-level policy intent is documented but operational SLAs (e.g. ${stat.statutoryTimelineDays ? `${stat.statutoryTimelineDays} days` : 'statutory timelines'}) and mandatory disclosure triggers are omitted.`;
+      whatHasChanged = `Operational SLA divergence. Internal policy Section ${match?.sectionNumber} establishes general compliance intent but lacks specific statutory reporting triggers, automated audit trail retention, and formal Board Risk Committee reporting mechanisms.`;
+      whatToDo = `Targeted Harmonization Playbook:\n1. Update Section ${match?.sectionNumber} to incorporate statutory timelines (${stat.statutoryTimelineDays ? `${stat.statutoryTimelineDays} calendar days` : 'as prescribed'}) and mandatory disclosure requirements.\n2. Establish automated incident notification to the Compliance Unit within 24 hours of any threshold breach.\n3. Conduct bi-annual compliance audit testing operational adherence to the amended standard.`;
+      derivedInsight = `Harmonizing Section ${match?.sectionNumber} eliminates regulatory ambiguity, converts an operational finding into verified compliance, and prevents administrative remediation orders.`;
+    } else {
+      whatHappened = `Internal policy Section ${match?.sectionNumber} fully satisfies the statutory mandates of ${stat.sectionReference} under ${stat.legalCitation}. Operational procedures, verification baselines, and reporting controls are adequately aligned with current regulatory expectations.`;
+      whatToKnow = `Verified compliance baseline. The institution maintains defensible internal controls satisfying the requirements of ${stat.legalCitation}. Ongoing monitoring is required to ensure staff execution adheres strictly to documented procedures.`;
+      whatHasChanged = `Concordance confirmed. No material divergence detected between internal guidelines and current statutory enactments.`;
+      whatToDo = `Sustained Monitoring Protocol:\n1. Maintain current operational controls and verify annual compliance testing.\n2. Ensure staff training and onboarding documentation remain updated with Section ${match?.sectionNumber}.\n3. Archive annual audit certificates in the compliance evidence vault.`;
+      derivedInsight = `Institutional policy represents best-in-class regulatory concordance. Full audit defense documented and ready for supervisory inspection.`;
+    }
+
+    const draftReplacementPolicyLanguage = match
+      ? `Section ${match.sectionNumber}.1 (Harmonized Regulatory Control): Pursuant to ${stat.sectionReference} of ${stat.legalCitation}, the institution shall mandatorily enforce: "${stat.obligationSummary}". Operational and business units shall maintain strict procedural concordance, execute required reconciliations within ${stat.statutoryTimelineDays ? `${stat.statutoryTimelineDays} calendar days` : 'statutory windows'}, and preserve immutable, tamper-evident audit logs for examination by the Chief Compliance Officer and visiting regulatory inspectors.`
+      : `Section 4.1.0 (Mandatory Governance & Supervisory Control): In accordance with statutory directives issued under ${stat.sectionReference} of ${stat.legalCitation}, the institution mandates that: "${stat.obligationSummary}". Operating teams must enforce dual-authorization controls, maintain real-time monitoring logs, and provide quarterly assurance certificates to the Board Risk Committee certifying 100% operational conformity.`;
+
     return {
       regulatoryClauseReference: stat.sectionReference,
       matchedPolicySection: match ? match.sectionNumber : null,
-      matchedPolicyText: match ? match.clauseText.slice(0, 150) : null,
+      matchedPolicyText: match ? match.clauseText.slice(0, 180) : null,
       suggestedStatus: status,
-      whatHappened: `Statute requires ${stat.obligationSummary}. Internal policy ${match ? `mentions "${match.clauseText.slice(0, 80)}..."` : 'completely omits this requirement'}.`,
-      whatToKnow: `Enforced under ${stat.legalCitation}. Nigerian regulatory authorities conduct annual supervisory audits testing this specific control.`,
-      whatHasChanged: match
-        ? `Internal procedures diverge on statutory reporting window or required disclosures.`
-        : `Complete omission of mandatory operational procedure. Zero controls detected in company policy manual.`,
-      whatToDo: `Chief Compliance Officer must sponsor proposed policy amendment: "The institution shall strictly comply with ${stat.sectionReference} under ${stat.legalCitation}."`,
-      draftReplacementPolicyLanguage: match
-        ? `Section ${match.sectionNumber}.1 (Amended Control): The institution shall strictly enforce ${stat.sectionReference} pursuant to ${stat.legalCitation}. All operational units must adhere to mandatory reporting windows (${stat.statutoryTimelineDays ? `${stat.statutoryTimelineDays} calendar days` : 'as prescribed'}) and submit quarterly assurance certificates to the Chief Compliance Officer.`
-        : `Section 4.1.0 (New Mandatory Governance Control): Pursuant to ${stat.sectionReference} of ${stat.legalCitation}, the institution mandates that ${stat.obligationSummary}. Prior executive approval, dual-custody verification, and immutable audit logs shall be strictly maintained by the Compliance Unit.`,
-      derivedInsight: `Rectifying this gap eliminates exposure to statutory fines and provides defense during CBN on-site examinations.`,
+      whatHappened,
+      whatToKnow,
+      whatHasChanged,
+      whatToDo,
+      draftReplacementPolicyLanguage,
+      derivedInsight,
       responsibleRole: 'Chief Compliance Officer',
       statutoryRemediationTimelineDays: stat.statutoryTimelineDays || 30,
     };

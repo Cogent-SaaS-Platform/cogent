@@ -100,8 +100,24 @@ export const VERIFIED_REGULATORY_SOURCES: RegulatorySourceDefinition[] = [
     description: 'Apex financial intelligence unit monitoring AML/CFT suspicious transaction reporting and counter-terrorism financing.',
   },
 
+  {
+    id: 'src-ndic-ng',
+    code: 'NDIC',
+    name: 'Nigeria Deposit Insurance Corporation',
+    category: 'APEX_REGULATOR',
+    jurisdiction: 'NG',
+    officialUrl: 'https://ndic.gov.ng',
+    feedUrl: 'https://ndic.gov.ng',
+    adapterType: 'HTML_SCRAPER',
+    isActive: true,
+    pollingFrequencyHours: 4,
+    trustScore: 1.0,
+    tags: ['deposit_insurance', 'bank_resolution', 'liquidation', 'prudential'],
+    description: 'Statutory deposit insurer, protecting depositors and supervising insured institutions.',
+  },
+
   // ─────────────────────────────────────────────────────────────────────────────
-  // 2. CROSS-BORDER PAN-AFRICAN REGULATORS
+  // 2. CROSS-BORDER PAN-AFRICAN REGULATORS (Deactivated for Beta Focus)
   // ─────────────────────────────────────────────────────────────────────────────
   {
     id: 'src-bog-gh',
@@ -112,7 +128,7 @@ export const VERIFIED_REGULATORY_SOURCES: RegulatorySourceDefinition[] = [
     officialUrl: 'https://www.bog.gov.gh',
     feedUrl: 'https://www.bog.gov.gh/notice/',
     adapterType: 'HTML_SCRAPER',
-    isActive: true,
+    isActive: false,
     pollingFrequencyHours: 3,
     trustScore: 1.0,
     tags: ['ghana_payments', 'cross_border', 'mobile_money', 'cedi_rails'],
@@ -127,7 +143,7 @@ export const VERIFIED_REGULATORY_SOURCES: RegulatorySourceDefinition[] = [
     officialUrl: 'https://www.centralbank.go.ke',
     feedUrl: 'https://www.centralbank.go.ke/policy-procedures/circulars/',
     adapterType: 'HTML_SCRAPER',
-    isActive: true,
+    isActive: false,
     pollingFrequencyHours: 3,
     trustScore: 1.0,
     tags: ['kenya_fintech', 'digital_credit_providers', 'national_payment_system'],
@@ -142,7 +158,7 @@ export const VERIFIED_REGULATORY_SOURCES: RegulatorySourceDefinition[] = [
     officialUrl: 'https://www.fsca.co.za',
     feedUrl: 'https://www.fsca.co.za/Regulatory-Frameworks/Pages/Regulatory-Actions.aspx',
     adapterType: 'HTML_SCRAPER',
-    isActive: true,
+    isActive: false,
     pollingFrequencyHours: 4,
     trustScore: 1.0,
     tags: ['south_africa', 'crypto_casp', 'fais_act', 'conduct_standards'],
@@ -157,7 +173,7 @@ export const VERIFIED_REGULATORY_SOURCES: RegulatorySourceDefinition[] = [
     officialUrl: 'https://www.bceao.int',
     feedUrl: 'https://www.bceao.int/fr/publications/circulaires',
     adapterType: 'HTML_SCRAPER',
-    isActive: true,
+    isActive: false,
     pollingFrequencyHours: 6,
     trustScore: 0.95,
     tags: ['waemu_corridor', 'uemoa_fintech', 'cfa_payments'],
@@ -206,7 +222,7 @@ export const VERIFIED_REGULATORY_SOURCES: RegulatorySourceDefinition[] = [
     officialUrl: 'https://bowmanslaw.com',
     feedUrl: 'https://bowmanslaw.com/insights/feed/',
     adapterType: 'RSS_FEED',
-    isActive: true,
+    isActive: false,
     pollingFrequencyHours: 6,
     trustScore: 0.92,
     tags: ['cross_border', 'pan_africa_law', 'kenya_ghana_sa', 'taxation'],
@@ -240,7 +256,7 @@ export const VERIFIED_REGULATORY_SOURCES: RegulatorySourceDefinition[] = [
     officialUrl: 'https://techpoint.africa',
     feedUrl: 'https://techpoint.africa/category/fintech/feed/',
     adapterType: 'RSS_FEED',
-    isActive: true,
+    isActive: false,
     pollingFrequencyHours: 2,
     trustScore: 0.88,
     tags: ['fintech_news', 'cbn_directives', 'digital_lending_crackdown'],
@@ -263,7 +279,7 @@ export const VERIFIED_REGULATORY_SOURCES: RegulatorySourceDefinition[] = [
   },
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // 5. SUPRANATIONAL & MULTILATERAL BODIES
+  // 5. SUPRANATIONAL & MULTILATERAL BODIES (Deactivated for Beta Focus)
   // ─────────────────────────────────────────────────────────────────────────────
   {
     id: 'src-fatf-giaba',
@@ -274,7 +290,7 @@ export const VERIFIED_REGULATORY_SOURCES: RegulatorySourceDefinition[] = [
     officialUrl: 'https://www.giaba.org',
     feedUrl: 'https://www.giaba.org/news-and-events/latest-news.html',
     adapterType: 'HTML_SCRAPER',
-    isActive: true,
+    isActive: false,
     pollingFrequencyHours: 12,
     trustScore: 1.0,
     tags: ['fatf_greylist', 'aml_typologies', 'terrorist_financing', 'sanctions'],
@@ -289,7 +305,7 @@ export const VERIFIED_REGULATORY_SOURCES: RegulatorySourceDefinition[] = [
     officialUrl: 'https://au-afcfta.org',
     feedUrl: 'https://au-afcfta.org/news/',
     adapterType: 'HTML_SCRAPER',
-    isActive: true,
+    isActive: false,
     pollingFrequencyHours: 24,
     trustScore: 0.95,
     tags: ['afcfta', 'cross_border_payments', 'papss', 'digital_trade'],
