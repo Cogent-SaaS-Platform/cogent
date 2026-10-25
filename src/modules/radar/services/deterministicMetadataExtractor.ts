@@ -435,32 +435,100 @@ export class DeterministicMetadataExtractor {
     );
   }
 
+  public static generateExecutiveSynthesis(params: {
+    regulatorCode: RegulatorCode;
+    circularNumber: string;
+    subject: string;
+    publicationDate?: string | null;
+    statutoryDeadline?: string | null;
+    targetedLicenseTypes?: LicenseType[];
+    affectedPaymentRails?: PaymentRail[];
+    appliesUniversally?: boolean;
+    rawText?: string;
+  }): {
+    executiveSummary: string;
+    keyPoints: string[];
+    departments: string[];
+  } {
+    const regNames: Record<RegulatorCode, string> = {
+      CBN: 'Central Bank of Nigeria',
+      SEC: 'Securities and Exchange Commission',
+      NFIU: 'Nigerian Financial Intelligence Unit',
+      NDPC: 'Nigeria Data Protection Commission',
+      FCCPC: 'Federal Competition and Consumer Protection Commission',
+      ARCON: 'Advertising Regulatory Council of Nigeria',
+      NDIC: 'Nigeria Deposit Insurance Corporation',
+    };
+
+    const regStatutes: Record<RegulatorCode, string> = {
+      CBN: 'Banks and Other Financial Institutions Act (BOFIA 2020) and Payments System Management Regulations',
+      SEC: 'Investments and Securities Act (ISA 2007) and Rules on Digital Sub-Brokers & VASPs',
+      NFIU: 'Money Laundering (Prevention and Prohibition) Act (MLA 2022) and Terrorism Prevention Act',
+      NDPC: 'Nigeria Data Protection Act (NDPA 2023) and General Application Guidelines',
+      FCCPC: 'Federal Competition and Consumer Protection Act (FCCPA 2018) and Digital Lending Guidelines',
+      ARCON: 'Advertising Regulatory Council of Nigeria Act (ARCON Act 2022) and Nigerian Code of Advertising Practice',
+      NDIC: 'Nigeria Deposit Insurance Corporation Act 2023 and Supervisory Resolution Protocols',
+    };
+
+    const fullRegName = regNames[params.regulatorCode] || params.regulatorCode;
+    const statute = regStatutes[params.regulatorCode] || 'Statutory Supervisory Mandates';
+    const deadlineStr = params.statutoryDeadline
+      ? `Mandatory compliance must be achieved by ${params.statutoryDeadline}, after which supervisory default proceedings and statutory penalties take effect.`
+      : 'Compliance enforcement takes immediate effect upon issuance, with ongoing monitoring of all covered institutional operations.';
+
+    const universalClause = params.appliesUniversally
+      ? 'Universal mandate applying across all licensed financial institutions. '
+      : '';
+
+    const p1 = `On ${params.publicationDate || 'official notice'}, the ${fullRegName} (${params.regulatorCode}) enacted circular directive ${params.circularNumber} concerning '${params.subject}', formally exercising statutory supervisory powers under the ${statute}. ${universalClause}The directive establishes binding standards across all regulated operations to enhance systemic risk controls, eliminate supervisory deficiencies, and ensure institutional alignment with current prudential baselines.`;
+
+    const p2 = `The directive mandates comprehensive operational compliance regarding ${params.subject.toLowerCase()}. Affected licensed institutions must review their internal risk appetite, governance controls, customer onboarding documentation, and automated technical rails. Operating teams are directed to eliminate any policy ambiguity, implement strict access and reporting mechanisms, and ensure total conformity across partner networks and client-facing interfaces.`;
+
+    const p3 = `Failure to conform to the statutory mandates set out in this circular exposes the institution to regulatory sanctions, monetary penalties, administrative escalation, and potential review of operating permissions. ${deadlineStr} Accountable departmental leads are required to execute immediate concordance reviews, compile remediation evidence, and secure executive sign-off.`;
+
+    const executiveSummary = `${p1}\n\n${p2}\n\n${p3}`;
+
+    const keyPoints = [
+      `Formal statutory enactment under ${params.regulatorCode} supervisory authority: Establishes binding operating rules across all licensed entities.`,
+      `Mandatory operational controls and policy concordance: Demands immediate review and update of internal standard operating procedures (SOPs).`,
+      `Enforced reporting & documentation obligations: All records, audit trails, and transactional evidence must be systematically preserved for examination.`,
+      `Supervisory deadline & compliance escalation: Strict enforcement schedule with auto-escalation to the Chief Compliance Officer and Board Risk Committee.`,
+      `Statutory liability & fine exposure: Non-compliance carries progressive daily default fines and administrative remediation orders under applicable Nigerian financial law.`,
+    ];
+
+    const departments = [
+      'COMPLIANCE_LEGAL',
+      'OPERATIONS',
+      'GROWTH_MARKETING',
+      'ENGINEERING_TECH',
+      'TREASURY_FINANCE',
+    ];
+
+    return { executiveSummary, keyPoints, departments };
+  }
+
   private generateDeterministicSummary(params: {
     regulatorCode: RegulatorCode;
     circularNumber: string;
     subject: string;
+    publicationDate?: string | null;
     statutoryDeadline: string | null;
     targetedLicenseTypes: LicenseType[];
     affectedPaymentRails: PaymentRail[];
     appliesUniversally: boolean;
   }): string {
-    const deadlineText = params.statutoryDeadline
-      ? `Mandatory compliance deadline enforced on ${params.statutoryDeadline}.`
-      : 'No statutory calendar deadline specified; subject to general regulatory enforcement.';
+    const synthesis = DeterministicMetadataExtractor.generateExecutiveSynthesis({
+      regulatorCode: params.regulatorCode,
+      circularNumber: params.circularNumber,
+      subject: params.subject,
+      publicationDate: params.publicationDate,
+      statutoryDeadline: params.statutoryDeadline,
+      targetedLicenseTypes: params.targetedLicenseTypes,
+      affectedPaymentRails: params.affectedPaymentRails,
+      appliesUniversally: params.appliesUniversally,
+    });
 
-    const targetingText = params.appliesUniversally
-      ? 'Universal mandate applying across all licensed financial institutions in Nigeria.'
-      : `Targeted at ${
-          params.targetedLicenseTypes.length > 0
-            ? params.targetedLicenseTypes.join(', ')
-            : 'regulated entities'
-        } operating on ${
-          params.affectedPaymentRails.length > 0
-            ? params.affectedPaymentRails.join(', ')
-            : 'electronic transaction rails'
-        }.`;
-
-    return `${params.regulatorCode} issued circular ${params.circularNumber} concerning '${params.subject}'. ${targetingText} ${deadlineText}`;
+    return synthesis.executiveSummary;
   }
 
   private parseDateString(dateStr: string): string | null {

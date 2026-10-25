@@ -2,18 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 
-import { OrganizationSwitcher, UserButton, Show } from '@clerk/nextjs';
-import { ChevronRight, ChevronLeft } from 'lucide-react';
+import { OrganizationSwitcher, SignOutButton, Show } from '@clerk/nextjs';
+import { ChevronRight, ChevronLeft, LogOut, Building2 } from 'lucide-react';
 import {
   OverviewIcon,
   InsightIcon,
   MarketingIcon,
   GapIcon,
   LibraryIcon,
-  AuditIcon,
   SettingsIcon,
 } from './DualStateIcons';
 import { useUserProfile } from '@/shared/hooks/useUserProfile';
@@ -64,20 +62,6 @@ export const COGENT_NAV_ITEMS: NavItemDef[] = [
     subtitle: 'Statutory Corpus',
     href: '/library',
     icon: LibraryIcon,
-  },
-  {
-    key: 'audit',
-    label: 'Audit Ledger',
-    subtitle: 'CAMA 2020 Logs',
-    href: '/audit',
-    icon: AuditIcon,
-  },
-  {
-    key: 'settings',
-    label: 'Settings',
-    subtitle: 'Institutions & Team',
-    href: '/settings',
-    icon: SettingsIcon,
   },
 ];
 
@@ -165,8 +149,8 @@ export function NavigationRail({
         isExpanded ? 'w-60 shadow-xl z-40' : 'w-16 z-30'
       }`}
     >
-      {/* 1. Brand Monogram Header */}
-      <div className="h-16 flex items-center border-b border-[#DDE3EE] px-3.5">
+      {/* 1. Brand Header: lowercase cogent */}
+      <div className={`h-16 flex items-center border-b border-[#DDE3EE] ${isExpanded ? 'px-5' : 'justify-center px-2'}`}>
         <Link
           href="/overview"
           onClick={(e) => {
@@ -175,38 +159,18 @@ export function NavigationRail({
               onNavigateOverride('/overview');
             }
           }}
-          className="flex items-center gap-3 w-full group overflow-hidden"
-          title="Cogent RegTech OS"
+          className={`flex items-center group overflow-hidden ${isExpanded ? 'w-full' : 'justify-center'}`}
+          title="cogent"
         >
-          {/* Original Cogent Platform Icon */}
-          <div className="w-9 h-9 shrink-0 transition-transform group-hover:scale-105">
-            <Image
-              src="/icon.png"
-              alt="Cogent RegTech"
-              width={36}
-              height={36}
-              className="w-9 h-9 rounded-xl object-contain shadow-sm shadow-[#2A4BFF]/25"
-              priority
-            />
-          </div>
-
-
-          {/* Expanded Brand Name */}
-          <div
-            className={`flex flex-col transition-opacity duration-150 ${
-              isExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none w-0'
-            }`}
-          >
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold text-sm tracking-wide text-[#0B0F1A]">COGENT</span>
-              <span className="text-[9px] uppercase font-mono px-1 py-0.2 rounded bg-[#EEF2FF] text-[#2A4BFF] border border-[#C7D2FE] font-semibold">
-                OS
-              </span>
-            </div>
-            <span className="text-[10px] text-[#8D99AE] font-medium truncate">
-              RegTech Nigeria
+          {isExpanded ? (
+            <span className="text-2xl font-bold tracking-tight text-[#0B0F1A] lowercase select-none">
+              cogent
             </span>
-          </div>
+          ) : (
+            <span className="w-10 h-10 flex items-center justify-center text-xl font-bold tracking-tight text-[#0B0F1A] lowercase select-none">
+              c
+            </span>
+          )}
         </Link>
       </div>
 
@@ -267,8 +231,159 @@ export function NavigationRail({
         })}
       </nav>
 
-      {/* 3. Bottom Section: Expand Toggle & Tenancy Controls */}
-      <div className="border-t border-[#DDE3EE] p-2 space-y-2">
+      {/* 3. Bottom Section: Settings, Logout, Tenancy & Collapse Toggle */}
+      <div className="border-t border-[#DDE3EE] p-2 space-y-1">
+        {/* Settings Navigation Item */}
+        <div className="relative group">
+          <Link
+            href="/settings"
+            onClick={(e) => {
+              if (onNavigateOverride) {
+                e.preventDefault();
+                onNavigateOverride('/settings');
+              }
+            }}
+            className={`flex items-center rounded-xl transition-all duration-150 ${
+              isExpanded
+                ? 'px-3 py-2 gap-3'
+                : 'w-11 h-10 mx-auto justify-center'
+            } ${
+              pathname?.startsWith('/settings')
+                ? 'bg-[#EEF2FF] text-[#2A4BFF] font-semibold shadow-xs'
+                : 'text-[#4B5565] hover:text-[#0B0F1A] hover:bg-[#F5F6FA]'
+            }`}
+            aria-label="Settings"
+          >
+            <div className={`shrink-0 transition-colors ${pathname?.startsWith('/settings') ? 'text-[#2A4BFF]' : 'text-[#4B5565] group-hover:text-[#0B0F1A]'}`}>
+              <SettingsIcon isActive={pathname?.startsWith('/settings')} size={19} />
+            </div>
+
+            {isExpanded && (
+              <span className="text-xs font-medium truncate">Settings</span>
+            )}
+          </Link>
+
+          {!isExpanded && (
+            <div
+              role="tooltip"
+              className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1 bg-[#0B0F1A] text-white text-xs font-medium rounded-md shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 z-50 flex flex-col"
+            >
+              <span>Settings</span>
+              <span className="text-[10px] text-[#8D99AE]">Institutions & Team</span>
+            </div>
+          )}
+        </div>
+
+        {/* Logout Item */}
+        <div className="relative group">
+          {isClerkConfigured ? (
+            <Show when="signed-in">
+              <SignOutButton redirectUrl="/login">
+                <button
+                  type="button"
+                  className={`flex items-center rounded-xl transition-all duration-150 w-full ${
+                    isExpanded
+                      ? 'px-3 py-2 gap-3'
+                      : 'w-11 h-10 mx-auto justify-center'
+                  } text-[#4B5565] hover:text-rose-600 hover:bg-rose-50/60`}
+                  aria-label="Logout"
+                >
+                  <div className="shrink-0 transition-colors text-[#4B5565] group-hover:text-rose-600">
+                    <LogOut className="w-5 h-5" />
+                  </div>
+                  {isExpanded && (
+                    <span className="text-xs font-medium truncate">Logout</span>
+                  )}
+                </button>
+              </SignOutButton>
+            </Show>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                window.location.href = '/login';
+              }}
+              className={`flex items-center rounded-xl transition-all duration-150 w-full ${
+                isExpanded
+                  ? 'px-3 py-2 gap-3'
+                  : 'w-11 h-10 mx-auto justify-center'
+              } text-[#4B5565] hover:text-rose-600 hover:bg-rose-50/60`}
+              aria-label="Logout"
+            >
+              <div className="shrink-0 transition-colors text-[#4B5565] group-hover:text-rose-600">
+                <LogOut className="w-5 h-5" />
+              </div>
+              {isExpanded && (
+                <span className="text-xs font-medium truncate">Logout</span>
+              )}
+            </button>
+          )}
+
+          {!isExpanded && (
+            <div
+              role="tooltip"
+              className="absolute left-full top-1/2 -translate-y-1/2 ml-3 px-2.5 py-1 bg-[#0B0F1A] text-white text-xs font-medium rounded-md shadow-lg whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-150 z-50"
+            >
+              Logout
+            </div>
+          )}
+        </div>
+
+        {/* Organization Switcher (Org Icon Only, No UserButton Avatar) */}
+        <div
+          className={`flex items-center transition-all pt-1 border-t border-[#DDE3EE] ${
+            isExpanded ? 'px-1 py-1 justify-start' : 'justify-center py-1'
+          }`}
+        >
+          {isClerkConfigured ? (
+            <Show when="signed-in">
+              <div className="flex items-center w-full overflow-hidden">
+                <OrganizationSwitcher
+                  hidePersonal={true}
+                  appearance={{
+                    elements: {
+                      rootBox: isExpanded
+                        ? 'flex items-center w-full'
+                        : 'flex items-center justify-center w-full',
+                      organizationSwitcherTrigger: isExpanded
+                        ? 'flex items-center gap-2 text-xs text-[#0B0F1A] font-medium w-full py-1.5 px-2 hover:bg-[#F5F6FA] rounded-lg'
+                        : 'p-1 hover:bg-[#F5F6FA] rounded-lg justify-center',
+                      organizationPreviewTextContainer: isExpanded
+                        ? 'truncate text-xs font-medium text-[#0B0F1A]'
+                        : 'hidden',
+                      organizationSwitcherTriggerIcon: isExpanded
+                        ? 'text-[#8D99AE] ml-auto w-4 h-4'
+                        : 'hidden',
+                    },
+                  }}
+                />
+              </div>
+            </Show>
+          ) : (
+            <div
+              className={`flex items-center ${
+                isExpanded ? 'w-full gap-2.5 px-2 py-1.5 rounded-lg hover:bg-[#F5F6FA]' : 'justify-center py-1'
+              }`}
+              title="Organization: Sam Org"
+            >
+              <div className="w-8 h-8 rounded-lg bg-[#EEF2FF] border border-[#C7D2FE] flex items-center justify-center shrink-0 text-[#2A4BFF]">
+                <Building2 className="w-4 h-4" />
+              </div>
+              {isExpanded && (
+                <div className="flex flex-col min-w-0 flex-1 truncate">
+                  <span className="text-xs font-semibold text-[#0B0F1A] truncate">
+                    Sam Org
+                  </span>
+                  <span className="text-[10px] text-[#10B981] font-mono flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
+                    CBN Licensed
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Rail Collapse / Expand Toggle Button */}
         <button
           type="button"
@@ -292,65 +407,6 @@ export function NavigationRail({
             <ChevronRight className="w-4 h-4 text-[#8D99AE]" />
           )}
         </button>
-
-        {/* Clerk Org Switcher / Tenancy Profile */}
-        <div
-          className={`flex items-center transition-all ${
-            isExpanded ? 'px-2 py-1 justify-between gap-2' : 'justify-center py-1'
-          }`}
-        >
-          {isClerkConfigured ? (
-            <Show when="signed-in">
-              <div className="flex items-center gap-2 overflow-hidden">
-                <UserButton
-                  appearance={{
-                    elements: {
-                      userButtonAvatarBox:
-                        'w-8 h-8 ring-1 ring-[#DDE3EE] hover:ring-[#2A4BFF] transition-all',
-                    },
-                  }}
-                />
-                {isExpanded && (
-                  <div className="overflow-hidden">
-                    <OrganizationSwitcher
-                      hidePersonal={true}
-                      appearance={{
-                        elements: {
-                          rootBox: 'flex items-center max-w-[130px]',
-                          organizationSwitcherTrigger:
-                            'text-xs text-[#0B0F1A] font-medium truncate py-1 px-1 hover:bg-[#F5F6FA] rounded',
-                          organizationPreviewTextContainer: 'truncate text-xs',
-                        },
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-            </Show>
-          ) : (
-            <div
-              className={`flex items-center ${
-                isExpanded ? 'w-full gap-2.5 px-1 py-1' : 'justify-center'
-              }`}
-              title="Institution Context: CBN Tier-1 Sandbox"
-            >
-              <div className="w-8 h-8 rounded-full bg-[#EEF2FF] border border-[#C7D2FE] flex items-center justify-center shrink-0 text-[11px] font-bold text-[#2A4BFF]">
-                {roleBadge}
-              </div>
-              {isExpanded && (
-                <div className="flex flex-col min-w-0">
-                  <span className="text-xs font-semibold text-[#0B0F1A] truncate">
-                    {jobTitle || 'Licensed Institution'}
-                  </span>
-                  <span className="text-[10px] text-[#10B981] font-mono flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#10B981]" />
-                    CBN Licensed
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
       </div>
     </aside>
   );

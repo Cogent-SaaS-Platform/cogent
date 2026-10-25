@@ -14,7 +14,7 @@ import {
   AlertOctagon,
   Copy,
   Scale,
-  Sparkles,
+  ShieldCheck,
   RefreshCw,
   Tag,
 } from 'lucide-react';
@@ -246,7 +246,7 @@ export const ClaimsLedgerTab: React.FC<ClaimsLedgerTabProps> = ({
                       onClick={() => onApplyToDraft(claim.approvedText)}
                       className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 px-2.5 py-1 text-xs font-bold transition-colors"
                     >
-                      <Sparkles className="h-3 w-3 text-emerald-600" />
+                      <ShieldCheck className="h-3 w-3 text-emerald-600" />
                       <span>Use in Draft</span>
                     </button>
                   )}

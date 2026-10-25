@@ -20,7 +20,6 @@ import {
   Printer,
   FileText,
   ChevronDown,
-  Sparkles,
   BookOpen,
   Check,
 } from 'lucide-react';

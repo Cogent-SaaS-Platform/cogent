@@ -147,6 +147,19 @@ export interface RadarCircularPresentationCard {
   governanceBriefCeoCro?: string;
   actionItems?: RadarActionItemPresentation[];
   sourceFileUrl?: string;
+  executiveSummary?: string;
+  keyPoints?: string[];
+  departments?: string[];
+  docType?: string;
+  alertType?: 'Actionable' | 'Informative';
+  isStarred?: boolean;
+  severityMatrixCode?: string;
+  importantDates?: Array<{ id: string; label: string; date: string; description: string }>;
+  comments?: Array<{ id: string; author: string; avatar?: string; text: string; timestamp: string }>;
+  auditLogs?: Array<{ id: string; timestamp: string; action: string; author: string }>;
+  workflowStatus?: 'Pending Review' | 'In Progress' | 'Reviewed' | 'Closed';
+  assignee?: { id: string; name: string; avatar?: string } | null;
+  topics?: string[];
 }
 
 export interface RadarActionItemPresentation {

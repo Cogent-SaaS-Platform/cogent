@@ -7,7 +7,6 @@ import {
   Copy,
   Check,
   AlertCircle,
-  Sparkles,
   ArrowRightLeft,
   ShieldCheck,
 } from 'lucide-react';

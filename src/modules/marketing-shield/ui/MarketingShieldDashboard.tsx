@@ -33,9 +33,11 @@ import { MultiPaneContainer } from '@/shared/ui/inspector/MultiPaneContainer';
 import { useInspectorStore } from '@/shared/ui/inspector/inspectorStore';
 import { findingToInspectorItem } from '@/shared/ui/inspector/adapters';
 import { InspectorItemData, StatutoryReferenceData } from '@/shared/ui/inspector/types';
+import { CampaignsOverviewView } from './CampaignsOverviewView';
+import { NewCampaignDrawer } from './NewCampaignDrawer';
+import { CampaignRecord, PRODUCT_CATEGORIES_CATALOG } from '../types';
 import {
   Scale,
-  Sparkles,
   RefreshCw,
   Play,
   FileText,
@@ -575,8 +577,9 @@ export const MarketingShieldDashboard: React.FC<MarketingShieldDashboardProps> =
   onSwitchPillar,
   initialContext,
 }) => {
-  // Navigation & View Mode: Level 1 Table Feed vs Level 2 Workspace
-  const [viewMode, setViewMode] = useState<'workspace' | 'table'>('workspace');
+  // Navigation & View Mode: Zango AI Campaigns Overview vs Dual-Pane Workspace vs Table Feed
+  const [viewMode, setViewMode] = useState<'overview' | 'workspace' | 'table'>('overview');
+  const [isNewCampaignDrawerOpen, setIsNewCampaignDrawerOpen] = useState<boolean>(false);
 
   // Explicit Scan State (Phase 4 requirement: Studio First)
   const [hasCompletedScan, setHasCompletedScan] = useState<boolean>(false);
@@ -614,6 +617,286 @@ export const MarketingShieldDashboard: React.FC<MarketingShieldDashboardProps> =
       attestationNotes: 'Baseline compliant copy. IMTO licensing verified with CBN register.',
     },
   });
+
+  // Zango Lifecycle Campaigns Repository (5 Product Categories across 4 Status Buckets)
+  const [campaigns, setCampaigns] = useState<CampaignRecord[]>([
+    {
+      id: 'camp_1',
+      campaignName: 'PrimeYield 35% APY Wealth Booster',
+      channel: 'SOCIAL_MEDIA_POST',
+      productCategory: 'WEALTHTECH_INVEST',
+      rawCopy: 'Tired of inflation? Invest your Naira in PrimeYield and earn 35% risk-free annual return guaranteed! Your capital is 100% safe and backed by the government. Limited slots available.',
+      targetAudience: 'High-net-worth retail and diaspora investors',
+      status: 'Revision',
+      turnaroundDays: 18,
+      infractionsCount: 2,
+      fineExposureNaira: 7500000,
+      verdict: 'BLOCKING_ISSUE',
+      authorName: 'Clara Ng',
+      authorRole: 'Growth Lead',
+      createdAt: new Date(Date.now() - 3600000 * 5).toISOString(),
+      updatedAt: new Date(Date.now() - 3600000 * 5).toISOString(),
+      relativeTime: '32 minutes ago',
+      bannerImage: '/marketing/wealthtech.jpg',
+      arconRequired: true,
+      viewModel: SCENARIO_B_VIEW_MODEL,
+    },
+    {
+      id: 'camp_2',
+      campaignName: 'QuickKash SMS Flash Promo',
+      channel: 'SMS_BLAST',
+      productCategory: 'DIGITAL_NANO_LOAN',
+      rawCopy: 'Need urgent cash? Get instant loan in 5 mins! No BVN, no collateral, no credit checks. 100% guaranteed approval with zero interest. Apply now at quickkash.ng/flash',
+      targetAudience: 'Retail borrowers seeking seasonal short-term credit',
+      status: 'Review',
+      turnaroundDays: 15,
+      infractionsCount: 3,
+      fineExposureNaira: 11500000,
+      verdict: 'BLOCKING_ISSUE',
+      authorName: 'Gabriele Trevisan',
+      authorRole: 'Marketing Specialist',
+      createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+      updatedAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+      relativeTime: '31 minutes ago',
+      bannerImage: '/marketing/nano_loan.jpg',
+      arconRequired: true,
+      viewModel: SCENARIO_A_VIEW_MODEL,
+    },
+    {
+      id: 'camp_3',
+      campaignName: 'NovaPay Instant Digital Wallet & QR',
+      channel: 'IN_APP_PUSH_NOTIFICATION',
+      productCategory: 'PAYMENTS_WALLET',
+      rawCopy: 'Experience zero-downtime payments with NovaPay. Tap to pay, scan QR, and transfer funds instantly. Licensed by CBN as a Mobile Money Operator. Terms and conditions apply.',
+      targetAudience: 'Active digital wallet users and merchants',
+      status: 'Approved',
+      turnaroundDays: 5,
+      infractionsCount: 0,
+      fineExposureNaira: 0,
+      verdict: 'NO_ISSUE_DETECTED',
+      authorName: 'Alex Chen',
+      authorRole: 'Product Lead',
+      createdAt: new Date(Date.now() - 3600000 * 18).toISOString(),
+      updatedAt: new Date(Date.now() - 3600000 * 18).toISOString(),
+      relativeTime: '2 hours ago',
+      bannerImage: '/marketing/payments.jpg',
+      arconRequired: false,
+    },
+    {
+      id: 'camp_4',
+      campaignName: 'KoraPay Cross-Border Remittance Promo',
+      channel: 'SOCIAL_MEDIA_POST',
+      productCategory: 'REMITTANCE_FX',
+      rawCopy: 'Send money home to Nigeria with KoraPay. Licensed by the Central Bank of Nigeria (CBN) as an International Money Transfer Operator. Transparent exchange rates and zero hidden charges. Terms and statutory fees apply. Visit korapay.ng/terms.',
+      targetAudience: 'Diaspora senders in UK, US, and Europe',
+      status: 'Approved',
+      turnaroundDays: 12,
+      infractionsCount: 0,
+      fineExposureNaira: 0,
+      verdict: 'NO_ISSUE_DETECTED',
+      authorName: 'Rahil Memon',
+      authorRole: 'Operations Director',
+      createdAt: new Date(Date.now() - 3600000 * 24).toISOString(),
+      updatedAt: new Date(Date.now() - 3600000 * 24).toISOString(),
+      relativeTime: '5 hours ago',
+      bannerImage: '/marketing/remittance.jpg',
+      arconRequired: false,
+      viewModel: SCENARIO_C_VIEW_MODEL,
+    },
+    {
+      id: 'camp_5',
+      campaignName: 'SecureVault High-Yield Vault Deposit',
+      channel: 'LANDING_PAGE_WEBSITE',
+      productCategory: 'SAVINGS_DEPOSIT',
+      rawCopy: 'Lock your funds in SecureVault and earn up to 14.5% annual interest. Deposits protected by NDIC statutory deposit insurance framework. Terms & conditions apply.',
+      targetAudience: 'Savers looking for locked deposits',
+      status: 'Draft',
+      turnaroundDays: 20,
+      infractionsCount: 0,
+      fineExposureNaira: 0,
+      verdict: 'NO_ISSUE_DETECTED',
+      authorName: 'Adewale Coker',
+      authorRole: 'Compliance Officer',
+      createdAt: new Date(Date.now() - 3600000 * 48).toISOString(),
+      updatedAt: new Date(Date.now() - 3600000 * 48).toISOString(),
+      relativeTime: '1 day ago',
+      bannerImage: '/marketing/savings.jpg',
+      arconRequired: false,
+    },
+  ]);
+
+  // Handler to open an existing campaign from Zango overview
+  const handleOpenCampaign = (campaign: CampaignRecord) => {
+    setActiveCampaignKey(campaign.id);
+    setCampaignName(campaign.campaignName);
+    setChannel(campaign.channel);
+    setProductCategory(campaign.productCategory);
+    setRawCopy(campaign.rawCopy);
+    setTargetAudience(campaign.targetAudience || '');
+
+    if (campaign.status === 'Draft') {
+      setIsNewCampaignDrawerOpen(true);
+      return;
+    }
+
+    if (campaign.viewModel) {
+      setViewModel(campaign.viewModel);
+    } else {
+      const synthesized = synthesizeClientScan(
+        campaign.campaignName,
+        campaign.rawCopy,
+        campaign.channel,
+        campaign.productCategory
+      );
+      setViewModel(synthesized);
+    }
+    setHasCompletedScan(true);
+    setViewMode('workspace');
+  };
+
+  // Handler to save draft from Drawer
+  const handleSaveDraft = (data: {
+    campaignName: string;
+    productCategory: ProductCategoryCode;
+    channel: MarketingChannel;
+    targetAudience: string;
+    rawCopy: string;
+  }) => {
+    const newDraftId = 'draft_' + Date.now();
+    const meta = PRODUCT_CATEGORIES_CATALOG[data.productCategory];
+    const newDraft: CampaignRecord = {
+      id: newDraftId,
+      campaignName: data.campaignName,
+      channel: data.channel,
+      productCategory: data.productCategory,
+      targetAudience: data.targetAudience,
+      rawCopy: data.rawCopy,
+      status: 'Draft',
+      turnaroundDays: 20,
+      infractionsCount: 0,
+      fineExposureNaira: 0,
+      verdict: 'NO_ISSUE_DETECTED',
+      authorName: 'Alex Marco',
+      authorRole: 'Compliance Analyst',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      relativeTime: 'Just now',
+      bannerImage: meta.bannerImage,
+      arconRequired: false,
+    };
+
+    setCampaigns((prev) => [newDraft, ...prev]);
+    setIsNewCampaignDrawerOpen(false);
+  };
+
+  // Handler to run scan directly from Drawer
+  const handleRunScanFromDrawer = async (data: {
+    campaignName: string;
+    productCategory: ProductCategoryCode;
+    channel: MarketingChannel;
+    targetAudience: string;
+    rawCopy: string;
+  }) => {
+    setCampaignName(data.campaignName);
+    setProductCategory(data.productCategory);
+    setChannel(data.channel);
+    setTargetAudience(data.targetAudience);
+    setRawCopy(data.rawCopy);
+
+    setIsScanning(true);
+    setScanError(null);
+
+    try {
+      const res = await fetch('/api/marketing/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          campaignName: data.campaignName,
+          channel: data.channel,
+          productCategory: data.productCategory,
+          rawCopy: data.rawCopy,
+          targetAudience: data.targetAudience || undefined,
+        }),
+      });
+
+      const json = await res.json();
+      let liveVm: MarketingShieldViewModel;
+
+      if (res.ok && json.success && json.data) {
+        liveVm = json.data;
+      } else {
+        liveVm = synthesizeClientScan(data.campaignName, data.rawCopy, data.channel, data.productCategory);
+      }
+
+      const newKey = 'scan_' + Date.now();
+      setActiveCampaignKey(newKey);
+      setViewModel(liveVm);
+      setHasCompletedScan(true);
+
+      const meta = PRODUCT_CATEGORIES_CATALOG[data.productCategory];
+      const newRecord: CampaignRecord = {
+        id: newKey,
+        campaignName: data.campaignName,
+        channel: data.channel,
+        productCategory: data.productCategory,
+        targetAudience: data.targetAudience,
+        rawCopy: data.rawCopy,
+        status: liveVm.verdict === 'BLOCKING_ISSUE' ? 'Revision' : 'Review',
+        turnaroundDays: 14,
+        infractionsCount: liveVm.findings.length,
+        fineExposureNaira: liveVm.deterministicPenaltyTotalNaira,
+        verdict: liveVm.verdict,
+        authorName: 'Alex Marco',
+        authorRole: 'Compliance Lead',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        relativeTime: 'Just now',
+        bannerImage: meta.bannerImage,
+        arconRequired: liveVm.arconPreclearanceRequired,
+        viewModel: liveVm,
+      };
+
+      setCampaigns((prev) => [newRecord, ...prev]);
+      setIsNewCampaignDrawerOpen(false);
+      setViewMode('workspace');
+    } catch (err: unknown) {
+      console.warn('Scan API fallback trigger:', err);
+      const liveVm = synthesizeClientScan(data.campaignName, data.rawCopy, data.channel, data.productCategory);
+      const newKey = 'scan_' + Date.now();
+      setActiveCampaignKey(newKey);
+      setViewModel(liveVm);
+      setHasCompletedScan(true);
+
+      const meta = PRODUCT_CATEGORIES_CATALOG[data.productCategory];
+      const newRecord: CampaignRecord = {
+        id: newKey,
+        campaignName: data.campaignName,
+        channel: data.channel,
+        productCategory: data.productCategory,
+        targetAudience: data.targetAudience,
+        rawCopy: data.rawCopy,
+        status: liveVm.verdict === 'BLOCKING_ISSUE' ? 'Revision' : 'Review',
+        turnaroundDays: 14,
+        infractionsCount: liveVm.findings.length,
+        fineExposureNaira: liveVm.deterministicPenaltyTotalNaira,
+        verdict: liveVm.verdict,
+        authorName: 'Alex Marco',
+        authorRole: 'Compliance Lead',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        relativeTime: 'Just now',
+        bannerImage: meta.bannerImage,
+        arconRequired: liveVm.arconPreclearanceRequired,
+        viewModel: liveVm,
+      };
+
+      setCampaigns((prev) => [newRecord, ...prev]);
+      setIsNewCampaignDrawerOpen(false);
+      setViewMode('workspace');
+    } finally {
+      setIsScanning(false);
+    }
+  };
 
   // Level 1 Feed Inventory
   const [assetRecords, setAssetRecords] = useState<PromotionalAssetRecord[]>([
@@ -747,6 +1030,31 @@ export const MarketingShieldDashboard: React.FC<MarketingShieldDashboardProps> =
           viewModel: liveVm,
         };
         setAssetRecords((prev) => [newRecord, ...prev]);
+
+        // Add to Campaigns state
+        const meta = PRODUCT_CATEGORIES_CATALOG[productCategory];
+        const newCampRecord: CampaignRecord = {
+          id: newCampaignKey,
+          campaignName: liveVm.title || effectiveTitle,
+          channel,
+          productCategory,
+          targetAudience,
+          rawCopy: rawCopy.trim(),
+          status: liveVm.verdict === 'BLOCKING_ISSUE' ? 'Revision' : 'Review',
+          turnaroundDays: 14,
+          infractionsCount: liveVm.findings.length,
+          fineExposureNaira: liveVm.deterministicPenaltyTotalNaira,
+          verdict: liveVm.verdict,
+          authorName: 'Alex Marco',
+          authorRole: 'Compliance Lead',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          relativeTime: 'Just now',
+          bannerImage: meta.bannerImage,
+          arconRequired: liveVm.arconPreclearanceRequired,
+          viewModel: liveVm,
+        };
+        setCampaigns((prev) => [newCampRecord, ...prev]);
         return;
       }
 
@@ -1049,151 +1357,166 @@ export const MarketingShieldDashboard: React.FC<MarketingShieldDashboardProps> =
       activeReference={activeReference}
     >
       <div className="min-h-screen bg-[#F5F6FA] text-[#0B0F1A] font-sans pb-16">
-        {/* ──────────────────────────────────────────────────────────────────────────
-            TOP COMMAND BAR & SPATIAL BREADCRUMB (Zango AI Reference)
-            ────────────────────────────────────────────────────────────────────────── */}
-        <header className="sticky top-0 z-30 border-b border-[#DDE3EE] bg-white/95 backdrop-blur-md">
-          <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
-            {/* Breadcrumb Lineage */}
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2 text-xs">
-                <button
-                  onClick={() => setViewMode('table')}
-                  className="text-[#4B5565] hover:text-[#0B0F1A] font-medium transition-colors"
-                >
-                  Marketing Shield
-                </button>
-                <ChevronRight className="h-3.5 w-3.5 text-[#8D99AE]" />
-                <span className="font-semibold text-[#0B0F1A] truncate max-w-[200px] sm:max-w-xs">
-                  {viewMode === 'workspace'
-                    ? (hasCompletedScan ? (viewModel.title || 'Campaign Pre-Vetting Report') : 'Campaign Input Studio')
-                    : 'Promotional Assets Scanning Feed'}
-                </span>
-              </div>
-            </div>
+        {viewMode === 'overview' ? (
+          <main className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8">
+            <CampaignsOverviewView
+              campaigns={campaigns}
+              onOpenCampaign={handleOpenCampaign}
+              onNewCampaignClick={() => {
+                handleResetStudio();
+                setIsNewCampaignDrawerOpen(true);
+              }}
+            />
+          </main>
+        ) : (
+          <>
+            {/* ──────────────────────────────────────────────────────────────────────────
+                TOP COMMAND BAR & SPATIAL BREADCRUMB (Zango AI Reference)
+                ────────────────────────────────────────────────────────────────────────── */}
+            <header className="sticky top-0 z-30 border-b border-[#DDE3EE] bg-white/95 backdrop-blur-md">
+              <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
+                {/* Breadcrumb Lineage */}
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setViewMode('overview')}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 transition-colors cursor-pointer"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                    <span>Back to Marketing Overview</span>
+                  </button>
+                  <ChevronRight className="h-3.5 w-3.5 text-[#8D99AE]" />
+                  <span className="font-semibold text-xs text-[#0B0F1A] truncate max-w-[200px] sm:max-w-xs">
+                    {viewMode === 'workspace'
+                      ? (hasCompletedScan ? (viewModel.title || 'Campaign Pre-Vetting Report') : 'Campaign Input Studio')
+                      : 'Promotional Assets Scanning Feed'}
+                  </span>
+                </div>
 
-            {/* View Mode Switcher & Tools */}
-            <div className="flex items-center gap-3">
-              {/* Level 1 Feed vs Level 2 Workspace Toggle */}
-              <div className="flex items-center bg-[#F5F6FA] border border-[#DDE3EE] rounded-xl p-0.5 text-xs shadow-xs">
-                <button
-                  onClick={() => setViewMode('workspace')}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                    viewMode === 'workspace'
-                      ? 'bg-white text-[#2A4BFF] shadow-xs'
-                      : 'text-[#4B5565] hover:text-[#0B0F1A]'
-                  }`}
-                >
-                  <LayoutGrid className="w-3.5 h-3.5" />
-                  <span>{hasCompletedScan ? 'Audit Workspace' : 'Input Studio'}</span>
-                </button>
-                <button
-                  onClick={() => setViewMode('table')}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
-                    viewMode === 'table'
-                      ? 'bg-white text-[#2A4BFF] shadow-xs'
-                      : 'text-[#4B5565] hover:text-[#0B0F1A]'
-                  }`}
-                >
-                  <TableIcon className="w-3.5 h-3.5" />
-                  <span>Assets Feed ({assetRecords.length})</span>
-                </button>
-              </div>
-
-              {/* If a scan has completed, show Export Dossier and Start New Campaign buttons */}
-              {hasCompletedScan && viewMode === 'workspace' && (
-                <>
-                  {/* Export Dossier Dropdown */}
-                  <div className="relative">
-                    <div className="hidden sm:inline-flex rounded-xl shadow-xs">
-                      <button
-                        disabled={isExporting}
-                        onClick={() => handleExportDossier('markdown')}
-                        className="inline-flex items-center gap-1.5 rounded-l-xl border border-[#DDE3EE] bg-white px-3 py-1.5 text-xs font-semibold text-[#0B0F1A] hover:bg-[#F9FAFC] transition-all disabled:opacity-50"
-                      >
-                        <Download className="h-3.5 w-3.5 text-[#2A4BFF]" />
-                        <span>{isExporting ? 'Exporting...' : 'Export ARCON Pack'}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowExportMenu(!showExportMenu)}
-                        className="inline-flex items-center rounded-r-xl border border-l-0 border-[#DDE3EE] bg-white px-2 py-1.5 text-xs font-semibold text-[#0B0F1A] hover:bg-[#F9FAFC] transition-all"
-                      >
-                        <ChevronDown className="h-3.5 w-3.5 text-[#4B5565]" />
-                      </button>
-                    </div>
-
-                    {showExportMenu && (
-                      <div className="absolute right-0 mt-2 w-64 rounded-xl border border-[#DDE3EE] bg-white p-1.5 shadow-xl z-50">
-                        <div className="px-2.5 py-1 text-[11px] font-bold text-[#8D99AE] uppercase tracking-wider">
-                          Statutory Clearance Formats
-                        </div>
-                        <button
-                          onClick={() => {
-                            setShowExportMenu(false);
-                            handleExportDossier('pdf');
-                          }}
-                          className="w-full text-left flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-xs hover:bg-[#F5F6FA] transition-colors group"
-                        >
-                          <Printer className="h-4 w-4 text-red-600 mt-0.5" />
-                          <div>
-                            <div className="font-semibold text-[#0B0F1A] group-hover:text-[#2A4BFF]">
-                              Export as PDF (Form ARCON-PV1)
-                            </div>
-                            <div className="text-[11px] text-[#4B5565]">
-                              Official printable dossier with seal & citations
-                            </div>
-                          </div>
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            setShowExportMenu(false);
-                            handleExportDossier('markdown');
-                          }}
-                          className="w-full text-left flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-xs hover:bg-[#F5F6FA] transition-colors group"
-                        >
-                          <FileText className="h-4 w-4 text-[#2A4BFF] mt-0.5" />
-                          <div>
-                            <div className="font-semibold text-[#0B0F1A] group-hover:text-[#2A4BFF]">
-                              Export as Markdown (.md)
-                            </div>
-                            <div className="text-[11px] text-[#4B5565]">
-                              Audit-ready Markdown dossier with SHA-256 seal
-                            </div>
-                          </div>
-                        </button>
-                      </div>
-                    )}
+                {/* View Mode Switcher & Tools */}
+                <div className="flex items-center gap-3">
+                  {/* Level 1 Feed vs Level 2 Workspace Toggle */}
+                  <div className="flex items-center bg-[#F5F6FA] border border-[#DDE3EE] rounded-xl p-0.5 text-xs shadow-xs">
+                    <button
+                      onClick={() => setViewMode('workspace')}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                        viewMode === 'workspace'
+                          ? 'bg-white text-slate-900 shadow-xs'
+                          : 'text-[#4B5565] hover:text-[#0B0F1A]'
+                      }`}
+                    >
+                      <LayoutGrid className="w-3.5 h-3.5" />
+                      <span>{hasCompletedScan ? 'Audit Workspace' : 'Input Studio'}</span>
+                    </button>
+                    <button
+                      onClick={() => setViewMode('table')}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                        viewMode === 'table'
+                          ? 'bg-white text-slate-900 shadow-xs'
+                          : 'text-[#4B5565] hover:text-[#0B0F1A]'
+                      }`}
+                    >
+                      <TableIcon className="w-3.5 h-3.5" />
+                      <span>Assets Feed ({assetRecords.length})</span>
+                    </button>
                   </div>
 
-                  {/* Start New Campaign / Clear & Reset Button */}
-                  <button
-                    onClick={handleResetStudio}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-[#DDE3EE] bg-white hover:bg-[#F9FAFC] text-[#0B0F1A] px-3.5 py-1.5 text-xs font-semibold shadow-xs transition-all cursor-pointer"
-                  >
-                    <Plus className="h-3.5 w-3.5 text-[#2A4BFF]" />
-                    <span>Start New Campaign</span>
-                  </button>
-                </>
-              )}
+                  {/* If a scan has completed, show Export Dossier and Start New Campaign buttons */}
+                  {hasCompletedScan && viewMode === 'workspace' && (
+                    <>
+                      {/* Export Dossier Dropdown */}
+                      <div className="relative">
+                        <div className="hidden sm:inline-flex rounded-xl shadow-xs">
+                          <button
+                            disabled={isExporting}
+                            onClick={() => handleExportDossier('markdown')}
+                            className="inline-flex items-center gap-1.5 rounded-l-xl border border-[#DDE3EE] bg-white px-3 py-1.5 text-xs font-semibold text-[#0B0F1A] hover:bg-[#F9FAFC] transition-all disabled:opacity-50"
+                          >
+                            <Download className="h-3.5 w-3.5 text-[#2A4BFF]" />
+                            <span>{isExporting ? 'Exporting...' : 'Export ARCON Pack'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowExportMenu(!showExportMenu)}
+                            className="inline-flex items-center rounded-r-xl border border-l-0 border-[#DDE3EE] bg-white px-2 py-1.5 text-xs font-semibold text-[#0B0F1A] hover:bg-[#F9FAFC] transition-all"
+                          >
+                            <ChevronDown className="h-3.5 w-3.5 text-[#4B5565]" />
+                          </button>
+                        </div>
 
-              {/* In Table view, offer Scan New Asset */}
-              {viewMode === 'table' && (
-                <button
-                  onClick={() => {
-                    handleResetStudio();
-                    setViewMode('workspace');
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#2A4BFF] hover:bg-[#203ECC] text-white px-3.5 py-1.5 text-xs font-semibold shadow-xs transition-all cursor-pointer"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  <span>Scan New Asset</span>
-                </button>
-              )}
-            </div>
-          </div>
-        </header>
+                        {showExportMenu && (
+                          <div className="absolute right-0 mt-2 w-64 rounded-xl border border-[#DDE3EE] bg-white p-1.5 shadow-xl z-50">
+                            <div className="px-2.5 py-1 text-[11px] font-bold text-[#8D99AE] uppercase tracking-wider">
+                              Statutory Clearance Formats
+                            </div>
+                            <button
+                              onClick={() => {
+                                setShowExportMenu(false);
+                                handleExportDossier('pdf');
+                              }}
+                              className="w-full text-left flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-xs hover:bg-[#F5F6FA] transition-colors group"
+                            >
+                              <Printer className="h-4 w-4 text-red-600 mt-0.5" />
+                              <div>
+                                <div className="font-semibold text-[#0B0F1A] group-hover:text-[#2A4BFF]">
+                                  Export as PDF (Form ARCON-PV1)
+                                </div>
+                                <div className="text-[11px] text-[#4B5565]">
+                                  Official printable dossier with seal & citations
+                                </div>
+                              </div>
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setShowExportMenu(false);
+                                handleExportDossier('markdown');
+                              }}
+                              className="w-full text-left flex items-start gap-2.5 rounded-lg px-2.5 py-2 text-xs hover:bg-[#F5F6FA] transition-colors group"
+                            >
+                              <FileText className="h-4 w-4 text-[#2A4BFF] mt-0.5" />
+                              <div>
+                                <div className="font-semibold text-[#0B0F1A] group-hover:text-[#2A4BFF]">
+                                  Export as Markdown (.md)
+                                </div>
+                                <div className="text-[11px] text-[#4B5565]">
+                                  Audit-ready Markdown dossier with SHA-256 seal
+                                </div>
+                              </div>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Start New Campaign / Clear & Reset Button */}
+                      <button
+                        onClick={() => {
+                          handleResetStudio();
+                          setIsNewCampaignDrawerOpen(true);
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-1.5 text-xs font-medium shadow-xs transition-all cursor-pointer"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        <span>+ Campaign</span>
+                      </button>
+                    </>
+                  )}
+
+                  {/* In Table view, offer Scan New Asset */}
+                  {viewMode === 'table' && (
+                    <button
+                      onClick={() => {
+                        handleResetStudio();
+                        setIsNewCampaignDrawerOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-1.5 text-xs font-medium shadow-xs transition-all cursor-pointer"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      <span>+ Campaign</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </header>
 
         {/* ──────────────────────────────────────────────────────────────────────────
             BODY CONTENT: SWITCHES BETWEEN LEVEL 1 TABLE FEED & LEVEL 2 WORKSPACE
@@ -1412,7 +1735,7 @@ export const MarketingShieldDashboard: React.FC<MarketingShieldDashboardProps> =
                               </>
                             ) : (
                               <>
-                                <Sparkles className="h-4 w-4 fill-current group-hover:scale-110 transition-transform" />
+                                <ShieldCheck className="h-4 w-4 fill-current group-hover:scale-110 transition-transform" />
                                 <span>Run Pre-Vet Scan</span>
                               </>
                             )}
@@ -1655,6 +1978,22 @@ export const MarketingShieldDashboard: React.FC<MarketingShieldDashboardProps> =
                           status: record.status,
                         },
                       }));
+                      setCampaigns((prev) =>
+                        prev.map((c) => {
+                          if (c.id === key) {
+                            return {
+                              ...c,
+                              status:
+                                record.status === 'APPROVED_BY_CCO' || record.status === 'MODIFIED_AND_APPROVED'
+                                  ? 'Approved'
+                                  : record.status === 'REJECTED' || record.status === 'NEEDS_RE_REVIEW'
+                                  ? 'Revision'
+                                  : 'Review',
+                            };
+                          }
+                          return c;
+                        })
+                      );
                     }}
                     onExportDossier={handleExportDossier}
                     isExporting={isExporting}
@@ -1697,7 +2036,19 @@ export const MarketingShieldDashboard: React.FC<MarketingShieldDashboardProps> =
             </div>
           )}
         </main>
-      </div>
-    </MultiPaneContainer>
-  );
+      </>
+    )}
+
+    {/* Global Zango + Campaign Drawer */}
+    <NewCampaignDrawer
+      isOpen={isNewCampaignDrawerOpen}
+      onClose={() => setIsNewCampaignDrawerOpen(false)}
+      onSaveDraft={handleSaveDraft}
+      onRunScan={handleRunScanFromDrawer}
+      isScanning={isScanning}
+      scanError={scanError}
+    />
+  </div>
+</MultiPaneContainer>
+);
 };

@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  Sparkles,
+  ShieldCheck,
   Bold,
   Italic,
   Underline,
@@ -25,7 +25,6 @@ import {
   Type,
   FileText,
   Sliders,
-  ShieldCheck,
   ShieldAlert,
 } from 'lucide-react';
 import { FindingPresentationCard } from '@/shared/types/presentation';
@@ -248,7 +247,7 @@ export const CampaignCopyEditor: React.FC<CampaignCopyEditorProps> = ({
                   </>
                 ) : (
                   <>
-                    <Sparkles className="h-3.5 w-3.5" />
+                    <ShieldCheck className="h-3.5 w-3.5" />
                     <span>Pre-Vet Scan</span>
                   </>
                 )}
@@ -491,7 +490,7 @@ export const CampaignCopyEditor: React.FC<CampaignCopyEditorProps> = ({
                 onClick={() => setShowAssistantMenu(!showAssistantMenu)}
                 className="inline-flex items-center gap-1.5 text-xs font-bold text-white hover:text-[#2A4BFF] pr-2 border-r border-[#2A3447]"
               >
-                <Sparkles className="h-3.5 w-3.5 text-[#2A4BFF]" />
+                <ShieldCheck className="h-3.5 w-3.5 text-[#2A4BFF]" />
                 <span>Assistant</span>
                 <ChevronDown className="h-3 w-3 text-[#8D99AE]" />
               </button>
@@ -541,7 +540,7 @@ export const CampaignCopyEditor: React.FC<CampaignCopyEditorProps> = ({
                   onClick={handleApplyQuickCure}
                   className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 text-xs font-semibold shadow-xs transition-colors"
                 >
-                  <Sparkles className="h-3 w-3" />
+                  <ShieldCheck className="h-3 w-3" />
                   <span>Cure Violation</span>
                 </button>
 
@@ -587,7 +586,7 @@ export const CampaignCopyEditor: React.FC<CampaignCopyEditorProps> = ({
                   onClick={handleApplyQuickCure}
                   className="inline-flex items-center gap-1 text-[11px] text-purple-300 hover:text-purple-200 font-semibold px-1"
                 >
-                  <Sparkles className="h-3 w-3" />
+                  <ShieldCheck className="h-3 w-3" />
                   <span>Pre-Vet Wording</span>
                 </button>
               </div>

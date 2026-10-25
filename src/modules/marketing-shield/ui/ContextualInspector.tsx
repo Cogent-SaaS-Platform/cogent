@@ -18,7 +18,6 @@ import {
   ChevronLeft,
   FileText,
   Lock,
-  Sparkles,
   ShieldCheck,
 } from 'lucide-react';
 import { PlatformPillar, CrossPillarLinkContext } from '@/shared/types';
@@ -192,7 +191,7 @@ export const ContextualInspector: React.FC<ContextualInspectorProps> = ({
               <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4 space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="text-[11px] uppercase tracking-wider text-emerald-800 font-bold flex items-center gap-1.5">
-                    <Sparkles className="h-3.5 w-3.5 text-emerald-600" />
+                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
                     <span>Compliant Substitute Wording</span>
                   </div>
                   {onApplyFix && (

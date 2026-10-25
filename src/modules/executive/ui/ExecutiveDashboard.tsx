@@ -46,6 +46,8 @@ import {
   CrossPillarActivityItem,
   ExecutiveComplianceExportResult,
 } from '../types';
+import { UpcomingDeadlinesTimeline } from './UpcomingDeadlinesTimeline';
+import { RegulatoryPressureStrip } from './RegulatoryPressureStrip';
 
 export interface ExecutiveDashboardProps {
   onSwitchPillar?: (pillar: PlatformPillar, context?: CrossPillarLinkContext) => void;
@@ -184,355 +186,70 @@ export function ExecutiveDashboard({
 
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto text-[#0B0F1A]">
-      {/* 1. Cockpit Header Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 md:p-5 rounded-2xl border border-[#DDE3EE] shadow-xs">
-        <div className="space-y-1">
-          <h1 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">
-            Executive Command Center & Board Attestation
+      {/* 1. Page Title Bar: Compliance Overview (Zango Style) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+            Compliance Overview
           </h1>
-          <p className="text-xs text-slate-500">
-            Unified supervisory intelligence across 7 Nigerian financial regulators with connected cascade telemetry.
-          </p>
         </div>
 
-        {/* Top Actions */}
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <button
-            id="btn-orchestrate-cascade"
-            onClick={() => setIsSimulatorOpen(true)}
-            className="btn-base btn-secondary btn-sm gap-1.5"
-            title="Open Interactive Cascade Orchestration Simulator"
-          >
-            <Zap className="w-3.5 h-3.5 text-slate-600" />
-            <span>Simulate Cascade</span>
-          </button>
+        <div className="flex items-center gap-3">
+          {/* Entity Group Selector */}
+          <div className="relative">
+            <select
+              aria-label="Select Entity Group"
+              className="appearance-none bg-white border border-slate-200 rounded-lg px-3 py-1.5 pr-8 text-xs font-semibold text-slate-800 hover:border-slate-300 focus:outline-hidden focus:ring-1 focus:ring-slate-400 shadow-2xs cursor-pointer"
+              defaultValue="All Entities"
+            >
+              <option value="All Entities">Entity Group</option>
+              <option value="Commercial Banking Group">Commercial Banking Group</option>
+              <option value="Fintech & Digital Rails">Fintech & Digital Rails</option>
+              <option value="Asset Management & Trust">Asset Management & Trust</option>
+            </select>
+            <ChevronRight className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 rotate-90 pointer-events-none" />
+          </div>
 
-          <button
-            id="btn-export-board-brief"
-            onClick={handleExportBrief}
-            className="btn-base btn-primary btn-sm gap-1.5 shadow-xs"
-            title="Generate Board Audit Committee Briefing"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Board Attestation</span>
-          </button>
+          {/* Dynamic Sync Timestamp */}
+          <span className="text-xs text-slate-500 font-mono">
+            Updated {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} · {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+          </span>
 
           <button
             onClick={fetchOverview}
             disabled={isLoading}
-            className="p-2 text-slate-500 hover:text-slate-900 bg-white hover:bg-slate-50 rounded-xl border border-slate-200 transition-colors"
+            className="p-1.5 text-slate-500 hover:text-slate-900 bg-white hover:bg-slate-50 rounded-lg border border-slate-200 transition-colors shadow-2xs"
             title="Refresh Telemetry"
             aria-label="Refresh telemetry"
           >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-slate-600' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-slate-600' : ''}`} />
           </button>
         </div>
       </div>
 
-      {/* 4. Imminent Statutory Compliance Gates */}
-      <section className="rounded-2xl bg-white border border-[#DDE3EE] p-5 shadow-xs space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <Clock className="w-4 h-4 text-[#EF4444]" />
-            <h2 className="text-sm font-bold text-[#0B0F1A] uppercase tracking-wider">
-              Imminent Statutory Compliance Deadlines & Action Gates
-            </h2>
-          </div>
-          <span className="text-[11px] text-[#4B5565] font-medium">
-            Enforced countdowns with auto-escalation
-          </span>
-        </div>
+      {/* 2. Upcoming Deadlines Interactive Timeline (Zango Style) */}
+      <UpcomingDeadlinesTimeline
+        gates={data?.urgentGates}
+        onInspectGate={(gate) =>
+          handleNavigate(
+            gate.sourcePillar === 'radar'
+              ? '/insight'
+              : gate.sourcePillar === 'gap-matrix'
+              ? '/gap'
+              : '/marketing',
+            gate.linkContext.targetPillar,
+            gate.linkContext
+          )
+        }
+      />
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {(data?.urgentGates || []).map((gate) => {
-            const isCritical = gate.daysRemaining <= 7;
-            const isUrgent = gate.daysRemaining <= 14;
-
-            return (
-              <div
-                key={gate.id}
-                className={`p-4 rounded-xl border flex flex-col justify-between transition-all ${
-                  isCritical
-                    ? 'bg-[#FEF2F2] border-[#FECACA]'
-                    : isUrgent
-                    ? 'bg-[#FFFBEB] border-[#FDE68A]'
-                    : 'bg-[#F9FAFC] border-[#DDE3EE]'
-                }`}
-              >
-                <div className="space-y-2.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold px-2 py-0.5 rounded bg-[#0B0F1A] text-white text-[11px]">
-                      {gate.regulatorCode}
-                    </span>
-                    <span
-                      className={`font-mono font-bold flex items-center gap-1 ${
-                        isCritical
-                          ? 'text-[#991B1B]'
-                          : isUrgent
-                          ? 'text-[#92400E]'
-                          : 'text-[#4B5565]'
-                      }`}
-                    >
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>{gate.daysRemaining}d remaining</span>
-                    </span>
-                  </div>
-
-                  <h3 className="text-xs font-bold text-[#0B0F1A] leading-snug line-clamp-2">
-                    {gate.title}
-                  </h3>
-
-                  <p className="text-[11px] text-[#4B5565] leading-relaxed">
-                    {gate.actionRequired}
-                  </p>
-                </div>
-
-                <button
-                  onClick={() =>
-                    handleNavigate(
-                      gate.sourcePillar === 'radar'
-                        ? '/insight'
-                        : gate.sourcePillar === 'gap-matrix'
-                        ? '/gap'
-                        : '/marketing',
-                      gate.linkContext.targetPillar,
-                      gate.linkContext
-                    )
-                  }
-                  className="mt-3.5 w-full flex items-center justify-between px-3 py-1.5 rounded-lg bg-white border border-[#DDE3EE] hover:border-[#2A4BFF] hover:text-[#2A4BFF] text-[11px] font-semibold text-[#0B0F1A] transition-colors shadow-2xs"
-                >
-                  <span>
-                    Inspect in{' '}
-                    {gate.sourcePillar === 'radar'
-                      ? 'Insight'
-                      : gate.sourcePillar === 'gap-matrix'
-                      ? 'Gap Matrix'
-                      : 'Marketing Shield'}
-                  </span>
-                  <ChevronRight className="w-3.5 h-3.5 text-[#2A4BFF]" />
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* 5. Tabbed Supervisory Deep-Dive Section (settingg.webp & notic.webp style) */}
-      <section className="rounded-2xl bg-white border border-[#DDE3EE] p-5 shadow-xs space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#DDE3EE] pb-4">
-          <div className="flex items-center gap-2">
-            <Layers className="w-4 h-4 text-[#2A4BFF]" />
-            <h2 className="text-sm font-bold text-[#0B0F1A] uppercase tracking-wider">
-              Supervisory Vector Breakdown
-            </h2>
-          </div>
-
-          {/* Segmented Pill Tabs */}
-          <div className="flex items-center bg-[#F1F3F7] p-1 rounded-full text-xs self-start sm:self-auto">
-            <button
-              onClick={() => setActiveTab('REGULATORS')}
-              className={`px-3.5 py-1 rounded-full font-semibold transition-all ${
-                activeTab === 'REGULATORS'
-                  ? 'bg-white text-[#0B0F1A] shadow-xs'
-                  : 'text-[#4B5565] hover:text-[#0B0F1A]'
-              }`}
-            >
-              7 Regulators Radar
-            </button>
-            <button
-              onClick={() => setActiveTab('DEPARTMENTS')}
-              className={`px-3.5 py-1 rounded-full font-semibold transition-all ${
-                activeTab === 'DEPARTMENTS'
-                  ? 'bg-white text-[#0B0F1A] shadow-xs'
-                  : 'text-[#4B5565] hover:text-[#0B0F1A]'
-              }`}
-            >
-              Department Risk Heatmap
-            </button>
-            <button
-              onClick={() => setActiveTab('AUDIT_FEED')}
-              className={`px-3.5 py-1 rounded-full font-semibold transition-all ${
-                activeTab === 'AUDIT_FEED'
-                  ? 'bg-white text-[#0B0F1A] shadow-xs'
-                  : 'text-[#4B5565] hover:text-[#0B0F1A]'
-              }`}
-            >
-              Cryptographic Audit Stream
-            </button>
-          </div>
-        </div>
-
-        {/* TAB 1: 7 Nigerian Regulators Enforcement Radar */}
-        {activeTab === 'REGULATORS' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {(data?.regulatorCoverage || []).map((reg) => (
-              <div
-                key={reg.regulatorCode}
-                className="p-4 rounded-xl bg-[#F9FAFC] border border-[#DDE3EE] hover:border-[#2A4BFF] transition-all flex flex-col justify-between space-y-3"
-              >
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold px-2 py-0.5 rounded bg-[#0B0F1A] text-white">
-                      {reg.regulatorCode}
-                    </span>
-                    <span className="text-xs font-bold text-[#10B981] flex items-center gap-1 font-mono">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981]" />
-                      {reg.complianceRate}%
-                    </span>
-                  </div>
-
-                  <div>
-                    <h3 className="text-xs font-bold text-[#0B0F1A] leading-snug truncate">
-                      {reg.regulatorName}
-                    </h3>
-                    <p className="text-[11px] text-[#4B5565] mt-1 line-clamp-2">
-                      {reg.keyStatute}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-[#E8EDF5] flex items-center justify-between text-xs">
-                  <span className="text-[#8D99AE] text-[11px] font-mono">
-                    {reg.activeInstrumentsCount} Instruments
-                  </span>
-                  <button
-                    onClick={() =>
-                      handleNavigate('/insight', 'radar', {
-                        targetPillar: 'radar',
-                        regulatorCode: reg.regulatorCode,
-                      })
-                    }
-                    className="text-[#2A4BFF] hover:underline font-semibold text-xs flex items-center gap-1"
-                  >
-                    <span>Filter</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* TAB 2: Departmental Risk Heatmap */}
-        {activeTab === 'DEPARTMENTS' && (
-          <div className="cogent-table-container overflow-x-auto">
-            <table className="cogent-table">
-              <thead>
-                <tr>
-                  <th>Internal Department</th>
-                  <th>Supervisory Risk</th>
-                  <th>Open Obligations</th>
-                  <th>Imminent Deadlines</th>
-                  <th>Fines Avoided</th>
-                  <th>Accountable Lead Role</th>
-                  <th className="text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(data?.departmentalReadiness || []).map((dept) => (
-                  <tr key={dept.department}>
-                    <td className="font-semibold text-[#0B0F1A]">
-                      {dept.departmentLabel}
-                    </td>
-                    <td>
-                      <span
-                        className={`px-2 py-0.5 rounded font-bold text-[10px] ${
-                          dept.overallRisk === 'CRITICAL'
-                            ? 'bg-[#FEF2F2] text-[#991B1B] border border-[#FECACA]'
-                            : dept.overallRisk === 'HIGH'
-                            ? 'bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A]'
-                            : dept.overallRisk === 'MEDIUM'
-                            ? 'bg-[#EEF2FF] text-[#1E40AF] border border-[#C7D2FE]'
-                            : 'bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0]'
-                        }`}
-                      >
-                        {dept.overallRisk} RISK
-                      </span>
-                    </td>
-                    <td className="font-mono text-[#4B5565]">{dept.openObligationsCount} Items</td>
-                    <td>
-                      {dept.imminentDeadlinesCount > 0 ? (
-                        <span className="font-bold text-[#EF4444] font-mono">{dept.imminentDeadlinesCount} Urgent</span>
-                      ) : (
-                        <span className="text-[#8D99AE] font-mono">0</span>
-                      )}
-                    </td>
-                    <td className="font-mono font-bold text-[#10B981]">
-                      {dept.finesAvoidedNaira > 0 ? `₦${(dept.finesAvoidedNaira / 1_000_000).toFixed(1)}M` : '—'}
-                    </td>
-                    <td className="text-[#4B5565]">{dept.leadRole}</td>
-                    <td className="text-right">
-                      <button
-                        onClick={() =>
-                          handleNavigate('/gap', 'gap-matrix', {
-                            targetPillar: 'gap-matrix',
-                            searchTerm: dept.departmentLabel,
-                          })
-                        }
-                        className="text-xs font-semibold text-[#2A4BFF] hover:underline"
-                      >
-                        Trace in 5-W →
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* TAB 3: Cryptographic Audit Stream */}
-        {activeTab === 'AUDIT_FEED' && (
-          <div className="space-y-3">
-            {(data?.recentActivities || []).map((act) => (
-              <div
-                key={act.id}
-                className="p-4 rounded-xl bg-[#F9FAFC] border border-[#DDE3EE] flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-[#EEF2FF] border border-[#C7D2FE] flex items-center justify-center text-[#2A4BFF] shrink-0 mt-0.5">
-                    <Lock className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-[#0B0F1A]">{act.action}</span>
-                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-white text-[#8D99AE] border border-[#DDE3EE]">
-                        {act.timestamp}
-                      </span>
-                      <span className="text-[10px] font-bold text-[#2A4BFF] uppercase">
-                        [{act.sourcePillar}]
-                      </span>
-                    </div>
-                    <p className="text-xs text-[#4B5565] mt-1">{act.description}</p>
-                    <div className="text-[10px] font-mono text-[#8D99AE] mt-1 flex items-center gap-1.5">
-                      <span>CAMA 2020 SHA-256:</span>
-                      <span className="text-[#4B5565] truncate max-w-xs">{act.sha256VerificationHash}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() =>
-                    handleNavigate(
-                      act.sourcePillar === 'radar'
-                        ? '/insight'
-                        : act.sourcePillar === 'gap-matrix'
-                        ? '/gap'
-                        : '/marketing',
-                      act.linkContext.targetPillar,
-                      act.linkContext
-                    )
-                  }
-                  className="self-end sm:self-center shrink-0 btn-base btn-secondary btn-xs gap-1"
-                >
-                  <span>View Record</span>
-                  <ExternalLink className="w-3 h-3 text-[#2A4BFF]" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+      {/* 3. Regulatory Pressure Strip (Zango Style: Trending Topics + Most Impacted Policies) */}
+      <RegulatoryPressureStrip
+        telemetry={data?.liveTelemetry}
+        regulators={data?.regulatorCoverage}
+        onSelectTopic={(topic) => router.push('/insight')}
+        onSelectPolicy={(policyName) => router.push('/gap')}
+      />
 
       {/* MODAL 1: Interactive Cascade Orchestration Simulator */}
       {isSimulatorOpen && (

@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
-    const tenantCtx = await getTenantContext();
+    const tenantCtx = await getTenantContext({ allowDevFallback: true });
     const db = tenantCtx.dbClient;
     const { searchParams } = new URL(req.url);
 

@@ -366,6 +366,13 @@ export class ClauseSegmentationEngine {
       textLower.includes('cease-and-desist') ||
       textLower.includes('disconnection');
 
+    // Synthesize an actionable statutory requirement summary instead of raw heading
+    const firstSentence = text.split(/(?<=[.?!])\s+/)[0]?.trim() || text.trim();
+    const cleanFirstSentence = firstSentence.replace(/^[\d\.\-\s]+/, '').trim();
+    const obligationSummary = cleanFirstSentence.length >= 25
+      ? (cleanFirstSentence.length > 220 ? cleanFirstSentence.substring(0, 220) + '...' : cleanFirstSentence)
+      : `${heading}: Mandatory statutory compliance requirement under ${regulatorCode} Directive ${circularNumber}. The institution must implement operational controls to ensure complete conformity.`;
+
     return {
       sectionReference: reference,
       sectionHeading: heading,
@@ -375,7 +382,7 @@ export class ClauseSegmentationEngine {
       obligations: [
         {
           obligationType,
-          summary: heading,
+          summary: obligationSummary,
           severityFloor,
           statutoryTimelineDays,
           targetRole,

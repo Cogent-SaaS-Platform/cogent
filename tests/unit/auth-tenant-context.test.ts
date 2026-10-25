@@ -79,6 +79,13 @@ describe('Cogent Enterprise Auth & Tenancy Subsystem', () => {
       }
       if (table === 'organization_memberships' || table === 'tenant_licenses' || table === 'tenant_payment_rails') {
         return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+              }),
+            }),
+          }),
           upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
           insert: vi.fn().mockResolvedValue({ data: null, error: null }),
         };

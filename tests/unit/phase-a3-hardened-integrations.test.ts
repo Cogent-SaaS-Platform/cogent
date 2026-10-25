@@ -169,23 +169,24 @@ describe('Phase A3: Live Integration & Security Hardening Verification', () => {
       });
     });
 
-    it('propagates Inngest network exceptions on dispatch failure', async () => {
+    it('executes resilient in-process workflow fallback on Inngest network exception', async () => {
       vi.spyOn(inngest, 'send').mockRejectedValueOnce(
         new Error('Inngest Cloud Unreachable')
       );
 
-      await expect(
-        inngestDispatcher.send({
-          name: 'radar/circular.ingested',
-          data: {
-            circularId: 'circ-err',
-            circularNumber: 'ERR/01',
-            storagePath: 'path/err.pdf',
-            sourceFileHash: 'hash',
-            regulator: 'SEC',
-          },
-        })
-      ).rejects.toThrow('Inngest Cloud Unreachable');
+      const result = await inngestDispatcher.send({
+        name: 'radar/circular.ingested',
+        data: {
+          circularId: 'circ-err',
+          circularNumber: 'ERR/01',
+          storagePath: 'path/err.pdf',
+          sourceFileHash: 'hash',
+          regulator: 'SEC',
+        },
+      });
+
+      expect(result.status).toBe('DISPATCHED');
+      expect(result.eventId).toContain('in_process_');
     });
   });
 

@@ -9,6 +9,8 @@ Welcome to the Cogent system documentation repository. This directory contains t
 
 **Every engineer and AI pair programmer must consult these documents before authoring code, modifying database schemas, or writing prompts.**
 
+> 🚀 **CURRENT REDESIGN SPRINT**: See [**`PHASE_ZANGO_REDESIGN_HANDOVER_GUIDE.md`**](file:///c:/Users/Alex%20Marco/Documents/Cogent/docs/PHASE_ZANGO_REDESIGN_HANDOVER_GUIDE.md) for the active Zango RegTech redesign constitution, completed modules, and next steps for new chat sessions.
+
 ---
 
 ## 1. System Constitution & Foundation Documents (v1.1)

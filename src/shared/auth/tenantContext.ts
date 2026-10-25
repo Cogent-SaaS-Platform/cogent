@@ -203,7 +203,9 @@ export async function getTenantContext(options?: TenantContextOptions): Promise<
       return context;
     } catch (err: unknown) {
       if (err instanceof UnauthorizedError || err instanceof ForbiddenError || err instanceof ConfigurationError) {
-        throw err;
+        if (!options?.allowDevFallback || process.env.NODE_ENV === 'production') {
+          throw err;
+        }
       }
       if (process.env.NODE_ENV === 'production' || options?.allowDevFallback === false) {
         throw new UnauthorizedError(

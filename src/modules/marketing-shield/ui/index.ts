@@ -9,4 +9,7 @@ export * from './CcoGovernanceBlock';
 export * from './ClaimsLedgerTab';
 export * from './DriftWatcherTab';
 export * from './CampaignCopyEditor';
+export * from './CampaignsOverviewView';
+export * from './NewCampaignDrawer';
 export * from './MarketingShieldDashboard';
+export * from '../types';
