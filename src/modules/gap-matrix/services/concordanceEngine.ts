@@ -31,6 +31,13 @@ export interface ClauseConcordancePair {
   carriesPersonalCriminalLiability: boolean;
   carriesLicenseSuspensionRisk: boolean;
   divergenceNotes?: string;
+  obligationId?: string | null;
+  statutoryQuote?: string | null;
+  policyEvidenceQuote?: string | null;
+  characterSpanStart?: number | null;
+  characterSpanEnd?: number | null;
+  complianceCriteria?: string[] | null;
+  assessment?: string | null;
 }
 
 export interface ConcordanceRunResult {
@@ -43,8 +50,8 @@ export interface ConcordanceRunResult {
 }
 
 /**
- * 3-Tier Clause-by-Clause Statutory Concordance Engine (Pillar 3.3)
- * Evaluates tenant internal policies clause-by-clause against verified Nigerian statutory baselines.
+ * 3-Tier Clause-by-Clause Statutory Concordance Engine (Pillar 3.3 & Phase 3 Epic 2)
+ * Evaluates tenant internal policies clause-by-clause and obligation-by-obligation against verified Nigerian statutory baselines.
  * Uses hybrid vector + keyword matching to classify each obligation into the 3 statutory tiers:
  *   - ADEQUATELY_MET: Satisfies all statutory mandates, windows, and reporting thresholds.
  *   - PARTIALLY_MET: Addresses general intent but diverges on timelines, thresholds, or board approvals.
@@ -77,7 +84,7 @@ export class ConcordanceEngine {
   }
 
   /**
-   * Executes clause-by-clause concordance evaluation across all statutory benchmark clauses
+   * Executes clause-by-clause concordance evaluation across all statutory benchmark clauses and obligations
    */
   public async evaluateConcordance(input: ConcordanceEvaluationInput): Promise<ConcordanceRunResult> {
     const {
@@ -111,73 +118,96 @@ export class ConcordanceEngine {
     let partiallyMetDetected = 0;
     let adequatelyMetDetected = 0;
 
-    // 2. Clause-by-clause matching and statutory classification
+    // 2. Obligation-level matching and statutory classification
     for (const statClause of statutoryClauses) {
-      const obligation = statClause.obligations[0];
-      const penalty = obligation?.penalties[0];
+      const obligationsToEvaluate = statClause.obligations.length > 0
+        ? statClause.obligations
+        : [
+            {
+              obligationId: 'ob-default',
+              obligationType: 'GENERAL_COMPLIANCE',
+              summary: statClause.clauseText.slice(0, 150),
+              severityFloor: 'HIGH' as const,
+              statutoryTimelineDays: null,
+              mandatoryDisclosureText: null,
+              verbatimQuote: statClause.clauseText,
+              penalties: [],
+            },
+          ];
 
-      // Hybrid vector search in tenant's policy_clauses
-      const queryText = `${statClause.sectionHeading}: ${statClause.clauseText}`;
-      const searchMatches = await this.vectorIndexService.searchSimilarClauses({
-        organizationId,
-        policyId,
-        queryText,
-        matchThreshold: 0.15,
-        matchCount: 3,
-      });
+      for (const obligation of obligationsToEvaluate) {
+        const penalty = obligation.penalties?.[0];
 
-      const topMatch = searchMatches.length > 0 ? searchMatches[0] : null;
+        // Hybrid vector search in tenant's policy_clauses
+        const queryText = `${statClause.sectionHeading}: ${obligation.summary || obligation.verbatimQuote || statClause.clauseText}`;
+        const searchMatches = await this.vectorIndexService.searchSimilarClauses({
+          organizationId,
+          policyId,
+          queryText,
+          matchThreshold: 0.15,
+          matchCount: 3,
+        });
 
-      // 3. Classify into the 3 strict statutory tiers
-      const classification = this.classifyComplianceTier(statClause, topMatch);
+        const topMatch = searchMatches.length > 0 ? searchMatches[0] : null;
 
-      if (classification === 'CRITICAL_GAP') {
-        criticalGapsDetected++;
-      } else if (classification === 'PARTIALLY_MET') {
-        partiallyMetDetected++;
-      } else {
-        adequatelyMetDetected++;
+        // 3. Classify into the 3 strict statutory tiers
+        const classification = this.classifyComplianceTier(statClause, topMatch, obligation);
+
+        if (classification === 'CRITICAL_GAP') {
+          criticalGapsDetected++;
+        } else if (classification === 'PARTIALLY_MET') {
+          partiallyMetDetected++;
+        } else {
+          adequatelyMetDetected++;
+        }
+
+        const statutoryPenaltyNaira = penalty ? penalty.penaltyMaxNaira : 0;
+        const statutoryLegalCitation = penalty?.penaltyLegalCitation || 'BOFIA 2020';
+        const carriesPersonalCriminalLiability = penalty?.carriesPersonalCriminalLiability || false;
+        const carriesLicenseSuspensionRisk = penalty?.carriesLicenseSuspensionRisk || false;
+
+        pairs.push({
+          statutoryClause: statClause,
+          matchedInternalClause: topMatch,
+          hybridScore: topMatch ? topMatch.similarity : 0,
+          initialClassification: classification,
+          statutoryPenaltyNaira,
+          statutoryLegalCitation,
+          carriesPersonalCriminalLiability,
+          carriesLicenseSuspensionRisk,
+          obligationId: obligation.obligationId || null,
+          statutoryQuote: obligation.verbatimQuote || statClause.clauseText,
+          policyEvidenceQuote: topMatch ? topMatch.clauseText : null,
+          characterSpanStart: obligation.characterSpanStart ?? null,
+          characterSpanEnd: obligation.characterSpanEnd ?? null,
+          complianceCriteria: obligation.complianceCriteria ?? null,
+          assessment: obligation.assessment ?? null,
+        });
+
+        promptPairs.push({
+          statutoryClause: {
+            sectionReference: statClause.sectionReference,
+            sectionHeading: statClause.sectionHeading,
+            clauseText: statClause.clauseText,
+            obligationSummary: obligation ? obligation.summary : 'Statutory compliance obligation',
+            severity: obligation ? obligation.severityFloor : 'HIGH',
+            statutoryTimelineDays: obligation?.statutoryTimelineDays || null,
+            mandatoryDisclosure: obligation?.mandatoryDisclosureText || null,
+            legalCitation: statutoryLegalCitation,
+          },
+          matchedInternalClause: topMatch
+            ? {
+                sectionNumber: topMatch.sectionNumber,
+                clauseText: topMatch.clauseText,
+                similarity: topMatch.similarity,
+              }
+            : null,
+          policyTitle,
+          department,
+          benchmarkTitle,
+          issuingRegulator,
+        });
       }
-
-      const statutoryPenaltyNaira = penalty ? penalty.penaltyMaxNaira : 0;
-      const statutoryLegalCitation = penalty?.penaltyLegalCitation || 'BOFIA 2020';
-      const carriesPersonalCriminalLiability = penalty?.carriesPersonalCriminalLiability || false;
-      const carriesLicenseSuspensionRisk = penalty?.carriesLicenseSuspensionRisk || false;
-
-      pairs.push({
-        statutoryClause: statClause,
-        matchedInternalClause: topMatch,
-        hybridScore: topMatch ? topMatch.similarity : 0,
-        initialClassification: classification,
-        statutoryPenaltyNaira,
-        statutoryLegalCitation,
-        carriesPersonalCriminalLiability,
-        carriesLicenseSuspensionRisk,
-      });
-
-      promptPairs.push({
-        statutoryClause: {
-          sectionReference: statClause.sectionReference,
-          sectionHeading: statClause.sectionHeading,
-          clauseText: statClause.clauseText,
-          obligationSummary: obligation ? obligation.summary : 'Statutory compliance obligation',
-          severity: obligation ? obligation.severityFloor : 'HIGH',
-          statutoryTimelineDays: obligation?.statutoryTimelineDays || null,
-          mandatoryDisclosure: obligation?.mandatoryDisclosureText || null,
-          legalCitation: statutoryLegalCitation,
-        },
-        matchedInternalClause: topMatch
-          ? {
-              sectionNumber: topMatch.sectionNumber,
-              clauseText: topMatch.clauseText,
-              similarity: topMatch.similarity,
-            }
-          : null,
-        policyTitle,
-        department,
-        benchmarkTitle,
-        issuingRegulator,
-      });
     }
 
     logger.info(
@@ -205,14 +235,15 @@ export class ConcordanceEngine {
    */
   public classifyComplianceTier(
     statutoryClause: StatutoryClauseWithObligations,
-    match: PolicyClauseMatch | null
+    match: PolicyClauseMatch | null,
+    obligationContext?: any
   ): ComplianceStatus {
     if (!match || match.similarity < 0.25) {
       return 'CRITICAL_GAP';
     }
 
     // Generalized statutory timeline compliance check
-    const obligation = statutoryClause.obligations[0];
+    const obligation = obligationContext || statutoryClause.obligations[0];
     const statutoryDays = obligation?.statutoryTimelineDays;
     if (statutoryDays && statutoryDays > 0) {
       const policyDaysMatch = match.clauseText.match(/(\d+)\s*(?:business\s*|calendar\s*|working\s*)?days/i);

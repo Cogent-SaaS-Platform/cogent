@@ -9,6 +9,7 @@ import {
   RadarRoleImpactOutput,
   RadarRoleImpactOutputSchema,
   RadarActionItemOutput,
+  ValidatedObligation,
 } from '../types/schema';
 
 export interface RoleSynthesisInput {
@@ -22,6 +23,7 @@ export interface RoleSynthesisInput {
     rawText?: string;
     sections?: Array<{ sectionNumber: string; heading: string; content: string }>;
     schedules?: Array<{ scheduleTitle: string; headers: string[]; rows: string[][] }>;
+    obligations?: ValidatedObligation[];
   };
   tenant: {
     organizationId: string;
@@ -48,9 +50,9 @@ export interface RoleSynthesisResult {
 }
 
 /**
- * Multi-Role Impact Synthesis Service (Epic 12 / Task 12.1)
- * Generates distinct role-tailored executive briefs (COO, CCO, Product/Eng, CFO)
- * and action items with departmental ownership.
+ * Multi-Role Impact Synthesis Service (Epic 12 / Task 12.1 & Phase 3 Epic 1)
+ * Generates distinct role-tailored executive briefs (General Counsel, CCO, Product/Eng, CTO, CFO, COO, CEO/CRO)
+ * and action items derived dynamically from extracted statutory obligations.
  */
 export class RoleSynthesisService {
   private aiEngine: AiEngine;
@@ -84,17 +86,34 @@ export class RoleSynthesisService {
       )
       .join('\n\n');
 
+    const obligationsSummary = (circular.obligations || [])
+      .map(
+        (obl, idx) =>
+          `[Obligation ${idx + 1} (${obl.clauseReference || 'Ref'})]:\n` +
+          `- Mandate: "${obl.actor}" shall "${obl.action}" "${obl.object}"\n` +
+          `- Verbatim Anchor: "${obl.verbatimQuote}"\n` +
+          `- Type: ${obl.obligationType} | Severity: ${obl.severityFloor}\n` +
+          `- Statutory Timeline: ${obl.deadline || (obl.statutoryTimelineDays ? `${obl.statutoryTimelineDays} days` : 'Immediate')}\n` +
+          `- Penalty Citation: ${obl.statedPenalty ? `Max ₦${obl.statedPenalty.maxNaira.toLocaleString('en-NG')}, Daily ₦${obl.statedPenalty.dailyFineNaira.toLocaleString('en-NG')}, License Risk: ${obl.statedPenalty.carriesLicenseSuspensionRisk}, Citation: ${obl.statedPenalty.citation}` : 'None explicitly stated in text'}\n` +
+          `- Applicable Licenses/Rails: ${obl.targetedLicenses.join(', ') || 'All'} / ${obl.affectedRails.join(', ') || 'All'}\n` +
+          `- Compliance Criteria: ${(obl.complianceCriteria || []).join('; ') || 'Standard adherence'}\n` +
+          `- Assessment: ${obl.assessment || 'Deterministic regulatory mandate'}`
+      )
+      .join('\n\n');
+
     const systemInstruction = `You are Cogent's Senior Regulatory Counsel and FinTech Operations Architect specializing in Nigerian financial regulations (CBN, SEC, NDIC, ARCON, NDPC, FCCPC, NFIU).
-Your task is to analyze an official regulatory circular for a regulated Nigerian financial institution and synthesize 4 distinct, high-impact role briefings plus an actionable checklist.
+Your task is to analyze an official regulatory circular for a regulated Nigerian financial institution and synthesize distinct, high-impact role briefings plus an actionable checklist.
 
 Rules:
 1. Tone must be calm, precise, authoritative, and operational (like a premier regulatory memo).
 2. Avoid generic AI fluff, hype, or emotional language.
-3. Every role brief must focus strictly on that executive's domain:
-   - executiveBriefCco (CCO / Legal): Statutory mandates, mandatory filings, penalty exposures, board reporting, license risk.
-   - financialBriefCfo (CFO / Finance): Capital reserve requirements, fiscal penalties, balance sheet liquidity, fee margin caps.
-   - technicalBriefProductEng / technicalBriefCto (CTO / Engineering): System architecture, API specifications, database migrations, audit log changes, 2FA/auth limits.
-   - actionBriefCoo / governanceBriefCeoCro (CEO / CRO / COO): Enterprise governance, systemic exposure, operational continuity, partner bank uptime, settlement cut-offs.
+3. Every role brief must focus strictly on that executive's domain, directly anchored to the statutory obligations:
+   - generalCounselBrief (General Counsel / Legal): Statutory baseline & constitutional/statutory power (e.g., BOFIA 2020 § 57, NDPA 2023 § 24), exact citations, aggregate penalty exposure, licensing implications, precedent conflicts.
+   - executiveBriefCco (Chief Compliance Officer): Direct regulatory reporting obligations, statutory inspection triggers, compliance criteria checklist, board reporting.
+   - technicalBriefProductEng / technicalBriefCto (CTO / Head of Engineering): System architecture, API specifications, payload validation schemas, webhook timeouts, KYC validation rails, data residency, encryption (AES-256 / TLS 1.3), tamper-evident audit logging (6-year retention).
+   - financialBriefCfo (CFO / Finance): Balance sheet liquidity, capital reserve ratios, statutory levies, daily compounding fines (per day/transaction), compliance budget impact.
+   - actionBriefCoo (COO / Operations): Operational workflows on active rails (NIP, POS, USSD), customer onboarding turnaround, clearing cut-offs (T+1 10:00 WAT), settlement account balance monitoring, partner bank SLAs.
+   - governanceBriefCeoCro (CEO / CRO): Enterprise governance, systemic exposure, board risk oversight, supervisory examination defense.
 4. actionChecklist: Generate 3 to 6 concrete, actionable tasks assigned to appropriate departments (EXECUTIVE_LEADERSHIP, COMPLIANCE_LEGAL, PRODUCT_MANAGEMENT, ENGINEERING_TECH, OPERATIONS, TREASURY_FINANCE) with suggested completion dates based on the statutory deadline.
 5. Zero monetary penalty hallucinations: do not invent arbitrary fine numbers. Cite statutory sections for penalties.`;
 
@@ -111,6 +130,9 @@ TENANT INSTITUTIONAL CONTEXT:
 - Matched Licenses: ${tenant.matchedLicenses.join(', ') || 'None'}
 - Matched Payment Rails: ${tenant.matchedRails.join(', ') || 'None'}
 - Applicability Reason: ${tenant.applicabilityReason}
+
+STATUTORY OBLIGATIONS & ANCHORED QUOTES:
+${obligationsSummary || 'None provided in structured format'}
 
 DOCUMENT SECTIONS:
 ${sectionsSummary || circular.rawText?.slice(0, 2000) || 'None provided'}
@@ -208,6 +230,144 @@ Generate the structured role briefings and action checklist.`;
       ? tenant.matchedRails.join(', ')
       : 'clearing and settlement rails';
 
+    const suggestedDeadline = circular.statutoryDeadline || new Date().toISOString().slice(0, 10);
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // OBLIGATION-DRIVEN SYNTHESIS (Phase 3 Epic 1)
+    // If structured ValidatedObligation[] exists, derive briefs directly from obligations
+    // ──────────────────────────────────────────────────────────────────────────
+    if (circular.obligations && circular.obligations.length > 0) {
+      const obligations = circular.obligations;
+      const totalMaxFine = obligations.reduce(
+        (sum, o) => sum + (o.statedPenalty?.maxNaira || (o as any).penalties?.[0]?.penaltyMaxNaira || 0),
+        0
+      );
+      const maxDailyFine = Math.max(
+        0,
+        ...obligations.map(
+          (o) => o.statedPenalty?.dailyFineNaira || (o as any).penalties?.[0]?.dailyFineNaira || 0
+        )
+      );
+      const carriesCriminalLiability = obligations.some(
+        (o) =>
+          o.statedPenalty?.carriesPersonalCriminalLiability ||
+          (o as any).penalties?.[0]?.carriesPersonalCriminalLiability
+      );
+      const carriesLicenseRisk = obligations.some(
+        (o) =>
+          o.statedPenalty?.carriesLicenseSuspensionRisk ||
+          (o as any).penalties?.[0]?.carriesLicenseSuspensionRisk
+      );
+      const citations = Array.from(
+        new Set(
+          obligations
+            .flatMap((o) => [
+              o.statedPenalty?.citation,
+              (o as any).penalties?.[0]?.penaltyLegalCitation,
+              o.clauseReference,
+            ])
+            .filter(Boolean) as string[]
+        )
+      );
+      const allCriteria = Array.from(new Set(obligations.flatMap((o) => o.complianceCriteria || [])));
+      const allRails = Array.from(new Set(obligations.flatMap((o) => o.affectedRails || [])));
+      const allLicenses = Array.from(new Set(obligations.flatMap((o) => o.targetedLicenses || [])));
+
+      const activeLicensesStr = allLicenses.length > 0 ? allLicenses.join(', ') : licenses;
+      const activeRailsStr = allRails.length > 0 ? allRails.join(', ') : rails;
+
+      const citationStr = citations.length > 0
+        ? citations.join('; ')
+        : `${circular.regulatorCode} Directive ${circular.circularNumber} / Statutory Powers`;
+
+      const penaltyExposureStr = totalMaxFine > 0
+        ? `Statutory penalty exposure is authenticated at up to ₦${totalMaxFine.toLocaleString('en-NG')} with prospective daily default penalties of ₦${maxDailyFine.toLocaleString('en-NG')} per day of non-compliance`
+        : `Default statutory enforcement penalties apply pursuant to ${circular.regulatorCode} supervisory powers`;
+
+      const licenseRiskStr = carriesLicenseRisk
+        ? ' Material deficiency carries direct risk of operating license suspension or regulatory restriction.'
+        : '';
+      const criminalRiskStr = carriesCriminalLiability
+        ? ' Statutory provisions explicitly impose personal liability and potential criminal sanctions on responsible executive officers.'
+        : '';
+
+      const criteriaBulletPoints = allCriteria.length > 0
+        ? `\n\nMandatory Compliance Criteria Checklist:\n${allCriteria.slice(0, 4).map((c, i) => `• [Criterion ${i + 1}]: ${c}`).join('\n')}`
+        : '';
+
+      const generalCounselBrief = `General Counsel & Statutory Advisory: Circular ${circular.circularNumber} ('${circular.subject}') is formally promulgated pursuant to supervisory enforcement powers (${citationStr}). The directive establishes mandatory compliance baselines binding ${tenant.organizationName || 'the institution'}'s ${activeLicensesStr} authorizations.\n\n${penaltyExposureStr}.${licenseRiskStr}${criminalRiskStr} Legal Counsel must audit existing customer contracts, merchant agreements, and payment rail counterparty terms to harmonize with the statutory mandates and insulate the institution against supervisory enforcement actions.`;
+
+      const executiveBriefCco = `The ${circular.regulatorCode} has enacted Circular ${circular.circularNumber} concerning '${circular.subject}', formally exercising statutory supervisory powers. This directive directly binds ${tenant.organizationName || 'the institution'} under its ${activeLicensesStr} authorization. Mandatory compliance must be validated ${deadlineStr}.\n\nInstitutional compliance officers must execute an immediate concordance assessment against internal operational manuals, verify transaction threshold monitoring, and establish automated notification triggers for supervisory exceptions.${criteriaBulletPoints}\n\nNon-compliance carries severe administrative sanctions, potential license suspension under BOFIA, and progressive monetary default penalties. A comprehensive concordance memo must be prepared for the Board Risk Committee.`;
+
+      const actionBriefCoo = `Operational execution for Circular ${circular.circularNumber} mandates comprehensive review across active ${activeRailsStr} infrastructure. Operations must verify partner bank clearing parameters, SLA adherence, and customer communication channels ${deadlineStr}.\n\nDaily clearing cut-offs (T+1 10:00 WAT), settlement account balance monitoring, and automated transaction dispute lifecycles must be recalibrated. Operations must ensure 99.9% uptime on terminal and switch interfaces without transaction drop-offs.`;
+
+      const targetObjects = Array.from(new Set(obligations.map((o) => (o as any).targetObject || o.object).filter(Boolean)));
+      const targetObjectsStr = targetObjects.length > 0 ? ` on ${targetObjects.join(', ')}` : '';
+
+      const technicalBriefCto = `Technical Architecture & Engineering (CTO): Circular ${circular.circularNumber} necessitates targeted codebase and infrastructure updates across active ${activeRailsStr} rails and payment microservices${targetObjectsStr} ${deadlineStr}.\n\nEngineering teams must update payment orchestration microservices to enforce mandatory authentication rules, validate API request payloads against updated schemas, and verify webhook retry policies. Automated ledger reconciliation jobs must execute every 15 minutes. Database audit logging must maintain tamper-evident, immutable event records for a minimum of 6 years in strict conformity with Nigerian CAMA and BOFIA statutory record-keeping mandates.`;
+      const technicalBriefProductEng = technicalBriefCto;
+
+      const financialBriefCfo = `Treasury & Financial Control (CFO): Assessment of Circular ${circular.circularNumber} reveals material balance sheet and liquidity implications for ${activeLicensesStr} operations.\n\n${penaltyExposureStr}. Default proceedings carry daily compounding fines under Nigerian financial law. Treasury must monitor capital reserves to ensure uninterrupted compliance with supervisory capital requirements and calibrate liquidity buffers.`;
+
+      const governanceBriefCeoCro = `Enterprise Governance & Risk (CEO / CRO): Circular ${circular.circularNumber} represents a strategic compliance priority requiring immediate Board Risk Committee oversight. Management must convene an extraordinary ExCo session to review institutional exposure across all ${activeLicensesStr} operations and approve the executive remediation roadmap.\n\nLegal and Compliance Counsel shall provide bi-weekly progress updates until full statutory compliance is achieved ${deadlineStr}. Formal sign-off by the Managing Director and Chief Compliance Officer is mandatory prior to visiting regulatory examinations.`;
+
+      const actionChecklist: RadarActionItemOutput[] = obligations.slice(0, 5).map((obl, idx) => {
+        const dept: 'EXECUTIVE_LEADERSHIP' | 'COMPLIANCE_LEGAL' | 'ENGINEERING_TECH' | 'OPERATIONS' | 'TREASURY_FINANCE' =
+          obl.obligationType === 'MANDATORY_DISCLOSURE' || obl.obligationType === 'STRICT_PROHIBITION'
+            ? 'COMPLIANCE_LEGAL'
+            : obl.obligationType === 'STATUTORY_TIMELINE'
+            ? 'OPERATIONS'
+            : obl.obligationType === 'GOVERNANCE_CONTROL'
+            ? 'EXECUTIVE_LEADERSHIP'
+            : 'ENGINEERING_TECH';
+
+        return {
+          targetDepartment: dept,
+          actionTitle: `${obl.clauseReference || `Mandate ${idx + 1}`}: ${obl.actor} ${obl.action}`,
+          actionDescription: `${obl.summary}. Grounded quote: "${obl.verbatimQuote}".`,
+          suggestedDeadline: circular.statutoryDeadline || suggestedDeadline,
+        };
+      });
+
+      // Ensure at least 3 action items
+      if (actionChecklist.length < 3) {
+        actionChecklist.push(
+          {
+            targetDepartment: 'COMPLIANCE_LEGAL',
+            actionTitle: `Statutory Concordance Review & Board Briefing: ${circular.circularNumber}`,
+            actionDescription: `Execute clause-by-clause concordance assessment against internal policy manual. Prepare Board Risk Committee memo and draft regulatory attestation under ${circular.regulatorCode} statutory powers.`,
+            suggestedDeadline,
+          },
+          {
+            targetDepartment: 'OPERATIONS',
+            actionTitle: `Rail Settlement & Partner Bank Clearing Audit`,
+            actionDescription: `Verify settlement continuity, clearing cut-offs, and transaction routing on ${activeRailsStr} with partner commercial banks. Update operational SOPs and staff execution checklists.`,
+            suggestedDeadline,
+          },
+          {
+            targetDepartment: 'ENGINEERING_TECH',
+            actionTitle: `Microservice API Schemas & Authentication Limits Update`,
+            actionDescription: `Deploy and validate API payload validation rules, transaction parameter limits, and tamper-evident audit logging across core microservices in staging and production.`,
+            suggestedDeadline,
+          }
+        );
+      }
+
+      return {
+        executiveBriefCco,
+        actionBriefCoo,
+        technicalBriefProductEng,
+        financialBriefCfo,
+        technicalBriefCto,
+        governanceBriefCeoCro,
+        generalCounselBrief,
+        actionChecklist,
+      };
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // DOMAIN HEURISTIC FALLBACK (When obligations array is not provided)
+    // ──────────────────────────────────────────────────────────────────────────
     const subjLower = (circular.subject + ' ' + (circular.rawText || '')).toLowerCase();
 
     // Domain detection
@@ -234,6 +394,8 @@ Generate the structured role briefings and action checklist.`;
     }
 
     const executiveBriefCco = `The ${circular.regulatorCode} has enacted Circular ${circular.circularNumber} concerning '${circular.subject}', formally exercising statutory supervisory powers. This directive directly binds the institution under its ${licenses} authorization. Mandatory compliance must be validated ${deadlineStr}.\n\n${ccoDomainDetails} Non-compliance carries severe administrative sanctions, potential license suspension under BOFIA, and progressive monetary default penalties. A comprehensive concordance memo must be prepared for the Board Risk Committee.`;
+
+    const generalCounselBrief = `General Counsel Brief: Circular ${circular.circularNumber} activates supervisory enforcement powers under Nigerian financial law. Legal Counsel must evaluate licensing exposures for ${licenses} authorizations and prepare formal concordance defense filings.`;
 
     // 2. COO / Operations Brief
     let cooDomainDetails = '';
@@ -275,8 +437,6 @@ Generate the structured role briefings and action checklist.`;
     // 5. CEO / CRO Governance Brief
     const governanceBriefCeoCro = `Enterprise Governance & Risk (CEO / CRO): Circular ${circular.circularNumber} represents a strategic compliance priority requiring immediate Board Risk Committee oversight. Management must convene an extraordinary ExCo session to review institutional exposure across all ${licenses} operations and approve the executive remediation roadmap.\n\nLegal and Compliance Counsel shall provide bi-weekly progress updates until full statutory compliance is achieved ${deadlineStr}. Formal sign-off by the Managing Director and Chief Compliance Officer is mandatory prior to visiting regulatory examinations.`;
 
-    const suggestedDeadline = circular.statutoryDeadline || new Date().toISOString().slice(0, 10);
-
     const actionChecklist: RadarActionItemOutput[] = [
       {
         targetDepartment: 'COMPLIANCE_LEGAL',
@@ -317,6 +477,7 @@ Generate the structured role briefings and action checklist.`;
       financialBriefCfo,
       technicalBriefCto,
       governanceBriefCeoCro,
+      generalCounselBrief,
       actionChecklist,
     };
   }

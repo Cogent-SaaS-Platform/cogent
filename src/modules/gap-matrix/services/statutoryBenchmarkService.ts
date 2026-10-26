@@ -41,6 +41,15 @@ interface ClauseDbRow {
     severity_floor: SeverityLevel;
     statutory_timeline_days?: number | null;
     mandatory_disclosure_text?: string | null;
+    verbatim_quote?: string | null;
+    character_span_start?: number | null;
+    character_span_end?: number | null;
+    actor?: string | null;
+    action?: string | null;
+    target_object?: string | null;
+    condition?: string | null;
+    deadline_text?: string | null;
+    metadata?: any;
     statutory_penalties?: Array<{
       penalty_min_naira?: number | null;
       penalty_max_naira?: number | null;
@@ -165,6 +174,15 @@ export class StatutoryBenchmarkService {
               severity_floor,
               statutory_timeline_days,
               mandatory_disclosure_text,
+              verbatim_quote,
+              character_span_start,
+              character_span_end,
+              actor,
+              action,
+              target_object,
+              condition,
+              deadline_text,
+              metadata,
               statutory_penalties (
                 penalty_min_naira,
                 penalty_max_naira,
@@ -185,22 +203,44 @@ export class StatutoryBenchmarkService {
             sectionHeading: c.section_heading || c.section_reference,
             clauseText: c.clause_text,
             pageNumber: c.page_number,
-            obligations: (c.regulatory_obligations || []).map((o) => ({
-              obligationId: o.id,
-              obligationType: o.obligation_type,
-              summary: o.summary,
-              severityFloor: (o.severity_floor || 'MEDIUM') as SeverityLevel,
-              statutoryTimelineDays: o.statutory_timeline_days ?? null,
-              mandatoryDisclosureText: o.mandatory_disclosure_text ?? null,
-              penalties: (o.statutory_penalties || []).map((p) => ({
-                penaltyMinNaira: Number(p.penalty_min_naira) || 0,
-                penaltyMaxNaira: Number(p.penalty_max_naira) || 0,
-                dailyFineNaira: Number(p.daily_fine_naira) || 0,
-                carriesPersonalCriminalLiability: Boolean(p.carries_personal_criminal_liability),
-                carriesLicenseSuspensionRisk: Boolean(p.carries_license_suspension_risk),
-                penaltyLegalCitation: p.penalty_legal_citation || 'BOFIA 2020 / Relevant Act',
-              })),
-            })),
+            obligations: (c.regulatory_obligations || []).map((o) => {
+              const meta = o.metadata && typeof o.metadata === 'object' ? (o.metadata as any) : {};
+              const complianceCriteria = Array.isArray(meta.compliance_criteria)
+                ? meta.compliance_criteria
+                : Array.isArray(meta.complianceCriteria)
+                ? meta.complianceCriteria
+                : null;
+              const assessment = meta.assessment || null;
+
+              return {
+                obligationId: o.id,
+                obligationType: o.obligation_type,
+                summary: o.summary,
+                severityFloor: (o.severity_floor || 'MEDIUM') as SeverityLevel,
+                statutoryTimelineDays: o.statutory_timeline_days ?? null,
+                mandatoryDisclosureText: o.mandatory_disclosure_text ?? null,
+                verbatimQuote: o.verbatim_quote || o.summary || c.clause_text,
+                characterSpanStart: o.character_span_start ?? 0,
+                characterSpanEnd: o.character_span_end ?? (o.verbatim_quote?.length || o.summary?.length || 100),
+                actor: o.actor || null,
+                action: o.action || null,
+                targetObject: o.target_object || null,
+                condition: o.condition || null,
+                deadlineText: o.deadline_text || null,
+                complianceCriteria: complianceCriteria && complianceCriteria.length > 0
+                  ? complianceCriteria
+                  : [`Strict institutional adherence to ${c.section_reference}`],
+                assessment: assessment || `Statutory mandate under ${c.section_reference}.`,
+                penalties: (o.statutory_penalties || []).map((p) => ({
+                  penaltyMinNaira: Number(p.penalty_min_naira) || 0,
+                  penaltyMaxNaira: Number(p.penalty_max_naira) || 0,
+                  dailyFineNaira: Number(p.daily_fine_naira) || 0,
+                  carriesPersonalCriminalLiability: Boolean(p.carries_personal_criminal_liability),
+                  carriesLicenseSuspensionRisk: Boolean(p.carries_license_suspension_risk),
+                  penaltyLegalCitation: p.penalty_legal_citation || 'BOFIA 2020 / Relevant Act',
+                })),
+              };
+            }),
           }));
         }
       } catch (err) {
@@ -319,6 +359,19 @@ export class StatutoryBenchmarkService {
         severityFloor: o.severity_floor,
         statutoryTimelineDays: o.statutory_timeline_days,
         mandatoryDisclosureText: o.mandatory_disclosure_text,
+        verbatimQuote: cl.clause_text,
+        characterSpanStart: 0,
+        characterSpanEnd: cl.clause_text.length,
+        actor: 'All Licensed Financial Institutions',
+        action: 'Implement statutory controls',
+        targetObject: 'Internal Operational Policies',
+        condition: 'Upon statutory commencement',
+        deadlineText: o.statutory_timeline_days ? `Within ${o.statutory_timeline_days} days` : undefined,
+        complianceCriteria: [
+          `Strict institutional adherence to ${cl.section_reference}`,
+          `Maintain verifiable compliance register and audit records`,
+        ],
+        assessment: `Statutory baseline mandate under ${instrument.short_name}. Non-compliance carries supervisory sanctions.`,
         penalties: o.penalties.map((p: SeedPenalty) => ({
           penaltyMinNaira: p.penalty_min_naira,
           penaltyMaxNaira: p.penalty_max_naira,

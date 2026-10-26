@@ -103,6 +103,12 @@ export const EvaluatedGapItemSchema = GapItemSynthesisSchema.extend({
   draftReplacementLanguage: z.string().optional().describe("Ready-to-adopt board policy replacement language"),
   carriesPersonalCriminalLiability: z.boolean().optional(),
   carriesLicenseSuspensionRisk: z.boolean().optional(),
+  statutoryQuote: z.string().optional().describe("Verbatim statutory obligation quote from source instrument"),
+  policyEvidenceQuote: z.string().nullable().optional().describe("Verbatim matching excerpt from internal policy manual"),
+  complianceCriteria: z.array(z.string()).optional().describe("Specific criteria evaluated for this obligation"),
+  assessment: z.string().optional().describe("Deep statutory assessment"),
+  characterSpanStart: z.number().nullable().optional(),
+  characterSpanEnd: z.number().nullable().optional(),
 });
 
 export const GapEvaluationResultSchema = z.object({
@@ -153,6 +159,13 @@ export const AuditDefenseDossierSchema = z.object({
     regulatorName: z.string(),
     subject: z.string(),
     body: z.string(),
+  }).optional(),
+  cryptographicValidationTable: z.object({
+    inputPolicyHash: z.string(),
+    benchmarkVersionHash: z.string(),
+    findingsDigestHash: z.string(),
+    digitalSealHash: z.string(),
+    timestamp: z.string(),
   }).optional(),
   items: z.array(EvaluatedGapItemSchema),
 });

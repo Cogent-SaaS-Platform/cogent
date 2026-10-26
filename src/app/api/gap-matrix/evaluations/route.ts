@@ -38,7 +38,7 @@ export interface GapAnalysisSummaryItem {
  * Seed evaluation fallbacks ensure the Zango multi-view workflow is instantly interactive
  * even before a user uploads their first document, matching canonical Nigerian FinTech benchmarks.
  */
-const SEED_EVALUATIONS: GapAnalysisSummaryItem[] = [
+export const SEED_EVALUATIONS: GapAnalysisSummaryItem[] = [
   {
     id: 'eval-seed-retail-banking-order',
     analysisName: 'Retail Banking Investigation Order 2017 vs Controls List',

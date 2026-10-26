@@ -116,6 +116,12 @@ export class GapSynthesisService {
       carriesLicenseSuspension: boolean;
       matchedPolicyClauseId: string | null;
       matchedSectionNumber: string | null;
+      statutoryQuote?: string | null;
+      policyEvidenceQuote?: string | null;
+      characterSpanStart?: number | null;
+      characterSpanEnd?: number | null;
+      complianceCriteria?: string[] | null;
+      assessment?: string | null;
     }[] = [];
 
     for (const statClause of statutoryClauses) {
@@ -129,6 +135,11 @@ export class GapSynthesisService {
               severityFloor: 'HIGH' as const,
               statutoryTimelineDays: null as number | null,
               mandatoryDisclosureText: null as string | null,
+              verbatimQuote: statClause.clauseText,
+              characterSpanStart: null as number | null,
+              characterSpanEnd: null as number | null,
+              complianceCriteria: [] as string[],
+              assessment: null as string | null,
               penalties: [],
             },
           ];
@@ -137,7 +148,7 @@ export class GapSynthesisService {
         const penalty = obligation.penalties?.[0];
 
         // Search top matching internal clauses using obligation summary and clause heading
-        const queryText = `${statClause.sectionHeading}: ${obligation.summary || statClause.clauseText}`;
+        const queryText = `${statClause.sectionHeading}: ${obligation.summary || obligation.verbatimQuote || statClause.clauseText}`;
         const matches = await this.vectorIndexService.searchSimilarClauses({
           organizationId,
           policyId,
@@ -182,6 +193,12 @@ export class GapSynthesisService {
           carriesLicenseSuspension: penalty?.carriesLicenseSuspensionRisk || false,
           matchedPolicyClauseId: topMatch ? topMatch.policyClauseId : null,
           matchedSectionNumber: topMatch ? topMatch.sectionNumber : null,
+          statutoryQuote: obligation.verbatimQuote || statClause.clauseText,
+          policyEvidenceQuote: topMatch ? topMatch.clauseText : null,
+          characterSpanStart: obligation.characterSpanStart ?? null,
+          characterSpanEnd: obligation.characterSpanEnd ?? null,
+          complianceCriteria: obligation.complianceCriteria ?? null,
+          assessment: obligation.assessment ?? null,
         });
       }
     }
@@ -275,6 +292,12 @@ export class GapSynthesisService {
         derivedInsight: synthesized.derivedInsight,
         responsibleRole: synthesized.responsibleRole,
         statutoryRemediationTimelineDays: synthesized.statutoryRemediationTimelineDays,
+        statutoryQuote: meta.statutoryQuote || undefined,
+        policyEvidenceQuote: meta.policyEvidenceQuote || null,
+        characterSpanStart: meta.characterSpanStart ?? undefined,
+        characterSpanEnd: meta.characterSpanEnd ?? undefined,
+        complianceCriteria: meta.complianceCriteria || undefined,
+        assessment: meta.assessment || undefined,
       });
     }
 

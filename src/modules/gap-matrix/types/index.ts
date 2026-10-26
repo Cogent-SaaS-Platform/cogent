@@ -56,6 +56,16 @@ export interface StatutoryClauseWithObligations {
     severityFloor: SeverityLevel;
     statutoryTimelineDays: number | null;
     mandatoryDisclosureText: string | null;
+    verbatimQuote?: string | null;
+    characterSpanStart?: number | null;
+    characterSpanEnd?: number | null;
+    actor?: string | null;
+    action?: string | null;
+    targetObject?: string | null;
+    condition?: string | null;
+    deadlineText?: string | null;
+    complianceCriteria?: string[] | null;
+    assessment?: string | null;
     penalties: {
       penaltyMinNaira: number;
       penaltyMaxNaira: number;

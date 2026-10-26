@@ -155,17 +155,29 @@ export function ObligationAssessmentEvaluationView({
     setStatusUpdateMessage(null);
 
     try {
-      const response = await fetch('/api/gap-matrix/evaluations', {
+      let response = await fetch(`/api/gap-matrix/items/${obligation.id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          evaluationId: obligation.evaluationId,
-          itemId: obligation.id,
-          complianceStatus: newStatus,
-          criterionIndex: criterionIdx,
-          reviewerNotes: `Compliance officer manual criteria override to ${newStatus}`,
+          status: newStatus,
+          overrideReason: `Compliance officer manual criteria override to ${newStatus}`,
+          notes: criterionIdx !== undefined ? `Updated criterion index ${criterionIdx}` : undefined,
         }),
       });
+
+      if (!response.ok) {
+        response = await fetch('/api/gap-matrix/evaluations', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            evaluationId: obligation.evaluationId,
+            itemId: obligation.id,
+            complianceStatus: newStatus,
+            criterionIndex: criterionIdx,
+            reviewerNotes: `Compliance officer manual criteria override to ${newStatus}`,
+          }),
+        });
+      }
 
       if (response.ok) {
         setStatusUpdateMessage('Finding override cryptographically sealed in immutable audit trail');

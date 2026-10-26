@@ -34,6 +34,7 @@ export const RadarRoleImpactOutputSchema = z.object({
   financialBriefCfo: z.string().describe('Reserve capital ratios, interchange fee caps, balance sheet exposure for CFO / Finance'),
   technicalBriefCto: z.string().optional().describe('System architecture, API specifications, DB migrations and security controls for CTO / Engineering'),
   governanceBriefCeoCro: z.string().optional().describe('Enterprise governance, systemic exposure, board reporting, license risk for CEO / CRO'),
+  generalCounselBrief: z.string().optional().describe('Statutory powers, judicial citations, penalty exposure, licensing implications, precedent conflicts for General Counsel / Legal'),
   actionChecklist: z.array(RadarActionItemOutputSchema)
 });
 

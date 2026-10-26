@@ -6,4 +6,5 @@ export * from './GapObligationsListView';
 export * from './ObligationAssessmentEvaluationView';
 export * from './FiveWDecisionDrawer';
 export * from './AuditDefenseDossierModal';
+export * from './AuditDefensePackModal';
 export * from './PolicyUploadDrawer';
