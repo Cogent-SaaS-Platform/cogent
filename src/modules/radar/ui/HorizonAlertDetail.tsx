@@ -60,29 +60,6 @@ export function HorizonAlertDetail({
   const [showAllKeyPoints, setShowAllKeyPoints] = useState<boolean>(false);
   const [showArchiveDrawer, setShowArchiveDrawer] = useState<boolean>(false);
 
-  // Synchronize state when circular prop changes (e.g. next/prev navigation)
-  useEffect(() => {
-    setIsStarred(Boolean(circular.isStarred));
-    setWorkflowStatus(circular.workflowStatus || 'Pending Review');
-    setAlertType(
-      circular.alertType ||
-        (circular.priority === 'CRITICAL_EMERGENCY' || circular.priority === 'HIGH' ? 'Actionable' : 'Informative')
-    );
-    setDepartments(
-      circular.departments || ['COMPLIANCE_LEGAL', 'OPERATIONS', 'GROWTH_MARKETING', 'ENGINEERING_TECH', 'TREASURY_FINANCE']
-    );
-    setImportantDates(
-      circular.importantDates || [
-        { id: '1', label: 'Publication Date', date: circular.publicationDate, description: 'Official notice gazetted by regulator' },
-        { id: '2', label: 'Effective Date', date: circular.effectiveDate, description: 'Date requirements become operative' },
-        ...(circular.statutoryDeadline
-          ? [{ id: '3', label: 'Compliance Deadline', date: circular.statutoryDeadline, description: 'Statutory deadline for institutional audit proof' }]
-          : []),
-      ]
-    );
-    setComments(circular.comments || []);
-  }, [circular]);
-
   // Important Dates tab & records
   const [datesTab, setDatesTab] = useState<'important' | 'other'>('important');
   const [importantDates, setImportantDates] = useState(
@@ -112,6 +89,29 @@ export function HorizonAlertDetail({
     circular.comments || []
   );
   const [newCommentText, setNewCommentText] = useState('');
+
+  // Synchronize state when circular prop changes (e.g. next/prev navigation)
+  useEffect(() => {
+    setIsStarred(Boolean(circular.isStarred));
+    setWorkflowStatus(circular.workflowStatus || 'Pending Review');
+    setAlertType(
+      circular.alertType ||
+        (circular.priority === 'CRITICAL_EMERGENCY' || circular.priority === 'HIGH' ? 'Actionable' : 'Informative')
+    );
+    setDepartments(
+      circular.departments || ['COMPLIANCE_LEGAL', 'OPERATIONS', 'GROWTH_MARKETING', 'ENGINEERING_TECH', 'TREASURY_FINANCE']
+    );
+    setImportantDates(
+      circular.importantDates || [
+        { id: '1', label: 'Publication Date', date: circular.publicationDate, description: 'Official notice gazetted by regulator' },
+        { id: '2', label: 'Effective Date', date: circular.effectiveDate, description: 'Date requirements become operative' },
+        ...(circular.statutoryDeadline
+          ? [{ id: '3', label: 'Compliance Deadline', date: circular.statutoryDeadline, description: 'Statutory deadline for institutional audit proof' }]
+          : []),
+      ]
+    );
+    setComments(circular.comments || []);
+  }, [circular]);
 
   const auditLogs = circular.auditLogs && circular.auditLogs.length > 0
     ? circular.auditLogs

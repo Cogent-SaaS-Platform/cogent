@@ -40,15 +40,21 @@ interface ObligationDetailDrawerProps {
   onToggleStar?: (obligationId: string) => void;
 }
 
-export function ObligationDetailDrawer({
-  isOpen,
+interface ObligationDetailDrawerContentProps {
+  onClose: () => void;
+  obligation: DecomposedObligationPresentation;
+  instrument: RegulatoryInstrumentPresentation | null;
+  onUpdateOverride: ObligationDetailDrawerProps['onUpdateOverride'];
+  onToggleStar?: (obligationId: string) => void;
+}
+
+function ObligationDetailDrawerContent({
   onClose,
   obligation,
   instrument,
   onUpdateOverride,
   onToggleStar,
-}: ObligationDetailDrawerProps) {
-  if (!isOpen || !obligation) return null;
+}: ObligationDetailDrawerContentProps) {
 
   const [currentStatus, setCurrentStatus] = useState(obligation.status || 'PENDING_REVIEW');
   const [isApplicable, setIsApplicable] = useState(obligation.isApplicable ?? true);
@@ -540,5 +546,16 @@ export function ObligationDetailDrawer({
         </div>
       </div>
     </div>
+  );
+}
+
+export function ObligationDetailDrawer(props: ObligationDetailDrawerProps) {
+  if (!props.isOpen || !props.obligation) return null;
+
+  return (
+    <ObligationDetailDrawerContent
+      {...props}
+      obligation={props.obligation}
+    />
   );
 }

@@ -153,7 +153,7 @@ export default function SettingsPage() {
       }
 
       if (data.data?.authorizationUrl) {
-        window.location.href = data.data.authorizationUrl;
+        window.location.assign(data.data.authorizationUrl);
       }
     } catch (err: unknown) {
       const error = err instanceof Error ? err : new Error(String(err));

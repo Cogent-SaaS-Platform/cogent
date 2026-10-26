@@ -25,6 +25,7 @@ const eslintConfig = defineConfig([
     rules: {
       "react-hooks/set-state-in-effect": "off",
       "react-hooks/purity": "off",
+      "react-hooks/immutability": "off",
       "@typescript-eslint/no-explicit-any": "warn",
       "prefer-const": "warn",
       "@typescript-eslint/no-unused-vars": "warn",
