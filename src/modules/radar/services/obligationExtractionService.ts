@@ -501,7 +501,7 @@ export class ObligationExtractionService {
 
     // Filter to operative sentences containing statutory mandate modal verbs
     const operativeMatches = matches.filter((m) =>
-      /\b(shall|must|mandat|prohibit|requir|ensure|liable|submit|maintain|comply|penalty|sanction|forbidden|disclose|notify|publish)\b/i.test(
+      /\b(?:shall|must|mandate\w*|mandatory|prohibit\w*|require\w*|ensure\w*|liable|liability|submit\w*|maintain\w*|comply|compliance|penalty|penalties|sanction\w*|forbidden|disclose\w*|notify|notification|publish\w*)\b/i.test(
         m.text
       )
     );
@@ -510,6 +510,63 @@ export class ObligationExtractionService {
 
     for (const c of candidates) {
       const textLower = c.text.toLowerCase();
+
+      // Check if this sentence is an enforcement penalty consequence attached to the preceding obligation
+      const isPenaltySentence = /^(?:failure to|default in|violation results|transfer in violation|violation of|late remittance|unsanctioned facilitation|default attracts)\b/i.test(c.text.trim());
+      if (isPenaltySentence && obligations.length > 0) {
+        const prev = obligations[obligations.length - 1];
+        let attachedMinFine = 0;
+        let attachedMaxFine = 0;
+        let attachedDailyFine = 0;
+
+        const penaltyMatch = c.text.match(/(?:penalty of|fine of|sanction of|administrative penalty of|default sanction of|liable to.*?)\s*(?:₦|Naira)?\s*([\d,]+(?:\.\d+)?)\s*(million|billion|thousand)?/i) ||
+          c.text.match(/(?:₦|Naira)\s*([\d,]+(?:\.\d+)?)\s*(million|billion|thousand)?/i);
+
+        if (penaltyMatch) {
+          const numStr = penaltyMatch[1].replace(/,/g, '');
+          const parsed = parseFloat(numStr);
+          if (!isNaN(parsed)) {
+            const unit = penaltyMatch[2]
+              ? penaltyMatch[2].toLowerCase()
+              : penaltyMatch[0].toLowerCase().includes('billion')
+              ? 'billion'
+              : penaltyMatch[0].toLowerCase().includes('million')
+              ? 'million'
+              : '';
+            if (unit === 'billion') {
+              attachedMinFine = parsed * 1_000_000_000;
+              attachedMaxFine = parsed * 2_000_000_000;
+            } else if (unit === 'million') {
+              attachedMinFine = parsed * 1_000_000;
+              attachedMaxFine = parsed * 2_000_000;
+            } else {
+              attachedMinFine = parsed;
+              attachedMaxFine = parsed;
+            }
+          }
+        }
+
+        const dailyMatch = c.text.match(/(?:daily|each continuous day|compounding|each day of default).*?(?:₦|Naira)\s*([\d,]+)/i);
+        if (dailyMatch) {
+          const parsedDaily = parseFloat(dailyMatch[1].replace(/,/g, ''));
+          if (!isNaN(parsedDaily)) attachedDailyFine = parsedDaily;
+        }
+
+        if (attachedMinFine > 0 || attachedMaxFine > 0 || attachedDailyFine > 0) {
+          const citationMatch = c.text.match(/(?:pursuant to|under|in accordance with|section|act)\s+([^,.;\n]*(?:Act|BOFIA|ISA|NDPA|FCCPA|ARCON|Guidelines|Framework|Regulation)[^,.;\n]*)/i);
+          const citation = citationMatch ? citationMatch[0].trim() : `${regulatorCode} Directive ${circularNumber}`;
+          prev.statedPenalty = {
+            minNaira: attachedMinFine,
+            maxNaira: attachedMaxFine,
+            dailyFineNaira: attachedDailyFine,
+            carriesPersonalCriminalLiability: textLower.includes('criminal') || textLower.includes('imprisonment'),
+            carriesLicenseSuspensionRisk: textLower.includes('suspension') || textLower.includes('revocation') || textLower.includes('delisting'),
+            citation,
+          };
+          prev.severityFloor = 'HIGH';
+        }
+        continue;
+      }
 
       // Determine Obligation Type
       let obligationType: ObligationType = 'GOVERNANCE_CONTROL';

@@ -5,3 +5,6 @@ export * from './ui/Step2RoleAndMandate';
 export * from './ui/Step3RegulatoryScope';
 export * from './ui/Step4PaymentRailsScope';
 export * from './ui/Step5InviteTeam';
+export * from './ui/RapidOnboardingFlow';
+export * from './services/tenantBootstrapService';
+

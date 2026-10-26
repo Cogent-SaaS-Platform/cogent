@@ -143,7 +143,7 @@ ${schedulesSummary || 'None provided'}
 Generate the structured role briefings and action checklist.`;
 
     let output: RadarRoleImpactOutput;
-    let modelIdentifier = 'gemini-3.8-flash';
+    let modelIdentifier = 'gemini-1.5-flash';
     let inputTokens = 0;
     let outputTokens = 0;
     let latencyMs = 0;

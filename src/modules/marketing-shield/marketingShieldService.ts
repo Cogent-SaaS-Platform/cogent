@@ -314,7 +314,7 @@ export class MarketingShieldService {
       logger.warn({ err: String(aiErr) }, 'AI candidate generation unavailable; executing deterministic fallback synthesis');
       aiOutput = this.generateDeterministicFallbackAiOutput(input.rawCopy, deterministicResult, retrievedClauses);
       aiTelemetry = {
-        modelIdentifier: 'gemini-3.8-flash:deterministic-fallback',
+        modelIdentifier: 'gemini-1.5-flash:deterministic-fallback',
         inputTokenCount: 0,
         outputTokenCount: 0,
         latencyMs: Math.round(performance.now() - overallStartTime),

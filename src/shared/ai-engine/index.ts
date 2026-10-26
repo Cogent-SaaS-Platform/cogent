@@ -8,7 +8,7 @@ import { GoogleGenAI } from '@google/genai';
 import crypto from 'crypto';
 import { z } from 'zod';
 import { AI_MODELS, AI_RESILIENCE_CONFIG } from './config/modelConfig';
-import { AiProviderError, AiTimeoutError, ValidationError } from '@/shared/errors';
+import { AiProviderError, AiTimeoutError, ConfigurationError, ValidationError } from '@/shared/errors';
 import { logger } from '@/shared/logger';
 
 export interface AiExecutionTelemetry {
@@ -94,6 +94,10 @@ export class AiEngine {
         ? AI_RESILIENCE_CONFIG.TIMEOUTS.FAST_MODEL_MS
         : AI_RESILIENCE_CONFIG.TIMEOUTS.REASONING_MODEL_MS);
 
+    if (!this.defaultApiKey) {
+      throw new ConfigurationError('AiEngine: GEMINI_API_KEY is not configured');
+    }
+
     const promptHash = AiEngine.hashContent(params.prompt);
     let lastError: unknown;
     let attemptsUsed = 0;
@@ -171,6 +175,13 @@ export class AiEngine {
 
         const isTimeout = err instanceof AiTimeoutError;
         const errStr = String(err);
+
+        // Daily quota limit cannot be resolved by immediate retry or failover on same key
+        if (errStr.includes('per day limit exceeded') || errStr.includes('daily limit exceeded')) {
+          logger.warn({ model: modelName }, 'Google Gemini daily quota limit reached; fast-failing to deterministic fallback engine');
+          break;
+        }
+
         if (
           (isTimeout ||
             errStr.includes('RESOURCE_EXHAUSTED') ||

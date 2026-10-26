@@ -491,16 +491,19 @@ export class ClauseSegmentationEngine {
       // 2. Insert clauses, decomposed obligations, and statutory penalties
       const persistedClauses: ParsedClause[] = [];
 
+      const sanitizeStr = (txt?: string | null): string => (txt ? txt.replace(/\0/g, '') : '');
+      const sanitizeOpt = (txt?: string | null): string | null => (txt ? txt.replace(/\0/g, '') : null);
+
       for (const c of clauses) {
         const clauseId = crypto.randomUUID();
         const { error: cErr } = await db.from('regulatory_clauses').insert({
           id: clauseId,
           document_version_id: documentVersionId,
-          section_reference: c.sectionReference,
-          section_heading: c.sectionHeading,
-          clause_text: c.clauseText,
+          section_reference: sanitizeStr(c.sectionReference),
+          section_heading: sanitizeOpt(c.sectionHeading),
+          clause_text: sanitizeStr(c.clauseText),
           page_number: c.pageNumber || 1,
-          paragraph_reference: c.paragraphReference || c.sectionReference,
+          paragraph_reference: sanitizeStr(c.paragraphReference || c.sectionReference),
         });
 
         if (cErr) {
@@ -516,19 +519,19 @@ export class ClauseSegmentationEngine {
             id: oblId,
             clause_id: clauseId,
             obligation_type: obl.obligationType,
-            summary: obl.summary,
+            summary: sanitizeStr(obl.summary),
             severity_floor: obl.severityFloor,
             statutory_timeline_days: obl.statutoryTimelineDays,
-            mandatory_disclosure_text: obl.obligationType === 'MANDATORY_DISCLOSURE' ? obl.summary : null,
-            verbatim_quote: obl.verbatimQuote || null,
+            mandatory_disclosure_text: obl.obligationType === 'MANDATORY_DISCLOSURE' ? sanitizeStr(obl.summary) : null,
+            verbatim_quote: sanitizeOpt(obl.verbatimQuote),
             character_span_start: obl.startChar !== undefined ? obl.startChar : null,
             character_span_end: obl.endChar !== undefined ? obl.endChar : null,
             page_number: c.pageNumber || 1,
-            actor: obl.actor || null,
-            action: obl.action || null,
-            target_object: obl.object || null,
-            condition: obl.condition || null,
-            deadline_text: obl.deadline || null,
+            actor: sanitizeOpt(obl.actor),
+            action: sanitizeOpt(obl.action),
+            target_object: sanitizeOpt(obl.object),
+            condition: sanitizeOpt(obl.condition),
+            deadline_text: sanitizeOpt(obl.deadline),
             metadata: {
               appliesUniversally: obl.appliesUniversally ?? false,
               targetedLicenses: obl.targetedLicenses || [],

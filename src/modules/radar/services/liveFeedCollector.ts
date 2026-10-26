@@ -207,16 +207,30 @@ export class LiveFeedCollector {
       // Finalize source run telemetry
       if (runId) {
         try {
-          const runStatus = result.errors.length > 0 && result.newIngested === 0 && result.deduplicated === 0
-            ? 'FAILED'
-            : 'SUCCESS';
+          const isUnreachable = result.errors.some((e) =>
+            /timeout|unreachable|econnrefused|enotfound|eservfail|503|502|403|429|cloudflare/i.test(e)
+          );
+          const runStatus =
+            result.errors.length > 0 && result.newIngested === 0 && result.deduplicated === 0
+              ? (isUnreachable ? 'STALE_UNREACHABLE' : 'FAILED')
+              : 'SUCCESS';
+
+          let httpStatus = 200;
+          if (runStatus === 'STALE_UNREACHABLE') {
+            const codeMatch = result.errors.join(' ').match(/\b(503|502|403|429|500|504)\b/);
+            httpStatus = codeMatch ? parseInt(codeMatch[1], 10) : 503;
+          } else if (runStatus === 'FAILED') {
+            httpStatus = 500;
+          }
+
           await this.dbClient
             .from('source_runs')
             .update({
-              status: runStatus,
+              status: runStatus as any,
               items_seen: result.itemsFound,
               items_ingested: result.newIngested,
               items_deduplicated: result.deduplicated,
+              http_status: httpStatus,
               error_message: result.errors.length > 0 ? result.errors.join('; ') : null,
               completed_at: new Date().toISOString(),
             })
@@ -282,7 +296,7 @@ export class LiveFeedCollector {
             const refCode = rawRef || `CBN/DIR/${c.id || ''}`;
             if (!existingRefs.has(refCode.toLowerCase()) && !existingRefs.has(rawRef.toLowerCase())) {
               candidates.push(c);
-              if (candidates.length >= 25) break;
+              if (candidates.length >= 3) break;
             }
           }
 
@@ -313,7 +327,7 @@ export class LiveFeedCollector {
 
             if (docLink.toLowerCase().endsWith('.pdf') || docLink.includes('/out/')) {
               try {
-                const pdfRes = await this.safeFetchWithTimeout(docLink, 15000);
+                const pdfRes = await this.safeFetchWithTimeout(docLink, 5000);
                 if (pdfRes && pdfRes.ok) {
                   const buf = await pdfRes.buffer();
                   if (buf && buf.length > 100) {

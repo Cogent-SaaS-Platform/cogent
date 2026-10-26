@@ -1048,6 +1048,52 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['source_runs']['Insert']>;
         Relationships: [];
       };
+      supervisory_benchmark_runs: {
+        Row: {
+          id: string;
+          benchmark_suite_version: string;
+          total_instruments: number;
+          total_ground_truth_obligations: number;
+          total_extracted_obligations: number;
+          true_positives: number;
+          false_positives: number;
+          false_negatives: number;
+          precision_score: number;
+          recall_score: number;
+          f1_score: number;
+          character_span_fidelity_score: number;
+          statutory_penalty_grounding_score: number;
+          hallucinated_penalties_count: number;
+          character_drift_count: number;
+          sha256_seal: string;
+          execution_latency_ms: number;
+          results_summary: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          benchmark_suite_version?: string;
+          total_instruments: number;
+          total_ground_truth_obligations: number;
+          total_extracted_obligations: number;
+          true_positives: number;
+          false_positives: number;
+          false_negatives: number;
+          precision_score: number;
+          recall_score: number;
+          f1_score: number;
+          character_span_fidelity_score: number;
+          statutory_penalty_grounding_score: number;
+          hallucinated_penalties_count?: number;
+          character_drift_count?: number;
+          sha256_seal: string;
+          execution_latency_ms: number;
+          results_summary?: Json;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['supervisory_benchmark_runs']['Insert']>;
+        Relationships: [];
+      };
       compliance_cascade_events: {
         Row: {
           id: string;

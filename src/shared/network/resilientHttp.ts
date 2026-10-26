@@ -58,19 +58,34 @@ export async function resilientFetch<T = any>(
     ...options.headers,
   };
 
+  const timeoutDuration = options.timeoutMs || 8000;
+
   return new Promise((resolve, reject) => {
+    let settled = false;
+    const hardTimeoutTimer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        req.destroy(new Error(`Resilient HTTP request to ${urlStr} timed out after ${timeoutDuration}ms`));
+        reject(new Error(`Resilient HTTP request to ${urlStr} timed out after ${timeoutDuration}ms`));
+      }
+    }, timeoutDuration);
+
     const req = client.request(
       url,
       {
         method: options.method || 'GET',
         headers: defaultHeaders,
         lookup: customLookup,
-        timeout: options.timeoutMs || 15000,
+        timeout: timeoutDuration,
       },
       (res) => {
         const chunks: Buffer[] = [];
         res.on('data', (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
         res.on('end', () => {
+          clearTimeout(hardTimeoutTimer);
+          if (settled) return;
+          settled = true;
+
           const bodyBuffer = Buffer.concat(chunks);
           const bodyText = bodyBuffer.toString('utf-8');
 
@@ -88,11 +103,20 @@ export async function resilientFetch<T = any>(
     );
 
     req.on('timeout', () => {
-      req.destroy(new Error(`Resilient HTTP request to ${urlStr} timed out after ${options.timeoutMs || 15000}ms`));
+      clearTimeout(hardTimeoutTimer);
+      if (!settled) {
+        settled = true;
+        req.destroy(new Error(`Resilient HTTP request to ${urlStr} timed out after ${timeoutDuration}ms`));
+        reject(new Error(`Resilient HTTP request to ${urlStr} timed out after ${timeoutDuration}ms`));
+      }
     });
 
     req.on('error', (err) => {
-      reject(err);
+      clearTimeout(hardTimeoutTimer);
+      if (!settled) {
+        settled = true;
+        reject(err);
+      }
     });
 
     if (options.body) {
