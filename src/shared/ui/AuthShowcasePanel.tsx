@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { ShieldCheck, Sparkles, Building2, Eye, FileText, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, Building2, Eye, FileText, CheckCircle2 } from 'lucide-react';
 
 export interface AuthShowcasePanelProps {
   title?: string;

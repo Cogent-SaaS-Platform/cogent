@@ -16,7 +16,6 @@ import {
   CheckCircle2,
   Calendar,
   Building,
-  Sparkles,
   RefreshCw,
   Lock,
   Layers,

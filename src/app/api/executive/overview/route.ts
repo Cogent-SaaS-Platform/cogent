@@ -6,8 +6,9 @@ import { logger } from '@/shared/logger';
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const tenantCtx = await getTenantContext();
-    const organizationId = tenantCtx.organizationId;
+    const tenantCtx = await getTenantContext({ allowDevFallback: true });
+    const queryOrgId = searchParams.get('organizationId');
+    const organizationId = (tenantCtx.isDevFallback && queryOrgId) ? queryOrgId : tenantCtx.organizationId;
     const paramOrgName = searchParams.get('organizationName');
     let organizationName: string = paramOrgName && paramOrgName.trim() ? paramOrgName.trim() : '';
     if (!organizationName) {

@@ -19,8 +19,11 @@ export async function POST(req: NextRequest) {
     }
 
     const parsed = ExportExecutiveBriefSchema.safeParse(body);
-    const tenantCtx = await getTenantContext();
-    const organizationId = tenantCtx.organizationId;
+    const tenantCtx = await getTenantContext({ allowDevFallback: true });
+    const organizationId =
+      tenantCtx.isDevFallback && parsed.success && parsed.data.organizationId
+        ? parsed.data.organizationId
+        : tenantCtx.organizationId;
     let organizationName: string =
       parsed.success && parsed.data.organizationName ? parsed.data.organizationName.trim() : '';
     if (!organizationName) {

@@ -284,22 +284,9 @@ export class CascadeTriggerService {
       }
     }
 
-    // If no candidate policies in DB, provide realistic fallback for tenant
+    // If no candidate policies found in DB, return empty list without synthetic fallbacks
     if (candidatePolicies.length === 0) {
-      candidatePolicies = [
-        {
-          id: '59442f9b-f494-420e-9ce4-2b10aad06cdb',
-          organization_id: organizationId,
-          title: 'Apex Commercial Bank AML/CFT Operational Manual',
-          department: 'COMPLIANCE_LEGAL',
-        },
-        {
-          id: 'b092c6a4-23f9-4e1c-b369-1a8bc4d48432',
-          organization_id: organizationId,
-          title: 'Kudex MFB Consumer Credit & KYC Policy',
-          department: 'OPERATIONS',
-        },
-      ];
+      logger.info({ organizationId }, 'Zero policy documents found for tenant; concordance evaluation requires uploaded policies');
     }
 
     // 4. Identify impacted policies based on domain concordance and keyword matching
@@ -463,6 +450,34 @@ export class CascadeTriggerService {
             affectedDomains: domainMeta.domains,
           },
         });
+
+        // 8. Persist cryptographic cascade hop into compliance_cascade_events
+        if (this.dbClient) {
+          try {
+            await this.dbClient.from('compliance_cascade_events').insert({
+              id: crypto.randomUUID(),
+              organization_id: organizationId,
+              circular_id: circularId,
+              hop_number: 1,
+              source_pillar: 'PILLAR_2_RADAR',
+              target_pillar: 'PILLAR_3_GAP_MATRIX',
+              event_type: 'GAP_RE_EVALUATION_TRIGGERED',
+              entity_type: 'gap_evaluations',
+              entity_id: evaluationId,
+              status: 'COMPLETED',
+              details: {
+                circularNumber,
+                policyId: policy.id,
+                policyTitle: policy.title,
+                affectedDomains: domainMeta.domains,
+              },
+              sha256_hash: outputHash,
+              previous_event_hash: inputHash,
+            });
+          } catch (cascadeEvErr) {
+            logger.warn({ cascadeEvErr }, 'Warning writing cascade event to compliance_cascade_events');
+          }
+        }
 
         impactedEvaluations.push({
           evaluationId,

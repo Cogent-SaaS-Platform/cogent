@@ -26,9 +26,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const tenantCtx = await getTenantContext();
-    const organizationId = tenantCtx.organizationId;
-    const userId = tenantCtx.userId;
+    const tenantCtx = await getTenantContext({ allowDevFallback: true });
+    const organizationId =
+      tenantCtx.isDevFallback && parsed.data.organizationId
+        ? parsed.data.organizationId
+        : tenantCtx.organizationId;
+    const userId =
+      tenantCtx.isDevFallback && parsed.data.userId
+        ? parsed.data.userId
+        : tenantCtx.userId;
     const cascadeTriggerService = new CascadeTriggerService({ dbClient: tenantCtx.dbClient });
 
     const result = await cascadeTriggerService.triggerGapReEvaluation({

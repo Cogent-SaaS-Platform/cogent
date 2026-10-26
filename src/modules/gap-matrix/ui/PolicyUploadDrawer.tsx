@@ -8,7 +8,6 @@ import {
   AlertCircle,
   FileCheck2,
   FolderOpen,
-  Sparkles,
 } from 'lucide-react';
 import { OrgDepartment } from '@/shared/types';
 import { PolicyIngestResult } from '../types';
@@ -186,9 +185,9 @@ All customer identification files, account ledgers, and transaction records shal
             <button
               type="button"
               onClick={loadSampleAmlPolicy}
-              className="text-xs font-semibold text-[#2A4BFF] hover:text-[#1E3BD9] flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#EEF2FF] border border-[#C7D2FE] transition-colors"
+              className="text-xs font-semibold text-slate-700 hover:text-slate-900 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-300 transition-colors"
             >
-              <Sparkles className="w-3.5 h-3.5" />
+              <FileText className="w-3.5 h-3.5 text-slate-600" />
               Load Canonical AML Policy Sample
             </button>
           </div>

@@ -5,7 +5,6 @@ import {
   ShieldAlert,
   ShieldCheck,
   Clock,
-  Sparkles,
   ChevronRight,
 } from 'lucide-react';
 import { RadarCircularPresentationCard } from '../types';
@@ -151,7 +150,7 @@ export function CircularCard({ card, isSelected, onSelect, onInspect }: Circular
       <div className="mb-3">
         {card.applicability.isApplicable ? (
           <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700">
-            <Sparkles className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+            <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
             <span className="truncate">Applies to Your Institution</span>
           </div>
         ) : (

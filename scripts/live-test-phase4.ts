@@ -55,6 +55,11 @@ async function runLiveTestPhase4() {
   const TENANT_B_ID = '00000000-0000-0000-0000-000000000002'; // Kudex Microfinance Bank Ltd
   const DEV_USER_ID = '00000000-0000-0000-0000-000000000010';
 
+  const DEFAULT_HEADERS = {
+    'Content-Type': 'application/json',
+    'x-dev-bypass': 'true',
+  };
+
   let passedSteps = 0;
   const totalSteps = 4;
 
@@ -140,7 +145,7 @@ async function runLiveTestPhase4() {
     console.log('  - Calling POST /api/radar/cascade/trigger...');
     const cascadeGapRes = await fetch(`${BASE_URL}/api/radar/cascade/trigger`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: DEFAULT_HEADERS,
       body: JSON.stringify({
         circularId: CIRCULAR_1_ID,
         organizationId: TENANT_A_ID,
@@ -335,7 +340,7 @@ async function runLiveTestPhase4() {
     console.log('  - Calling POST /api/marketing/cascade/check...');
     const marketingCascadeRes = await fetch(`${BASE_URL}/api/marketing/cascade/check`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: DEFAULT_HEADERS,
       body: JSON.stringify({
         circularId: CIRCULAR_2_ID,
         organizationId: TENANT_A_ID,
@@ -420,7 +425,8 @@ async function runLiveTestPhase4() {
     // 3A: Query GET /api/executive/overview
     console.log('  - Calling GET /api/executive/overview for Tenant A...');
     const overviewRes = await fetch(
-      `${BASE_URL}/api/executive/overview?organizationId=${TENANT_A_ID}&organizationName=Apex%20Commercial%20Bank%20Plc`
+      `${BASE_URL}/api/executive/overview?organizationId=${TENANT_A_ID}&organizationName=Apex%20Commercial%20Bank%20Plc`,
+      { headers: DEFAULT_HEADERS }
     );
 
     if (!overviewRes.ok) {
@@ -497,7 +503,7 @@ async function runLiveTestPhase4() {
     console.log('  - Calling POST /api/executive/export...');
     const exportRes = await fetch(`${BASE_URL}/api/executive/export`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: DEFAULT_HEADERS,
       body: JSON.stringify({
         organizationId: TENANT_A_ID,
         organizationName: 'Apex Commercial Bank Plc',
@@ -534,7 +540,8 @@ async function runLiveTestPhase4() {
     console.log('\n[STEP 4] Testing Multi-Tenant Executive Separation & Teardown (Task 4.4)...');
 
     const tenantBOverviewRes = await fetch(
-      `${BASE_URL}/api/executive/overview?organizationId=${TENANT_B_ID}&organizationName=Kudex%20Microfinance%20Bank%20Ltd`
+      `${BASE_URL}/api/executive/overview?organizationId=${TENANT_B_ID}&organizationName=Kudex%20Microfinance%20Bank%20Ltd`,
+      { headers: DEFAULT_HEADERS }
     );
     if (!tenantBOverviewRes.ok) {
       throw new Error(`Tenant B executive overview query failed with status ${tenantBOverviewRes.status}`);

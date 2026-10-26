@@ -7,7 +7,6 @@ import {
   X,
   Copy,
   Check,
-  Sparkles,
   ChevronDown,
   ChevronUp,
   ShieldAlert,

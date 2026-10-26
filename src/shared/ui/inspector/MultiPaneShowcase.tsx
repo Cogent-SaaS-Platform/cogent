@@ -17,7 +17,6 @@ import { RadarCircularPresentationCard } from '@/modules/radar/types';
 import {
   FileText,
   ShieldAlert,
-  Sparkles,
   Layers,
   ArrowRight,
   Download,
@@ -317,7 +316,7 @@ export function MultiPaneShowcase() {
               }}
               className="btn-base btn-primary btn-sm gap-1.5 shadow-xs"
             >
-              <Sparkles className="w-3.5 h-3.5" />
+              <Layers className="w-3.5 h-3.5" />
               <span>Launch Demo Inspector</span>
             </button>
           </div>

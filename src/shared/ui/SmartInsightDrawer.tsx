@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   Bell,
   X,
-  Sparkles,
+  Layers,
   AlertTriangle,
   Clock,
   ExternalLink,
@@ -153,8 +153,8 @@ export function SmartInsightDrawer({ isOpen, onClose, onActionClick }: SmartInsi
           {topInsight && (
             <div className="p-4 rounded-xl bg-gradient-to-br from-[#EEF2FF] to-[#F5F6FA] border border-[#C7D2FE] space-y-3">
               <div className="flex items-center gap-2 text-[#2A4BFF]">
-                <Sparkles className="w-4 h-4 text-[#2A4BFF]" />
-                <span className="text-xs font-bold uppercase tracking-wider">Top Smart Insight</span>
+                <Layers className="w-4 h-4 text-[#2A4BFF]" />
+                <span className="text-xs font-bold uppercase tracking-wider">Statutory Concordance Insight</span>
               </div>
               <p className="text-xs text-[#0B0F1A] leading-relaxed">
                 <span className="font-semibold text-[#2A4BFF]">{topInsight.target}: </span>
@@ -249,8 +249,8 @@ export function SmartInsightDrawer({ isOpen, onClose, onActionClick }: SmartInsi
                     {notif.aiContext && (
                       <div className="mt-2.5 p-2.5 rounded-lg bg-[#F9FAFC] border border-[#E8EDF5] space-y-1">
                         <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#2A4BFF]">
-                          <Sparkles className="w-3 h-3" />
-                          <span>AI Context</span>
+                          <Layers className="w-3 h-3" />
+                          <span>Statutory Context</span>
                         </div>
                         <p className="text-[11px] text-[#4B5565] leading-relaxed">
                           {notif.aiContext}

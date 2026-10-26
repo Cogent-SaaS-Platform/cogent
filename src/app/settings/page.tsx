@@ -18,7 +18,6 @@ import {
   Mail,
   Lock,
   Layers,
-  Sparkles,
   Info,
   Check,
   UserPlus,

@@ -43,13 +43,13 @@ export class EntitlementEngine {
   }
 
   /**
-   * Evaluates whether the tenant is permitted to run AI-powered statutory rewrites.
+   * Evaluates whether the tenant is permitted to run automated statutory rewrites.
    */
   public static assertCanGenerateRewrite(
     subscription: TenantSubscriptionSummary,
     currentUsageCount = 0
   ): void {
-    this.assertEngineActive(subscription, 'AI statutory conversion rewrite');
+    this.assertEngineActive(subscription, 'Automated statutory conversion rewrite');
 
     const isTrial = subscription.status === 'trialing';
     const maxRewrites = isTrial

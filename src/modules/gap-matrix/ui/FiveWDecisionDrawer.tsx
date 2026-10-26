@@ -14,7 +14,6 @@ import {
   Scale,
   FileCheck2,
   FileWarning,
-  Sparkles,
   Radio,
   Shield,
 } from 'lucide-react';
@@ -214,7 +213,7 @@ export function FiveWDecisionDrawer({
           <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 shadow-xs relative overflow-hidden">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2 text-emerald-900 text-xs font-bold uppercase tracking-wider">
-                <Sparkles className="w-4 h-4 text-emerald-600" />
+                <FileCheck2 className="w-4 h-4 text-emerald-600" />
                 Ready-to-Adopt Draft Replacement Policy Language
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold">
                   Board Risk Committee Ready

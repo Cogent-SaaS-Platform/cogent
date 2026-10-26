@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { OnboardingState, InvitedTeamMember } from '../types';
-import { ChevronRight, ChevronLeft, UserPlus, Trash2, ShieldCheck, Sparkles, CheckCircle2 } from 'lucide-react';
+import { ChevronRight, ChevronLeft, UserPlus, Trash2, ShieldCheck, CheckCircle2 } from 'lucide-react';
 
 interface Step5Props {
   state: OnboardingState;
@@ -183,7 +183,7 @@ export function Step5InviteTeam({
             </>
           ) : (
             <>
-              <Sparkles className="w-4 h-4" />
+              <ShieldCheck className="w-4 h-4" />
               <span>Launch Workspace</span>
             </>
           )}

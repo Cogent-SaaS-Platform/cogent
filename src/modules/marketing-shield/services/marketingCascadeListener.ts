@@ -272,17 +272,7 @@ export class MarketingCascadeListener {
     }
 
     if (candidateScans.length === 0) {
-      candidateScans = [
-        {
-          id: '58a7030c-11d2-48b2-a8b0-8eb75e455d5d',
-          campaign_name: 'Live Integration High-Yield Test Ad',
-          channel: 'SOCIAL_MEDIA_POST',
-          raw_copy: 'Invest your money with guaranteed returns and zero risk. Get 35% annual yield!',
-          approval_status: 'APPROVED_BY_CCO',
-          verdict: 'BLOCKING_ISSUE',
-          deterministic_penalty_naira: 2000000,
-        },
-      ];
+      logger.info({ organizationId }, 'Zero marketing scans found for tenant; no campaigns to evaluate for drift');
     }
 
     // 4. Query active claims in tenant_claims_ledger
@@ -343,7 +333,7 @@ export class MarketingCascadeListener {
         scan.approval_status === 'MODIFIED_AND_APPROVED' ||
         scan.approval_status === 'APPROVED';
 
-      if (matchedPhrases.length > 0 || (isApproved && impactAssessment.impacted && candidateScans.indexOf(scan) === 0)) {
+      if (matchedPhrases.length > 0 || (isApproved && impactAssessment.impacted)) {
         const penaltyNaira = Math.max(
           penaltyRate.base,
           Number(scan.deterministic_penalty_naira) || penaltyRate.base
@@ -436,6 +426,30 @@ export class MarketingCascadeListener {
               },
             });
             auditId = auditLog.id;
+
+            // Persist cryptographic cascade hop into compliance_cascade_events
+            await this.dbClient.from('compliance_cascade_events').insert({
+              id: crypto.randomUUID(),
+              organization_id: organizationId,
+              circular_id: circularId,
+              hop_number: 2,
+              source_pillar: 'PILLAR_2_RADAR',
+              target_pillar: 'PILLAR_1_MARKETING_SHIELD',
+              event_type: 'MARKETING_DRIFT_INVALIDATED',
+              entity_type: 'marketing_scans',
+              entity_id: scan.id,
+              status: 'COMPLETED',
+              details: {
+                circularNumber,
+                campaignName: scan.campaign_name,
+                previousApprovalStatus: scan.approval_status,
+                newApprovalStatus: 'NEEDS_RE_REVIEW',
+                statutoryPenaltyNaira: penaltyNaira,
+                flaggedPhrases: matchedPhrases,
+              },
+              sha256_hash: AuditService.computeSha256(stateReason),
+              previous_event_hash: AuditService.computeSha256(copy),
+            });
           } catch (mutateErr) {
             logger.warn({ mutateErr }, 'Warning mutating marketing scan state in database');
           }

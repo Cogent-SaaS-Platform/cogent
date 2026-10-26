@@ -161,7 +161,7 @@ const SCENARIO_A_VIEW_MODEL: MarketingShieldViewModel = {
   },
   telemetry: {
     latencyMs: 342,
-    modelIdentifier: 'gemini-2.5-flash (Deterministic Engine)',
+    modelIdentifier: 'Deterministic Rule Evaluation Engine',
     verifiedAt: new Date().toISOString(),
     auditHash: '7f9c2d1b8e4a5f6e3c2b1a0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f',
   },
@@ -242,7 +242,7 @@ const SCENARIO_B_VIEW_MODEL: MarketingShieldViewModel = {
   },
   telemetry: {
     latencyMs: 295,
-    modelIdentifier: 'gemini-2.5-flash (Deterministic Engine)',
+    modelIdentifier: 'Deterministic Rule Evaluation Engine',
     verifiedAt: new Date().toISOString(),
     auditHash: '3a1c8f9b2d4e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a',
   },
@@ -283,7 +283,7 @@ const SCENARIO_C_VIEW_MODEL: MarketingShieldViewModel = {
   },
   telemetry: {
     latencyMs: 182,
-    modelIdentifier: 'gemini-2.5-flash (Deterministic Engine)',
+    modelIdentifier: 'Deterministic Rule Evaluation Engine',
     verifiedAt: new Date().toISOString(),
     auditHash: '9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d9c8b7a6f5e4d3c2b1a0f9e8d',
   },
@@ -318,7 +318,7 @@ const EMPTY_VIEW_MODEL: MarketingShieldViewModel = {
   },
   telemetry: {
     latencyMs: 0,
-    modelIdentifier: 'gemini-2.5-flash (Deterministic Engine)',
+    modelIdentifier: 'Deterministic Rule Evaluation Engine',
     verifiedAt: '',
     auditHash: '',
   },
@@ -541,9 +541,9 @@ function synthesizeClientScan(
     },
     telemetry: {
       latencyMs: 145,
-      modelIdentifier: 'gemini-2.5-flash (Deterministic Engine)',
+      modelIdentifier: 'Deterministic Rule Evaluation Engine',
       verifiedAt: new Date().toISOString(),
-      auditHash: Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join(''),
+      auditHash: '7f9c2d1b8e4a5f6e3c2b1a0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f',
     },
     channel,
     originalCopy: rawCopy,

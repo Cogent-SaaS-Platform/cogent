@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { OnboardingState, DepartmentMandate } from '../types';
-import { ChevronRight, ChevronLeft, ShieldCheck, Sparkles, AlertCircle } from 'lucide-react';
+import { ChevronRight, ChevronLeft, ShieldCheck, AlertCircle } from 'lucide-react';
 
 interface Step2Props {
   state: OnboardingState;

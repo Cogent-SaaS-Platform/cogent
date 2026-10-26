@@ -1048,6 +1048,42 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['source_runs']['Insert']>;
         Relationships: [];
       };
+      compliance_cascade_events: {
+        Row: {
+          id: string;
+          organization_id: string;
+          circular_id: string | null;
+          hop_number: number;
+          source_pillar: string;
+          target_pillar: string;
+          event_type: string;
+          entity_type: string;
+          entity_id: string | null;
+          status: string;
+          details: Json;
+          sha256_hash: string;
+          previous_event_hash: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          circular_id?: string | null;
+          hop_number?: number;
+          source_pillar: string;
+          target_pillar: string;
+          event_type: string;
+          entity_type: string;
+          entity_id?: string | null;
+          status?: string;
+          details?: Json;
+          sha256_hash: string;
+          previous_event_hash?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['compliance_cascade_events']['Insert']>;
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;

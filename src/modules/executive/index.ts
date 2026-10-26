@@ -1,3 +1,4 @@
 export * from './types';
 export * from './services/executiveOverviewService';
-export * from './ui/ExecutiveDashboard';
+export * from './services/executiveTelemetryService';
+export * from './ui';

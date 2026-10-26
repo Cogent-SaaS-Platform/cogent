@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Cogent | Enterprise RegTech & Compliance Cockpit",
-  description: "AI-powered regulatory intelligence and compliance governance platform for Nigerian financial institutions.",
+  description: "Autonomous regulatory intelligence and compliance governance platform for Nigerian financial institutions.",
   icons: {
     icon: [
       { url: '/icon.png', sizes: '32x32', type: 'image/png' },

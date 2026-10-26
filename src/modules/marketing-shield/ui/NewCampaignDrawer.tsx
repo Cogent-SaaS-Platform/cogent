@@ -8,7 +8,6 @@ import {
   Scale,
   RefreshCw,
   AlertCircle,
-  Sparkles,
   Layers,
   ArrowRight,
   Bookmark,

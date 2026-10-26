@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ShieldAlert, ArrowRight, Clock, Sparkles } from 'lucide-react';
+import { ShieldAlert, ArrowRight, Clock } from 'lucide-react';
 
 interface SubscriptionData {
   tier: string;
@@ -104,7 +104,7 @@ export function TenantSubscriptionBanner() {
           className="w-full bg-[#EEF2FF] border-b border-[#C7D2FE] px-4 py-1.5 flex items-center justify-between gap-4 text-[11px] text-[#3730A3] select-none"
         >
           <div className="flex items-center gap-2 min-w-0">
-            <Sparkles className="w-3.5 h-3.5 text-[#4F46E5] shrink-0" />
+            <Clock className="w-3.5 h-3.5 text-[#4F46E5] shrink-0" />
             <span className="truncate">
               Operating on <strong>7-Day Institutional Evaluation Trial</strong> ({daysLeft} {daysLeft === 1 ? 'day' : 'days'} remaining).
             </span>
