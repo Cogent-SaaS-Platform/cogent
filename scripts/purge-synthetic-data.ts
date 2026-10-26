@@ -73,7 +73,7 @@ async function runPurge() {
   // 1. Identify target circular IDs
   const { data: allCirculars, error: cErr } = await db
     .from('radar_circulars')
-    .select('id, circular_number, subject');
+    .select('id, circular_number, subject, document_version_id');
 
   if (cErr) {
     console.error('Failed to query radar_circulars:', cErr.message);
@@ -82,6 +82,7 @@ async function runPurge() {
 
   const targetCircularIds: string[] = [];
   const targetCircularRefs: string[] = [];
+  const targetVersionIds: string[] = [];
 
   for (const c of allCirculars || []) {
     const num = c.circular_number || '';
@@ -108,6 +109,9 @@ async function runPurge() {
     if (isSynthetic) {
       targetCircularIds.push(c.id);
       targetCircularRefs.push(num);
+      if (c.document_version_id) {
+        targetVersionIds.push(c.document_version_id);
+      }
     }
   }
 
@@ -118,13 +122,6 @@ async function runPurge() {
     return;
   }
 
-  // 2. Identify associated document versions
-  const { data: docVersions } = await db
-    .from('regulatory_document_versions')
-    .select('id, circular_id')
-    .in('circular_id', targetCircularIds);
-
-  const targetVersionIds = (docVersions || []).map((v) => v.id);
   console.log(`Found ${targetVersionIds.length} associated regulatory_document_versions.`);
 
   // 3. Identify associated clauses
@@ -212,7 +209,7 @@ async function runPurge() {
   const impactIds = (impacts || []).map((i) => i.id);
 
   if (impactIds.length > 0) {
-    await db.from('radar_action_items').delete().in('tenant_impact_id', impactIds);
+    await db.from('radar_action_items').delete().in('impact_id', impactIds);
     await db.from('radar_tenant_impacts').delete().in('id', impactIds);
     console.log(`Deleted ${impactIds.length} tenant impacts & action items.`);
   }

@@ -3,6 +3,8 @@ export * from './services/pdfStructureExtractor';
 export * from './services/deterministicMetadataExtractor';
 export * from './services/circularIngestionService';
 export * from './services/applicabilityEngine';
+export * from './services/obligationExtractionService';
+export * from './services/clauseSegmentationEngine';
 export * from './services/deadlineCountdownCalculator';
 export * from './services/roleSynthesisService';
 export * from './services/radarNotificationService';

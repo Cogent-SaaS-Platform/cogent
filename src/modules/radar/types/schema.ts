@@ -72,3 +72,5 @@ export const ExtractedCircularStructureSchema = z.object({
 
 export type ExtractedScheduleItem = z.infer<typeof ExtractedScheduleItemSchema>;
 export type ExtractedCircularStructure = z.infer<typeof ExtractedCircularStructureSchema>;
+
+export * from './obligationSchema';

@@ -22,6 +22,7 @@ import { LineageStatus } from '@/shared/types';
 import { inngestDispatcher } from '../inngest/client';
 import { ApplicabilityEngine } from './applicabilityEngine';
 import { ClauseSegmentationEngine } from './clauseSegmentationEngine';
+import { ObligationExtractionService } from './obligationExtractionService';
 import { RoleSynthesisService } from './roleSynthesisService';
 
 /**
@@ -35,6 +36,7 @@ export class CircularIngestionService {
   private structureExtractor: PdfStructureExtractor;
   private metadataExtractor: DeterministicMetadataExtractor;
   private lineageService: LineageService;
+  private obligationExtractor: ObligationExtractionService;
 
   constructor(options: {
     dbClient: SupabaseClient<Database>;
@@ -42,6 +44,7 @@ export class CircularIngestionService {
     structureExtractor?: PdfStructureExtractor;
     metadataExtractor?: DeterministicMetadataExtractor;
     lineageService?: LineageService;
+    obligationExtractor?: ObligationExtractionService;
   } | SupabaseClient<Database>) {
     const client = options && 'dbClient' in options ? options.dbClient : (options as SupabaseClient<Database>);
     if (!client) {
@@ -61,6 +64,9 @@ export class CircularIngestionService {
     this.lineageService = (options && 'lineageService' in options && options.lineageService)
       ? options.lineageService
       : new LineageService(this.dbClient);
+    this.obligationExtractor = (options && 'obligationExtractor' in options && options.obligationExtractor)
+      ? options.obligationExtractor
+      : new ObligationExtractionService({ dbClient: this.dbClient });
   }
 
   /**
@@ -111,7 +117,9 @@ export class CircularIngestionService {
       sourceFileHash,
       extractedStructure.rawText,
       extractedStructure.sections,
-      input.sourceUrl
+      input.sourceUrl,
+      organizationId,
+      input.provenance
     );
 
     // Step 6: Dispatch Inngest Event (ADR-006)
@@ -187,13 +195,12 @@ export class CircularIngestionService {
     );
 
     // Step 9: Emit High-Priority Real-Time Notification to Tenant Enclave
-    if (!deduplicated && this.dbClient) {
+    if (!deduplicated && this.dbClient && organizationId) {
       try {
-        const notifOrgId = organizationId || '00000000-0000-0000-0000-000000000001';
         await this.dbClient.from('notifications').insert({
-          organization_id: notifOrgId,
-          title: `🚨 Live Directive Enacted: ${metadata.circularNumber} (${metadata.regulatorCode})`,
-          message: `${metadata.subject || 'New statutory regulatory directive'}. Full compliance required by ${metadata.statutoryDeadline || 'statutory timeline'}. Immediate gap audit advised.`,
+          organization_id: organizationId,
+          title: `Statutory Directive Enacted: ${metadata.circularNumber} (${metadata.regulatorCode})`,
+          message: `${metadata.subject || 'New statutory regulatory directive'}. Full compliance required by ${metadata.statutoryDeadline || 'prescribed timeline'}. Immediate gap audit advised.`,
           link: `/radar?circularNumber=${encodeURIComponent(metadata.circularNumber)}`,
           is_read: false,
         });
@@ -251,7 +258,9 @@ export class CircularIngestionService {
     sourceFileHash: string,
     rawText?: string,
     sections?: Array<{ sectionNumber: string; heading: string; content: string }>,
-    sourceUrl?: string
+    sourceUrl?: string,
+    organizationId?: string,
+    provenance?: 'PRIMARY' | 'SECONDARY' | 'MANUAL'
   ): Promise<{ circularId: string; documentVersionId: string; deduplicated?: boolean; lineageStatus?: LineageStatus }> {
     const circularId = crypto.randomUUID();
     const documentVersionId = crypto.randomUUID();
@@ -331,7 +340,7 @@ export class CircularIngestionService {
           }
         }
 
-        // 3. Insert document version with real canonical source URL
+        // 3. Insert document version with real canonical source URL and provenance
         const canonicalUrl = sourceUrl || storagePath;
         await client.from('regulatory_document_versions').insert({
           id: documentVersionId,
@@ -345,6 +354,7 @@ export class CircularIngestionService {
           source_file_hash: sourceFileHash,
           verification_status: 'UNVERIFIED_INGESTION',
           verification_notes: 'Ingested via Cogent Automated Regulatory Ingestion Pipeline.',
+          provenance: provenance || 'PRIMARY',
           is_active: true,
         });
 
@@ -362,6 +372,7 @@ export class CircularIngestionService {
           affected_payment_rails: metadata.affectedPaymentRails,
           applies_universally: metadata.appliesUniversally,
           lineage_status: 'ACTIVE_LAW',
+          source_tier: provenance || 'PRIMARY',
           issuance_date: metadata.publicationDate,
           effective_date: metadata.effectiveDate,
           raw_text: rawText || null,
@@ -383,11 +394,67 @@ export class CircularIngestionService {
           statutoryDeadline: metadata.statutoryDeadline,
         });
 
+        // Enrich clauses with multi-obligation extraction and quote-to-source validation
+        for (const clause of segmentedClauses) {
+          try {
+            const extractedObligations = await this.obligationExtractor.extractObligationsFromClause({
+              clauseText: clause.clauseText,
+              clauseReference: clause.sectionReference,
+              sectionHeading: clause.sectionHeading,
+              pageNumber: clause.pageNumber,
+              regulatorCode: metadata.regulatorCode,
+              circularNumber: metadata.circularNumber,
+            });
+
+            if (extractedObligations.length > 0) {
+              clause.obligations = extractedObligations.map((o) => ({
+                id: o.id,
+                obligationType: o.obligationType,
+                summary: o.summary,
+                severityFloor: o.severityFloor,
+                statutoryTimelineDays: o.statutoryTimelineDays,
+                targetRole: 'Chief Compliance Officer',
+                penalties: o.statedPenalty
+                  ? [
+                      {
+                        penaltyMinNaira: o.statedPenalty.minNaira,
+                        penaltyMaxNaira: o.statedPenalty.maxNaira,
+                        dailyFineNaira: o.statedPenalty.dailyFineNaira,
+                        carriesPersonalCriminalLiability: o.statedPenalty.carriesPersonalCriminalLiability,
+                        carriesLicenseSuspensionRisk: o.statedPenalty.carriesLicenseSuspensionRisk,
+                        penaltyLegalCitation: o.statedPenalty.citation,
+                      },
+                    ]
+                  : [],
+                actor: o.actor,
+                action: o.action,
+                object: o.object,
+                condition: o.condition,
+                deadline: o.deadline,
+                verbatimQuote: o.verbatimQuote,
+                startChar: o.startChar,
+                endChar: o.endChar,
+                targetedLicenses: o.targetedLicenses,
+                affectedRails: o.affectedRails,
+                appliesUniversally: o.appliesUniversally,
+                isValidated: o.isValidated,
+                groundingConfidence: o.groundingConfidence,
+              }));
+            }
+          } catch (extractErr) {
+            logger.warn({ extractErr, clauseRef: clause.sectionReference }, 'Clause multi-obligation extraction skipped');
+          }
+        }
+
         await ClauseSegmentationEngine.persistDocumentClauses(client, documentVersionId, segmentedClauses);
 
         // 6. Real-Time Tenant Impact Evaluation
         try {
-          const { data: orgs } = await client.from('organizations').select('id, name');
+          let orgQuery = client.from('organizations').select('id, name');
+          if (organizationId) {
+            orgQuery = (orgQuery as any).eq('id', organizationId);
+          }
+          const { data: orgs } = await orgQuery;
           if (orgs && orgs.length > 0) {
             for (const org of orgs) {
               const { data: licenses } = await client

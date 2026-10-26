@@ -171,16 +171,34 @@ export async function GET(req: NextRequest) {
             if (obligationsData) {
               for (const obl of obligationsData) {
                 const arr = obligationsMap.get(obl.clause_id) || [];
-                const penalties = penaltiesMap.get(obl.id) || [
-                  {
-                    penaltyMinNaira: 1000000,
-                    penaltyMaxNaira: 5000000,
-                    dailyFineNaira: 50000,
-                    carriesPersonalCriminalLiability: false,
-                    carriesLicenseSuspensionRisk: true,
-                    penaltyLegalCitation: 'Statutory Regulatory Sanctions',
-                  },
-                ];
+                const penalties = penaltiesMap.get(obl.id) || [];
+                const meta = (obl.metadata || {}) as Record<string, any>;
+                const rawCriteria = meta.complianceCriteria;
+
+                const assessmentCriteria = Array.isArray(rawCriteria) && rawCriteria.length > 0
+                  ? rawCriteria.map((crit: any, cIdx: number) => ({
+                      id: crit.id || `crit-${obl.id}-${cIdx + 1}`,
+                      criterionText: crit.criterionText || crit.title || String(crit),
+                      evidenceRequired: crit.evidenceRequired || 'Statutory compliance verification record',
+                      isMandatory: crit.isMandatory ?? true,
+                      defaultChecked: crit.defaultChecked ?? false,
+                    }))
+                  : [
+                      {
+                        id: `crit-${obl.id}-1`,
+                        criterionText: `Internal operational manual contains unambiguous rules implementing ${obl.summary}`,
+                        evidenceRequired: 'Approved institutional policy document or standard operating procedure',
+                        isMandatory: true,
+                        defaultChecked: true,
+                      },
+                      {
+                        id: `crit-${obl.id}-2`,
+                        criterionText: 'Audit logging and supervisory inspection controls are actively in place',
+                        evidenceRequired: 'Automated system event log or inspection readiness dossier',
+                        isMandatory: false,
+                        defaultChecked: false,
+                      },
+                    ];
 
                 arr.push({
                   id: obl.id,
@@ -190,23 +208,16 @@ export async function GET(req: NextRequest) {
                   statutoryTimelineDays: obl.statutory_timeline_days,
                   mandatoryDisclosureText: obl.mandatory_disclosure_text,
                   targetRole: (obl as any).target_role || 'Chief Compliance Officer',
+                  verbatimQuote: obl.verbatim_quote || null,
+                  characterSpan: obl.character_span_start != null && obl.character_span_end != null
+                    ? [obl.character_span_start, obl.character_span_end]
+                    : null,
+                  actor: obl.actor || null,
+                  action: obl.action || null,
+                  targetObject: obl.target_object || null,
+                  assessment: meta.assessment || null,
                   penalties,
-                  assessmentCriteria: [
-                    {
-                      id: `crit-${obl.id}-1`,
-                      criterionText: `Internal operational manual contains unambiguous rules implementing ${obl.summary}`,
-                      evidenceRequired: 'Approved institutional policy document or standard operating procedure',
-                      isMandatory: true,
-                      defaultChecked: true,
-                    },
-                    {
-                      id: `crit-${obl.id}-2`,
-                      criterionText: 'Audit logging and supervisory inspection controls are actively in place',
-                      evidenceRequired: 'Automated system event log or inspection readiness dossier',
-                      isMandatory: false,
-                      defaultChecked: false,
-                    },
-                  ],
+                  assessmentCriteria,
                 });
                 obligationsMap.set(obl.clause_id, arr);
               }
@@ -253,25 +264,44 @@ export async function GET(req: NextRequest) {
                 clauseText: c.clauseText,
                 pageNumber: c.pageNumber,
                 paragraphReference: c.paragraphReference,
-                obligations: c.obligations.map((obl) => ({
-                  id: obl.id || crypto.randomUUID(),
-                  obligationType: obl.obligationType,
-                  summary: obl.summary,
-                  severityFloor: obl.severityFloor,
-                  statutoryTimelineDays: obl.statutoryTimelineDays,
-                  mandatoryDisclosureText: obl.obligationType === 'MANDATORY_DISCLOSURE' ? obl.summary : null,
-                  targetRole: obl.targetRole,
-                  penalties: obl.penalties,
-                  assessmentCriteria: [
-                    {
-                      id: `crit-${obl.summary}-1`,
-                      criterionText: `Internal operational manual contains unambiguous rules implementing ${obl.summary}`,
-                      evidenceRequired: 'Approved institutional policy document or standard operating procedure',
-                      isMandatory: true,
-                      defaultChecked: true,
-                    },
-                  ],
-                })),
+                obligations: c.obligations.map((obl) => {
+                  const rawCriteria = (obl as any).complianceCriteria;
+                  const assessmentCriteria = Array.isArray(rawCriteria) && rawCriteria.length > 0
+                    ? rawCriteria.map((crit: any, cIdx: number) => ({
+                        id: crit.id || `crit-${obl.id || cIdx}-${cIdx + 1}`,
+                        criterionText: crit.criterionText || crit.title || String(crit),
+                        evidenceRequired: crit.evidenceRequired || 'Statutory compliance verification record',
+                        isMandatory: crit.isMandatory ?? true,
+                        defaultChecked: crit.defaultChecked ?? false,
+                      }))
+                    : [
+                        {
+                          id: `crit-${obl.summary}-1`,
+                          criterionText: `Internal operational manual contains unambiguous rules implementing ${obl.summary}`,
+                          evidenceRequired: 'Approved institutional policy document or standard operating procedure',
+                          isMandatory: true,
+                          defaultChecked: true,
+                        },
+                      ];
+
+                  return {
+                    id: obl.id || crypto.randomUUID(),
+                    obligationType: obl.obligationType,
+                    summary: obl.summary,
+                    severityFloor: obl.severityFloor,
+                    statutoryTimelineDays: obl.statutoryTimelineDays,
+                    mandatoryDisclosureText: obl.obligationType === 'MANDATORY_DISCLOSURE' ? obl.summary : null,
+                    targetRole: obl.targetRole,
+                    verbatimQuote: obl.verbatimQuote || null,
+                    characterSpan: (obl.startChar != null && obl.endChar != null) ? [obl.startChar, obl.endChar] : null,
+                    actor: obl.actor || null,
+                    action: obl.action || null,
+                    targetObject: obl.object || null,
+                    assessment: (obl as any).assessment || null,
+                    penalties: obl.penalties || [],
+                    assessmentCriteria,
+                  };
+                }),
               }));
             }
           }

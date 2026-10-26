@@ -7,6 +7,8 @@ import {
   TenantProfileContext,
   CircularTargetingContext,
   ApplicabilityResult,
+  ObligationTargetingContext,
+  ObligationApplicabilityResult,
 } from '../types';
 
 export interface RichTenantLicense {
@@ -100,6 +102,127 @@ export class ApplicabilityEngine {
     circular: CircularTargetingContext
   ): ApplicabilityResult {
     return ApplicabilityEngine.evaluatePure(tenant, circular);
+  }
+
+  /**
+   * Pure deterministic matching of a single statutory obligation against tenant profile
+   * Outputs structured, statutory applicability rationale (e.g., "Applies under BOFIA 2020 s.57 because tenant holds an active CBN:COMMERCIAL_BANK license")
+   */
+  public static evaluateObligationPure(
+    tenant: TenantProfileContext | RichTenantProfileContext,
+    obligation: ObligationTargetingContext
+  ): ObligationApplicabilityResult {
+    const citation = obligation.statutoryCitation || obligation.clauseReference;
+
+    // 1. Universal Mandate Check
+    if (obligation.appliesUniversally) {
+      const citationClause = citation ? ` under ${citation}` : '';
+      return {
+        obligationId: obligation.obligationId,
+        isApplicable: true,
+        reason: `Applies${citationClause} because it is a universal statutory mandate governing all regulated financial entities in Nigeria.`,
+        matchedLicenses: tenant.activeLicenses || [],
+        matchedRails: tenant.activeRails || [],
+        statutoryCitation: obligation.statutoryCitation,
+      };
+    }
+
+    const targetedLicenses = obligation.targetedLicenses || [];
+    const affectedRails = obligation.affectedRails || [];
+
+    // 2. Relational Matching
+    const matchedLicenses = (tenant.activeLicenses || []).filter((lic) =>
+      targetedLicenses.includes(lic)
+    );
+    const matchedRails = (tenant.activeRails || []).filter((rail) =>
+      affectedRails.includes(rail)
+    );
+
+    const isApplicable = matchedLicenses.length > 0 || matchedRails.length > 0;
+
+    // 3. Construct Statutory Rationale
+    const richTenant = tenant as RichTenantProfileContext;
+    const formattedLicenses = matchedLicenses.map((lic) => {
+      const match = richTenant.licenses?.find((l) => l.licenseType === lic && l.licenseNumber);
+      return match?.licenseNumber ? `${lic} (${match.licenseNumber})` : lic;
+    });
+
+    const formattedRails = matchedRails.map((rail) => rail.replace(/_/g, ' '));
+
+    let reason: string;
+    if (isApplicable) {
+      const prefix = citation ? `Applies under ${citation}` : 'Applies';
+      if (formattedLicenses.length > 0 && formattedRails.length > 0) {
+        reason = `${prefix} because tenant holds an active ${formattedLicenses.join(', ')} license and operates [ ${formattedRails.join(', ')} ] rails.`;
+      } else if (formattedLicenses.length > 0) {
+        reason = `${prefix} because tenant holds an active ${formattedLicenses.join(', ')} license.`;
+      } else {
+        reason = `${prefix} because tenant operates active [ ${formattedRails.join(', ')} ] payment rails.`;
+      }
+    } else {
+      if (targetedLicenses.length > 0 && affectedRails.length > 0) {
+        reason = `Not applicable: obligation targets [ ${targetedLicenses.join(', ')} ] and [ ${affectedRails.join(', ')} ] rails, which are not present in tenant operating profile.`;
+      } else if (targetedLicenses.length > 0) {
+        reason = `Not applicable: obligation targets [ ${targetedLicenses.join(', ')} ], which is not held in tenant license profile.`;
+      } else if (affectedRails.length > 0) {
+        reason = `Not applicable: obligation targets [ ${affectedRails.join(', ')} ] rails, which are not active for tenant.`;
+      } else {
+        reason = 'Not applicable to tenant operating licenses or payment rails.';
+      }
+    }
+
+    return {
+      obligationId: obligation.obligationId,
+      isApplicable,
+      reason,
+      matchedLicenses,
+      matchedRails,
+      statutoryCitation: obligation.statutoryCitation,
+    };
+  }
+
+  /**
+   * Batch pure evaluation for multiple obligations against a tenant profile
+   */
+  public static evaluateObligationsPure(
+    tenant: TenantProfileContext | RichTenantProfileContext,
+    obligations: ObligationTargetingContext[]
+  ): ObligationApplicabilityResult[] {
+    return obligations.map((obl) => ApplicabilityEngine.evaluateObligationPure(tenant, obl));
+  }
+
+  public evaluateObligation(
+    tenant: TenantProfileContext | RichTenantProfileContext,
+    obligation: ObligationTargetingContext
+  ): ObligationApplicabilityResult {
+    return ApplicabilityEngine.evaluateObligationPure(tenant, obligation);
+  }
+
+  public evaluateObligations(
+    tenant: TenantProfileContext | RichTenantProfileContext,
+    obligations: ObligationTargetingContext[]
+  ): ObligationApplicabilityResult[] {
+    return ApplicabilityEngine.evaluateObligationsPure(tenant, obligations);
+  }
+
+  /**
+   * Evaluates multiple obligations for an organization by resolving its active tenant profile
+   */
+  public async evaluateObligationsForTenant(
+    organizationId: string,
+    obligations: ObligationTargetingContext[]
+  ): Promise<ObligationApplicabilityResult[]> {
+    const profile = await this.fetchTenantProfile(organizationId);
+    if (!profile) {
+      return obligations.map((o) => ({
+        obligationId: o.obligationId,
+        isApplicable: false,
+        reason: 'Tenant profile not found or inactive in database.',
+        matchedLicenses: [],
+        matchedRails: [],
+      }));
+    }
+    return ApplicabilityEngine.evaluateObligationsPure(profile, obligations);
   }
 
   /**
@@ -244,3 +367,11 @@ export function evaluateCircularApplicability(
 ): ApplicabilityResult {
   return ApplicabilityEngine.evaluatePure(tenant, circular);
 }
+
+export function evaluateObligationApplicability(
+  tenant: TenantProfileContext | RichTenantProfileContext,
+  obligation: ObligationTargetingContext
+): ObligationApplicabilityResult {
+  return ApplicabilityEngine.evaluateObligationPure(tenant, obligation);
+}
+

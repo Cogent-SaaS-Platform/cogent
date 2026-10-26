@@ -107,6 +107,7 @@ export class GapSynthesisService {
     // 3. Pair each statutory clause with top matching internal policy clause via Vector Search
     const promptPairs: GapClausePairPromptInput[] = [];
     const matchedMetadataList: {
+      sectionReference?: string;
       statutoryClauseId: string;
       obligationId: string | null;
       statutoryPenaltyNaira: number;
@@ -172,6 +173,7 @@ export class GapSynthesisService {
         });
 
         matchedMetadataList.push({
+          sectionReference: statClause.sectionReference,
           statutoryClauseId: statClause.clauseId,
           obligationId: obligation.obligationId || null,
           statutoryPenaltyNaira: penalty ? penalty.penaltyMaxNaira : 0,
@@ -217,8 +219,16 @@ export class GapSynthesisService {
     const evaluatedItems: EvaluatedGapItem[] = [];
 
     for (let i = 0; i < promptPairs.length; i++) {
-      const synthesized = synthesisOutput.items[i] || this.createSingleFallbackItem(promptPairs[i]);
       const meta = matchedMetadataList[i];
+      const targetRef = meta.sectionReference?.toLowerCase().trim();
+
+      // Positional-independent matching: match by reference code first, fall back to index i
+      const synthesized =
+        synthesisOutput.items.find(
+          (item) => item.regulatoryClauseReference?.toLowerCase().trim() === targetRef
+        ) ||
+        synthesisOutput.items[i] ||
+        this.createSingleFallbackItem(promptPairs[i]);
 
       const status = synthesized.suggestedStatus;
       let appliedPenalty = 0;
@@ -445,35 +455,28 @@ export class GapSynthesisService {
       status = 'ADEQUATELY_MET';
     }
 
-    let whatHappened = '';
-    let whatToKnow = '';
-    let whatHasChanged = '';
-    let whatToDo = '';
-    let derivedInsight = '';
+    const isCritical = status === 'CRITICAL_GAP';
+    const isPartial = status === 'PARTIALLY_MET';
 
-    if (status === 'CRITICAL_GAP') {
-      whatHappened = `Statutory mandate ${stat.sectionReference} under ${stat.legalCitation} requires that "${stat.obligationSummary}". Comprehensive audit of the internal policy manual (${pair.policyTitle}) reveals that this control is completely absent. Zero internal procedures or operational safeguards have been codified.`;
-      whatToKnow = `Enacted under ${stat.legalCitation} supervisory powers. The apex regulator conducts mandatory on-site bank examinations testing institutional compliance with ${stat.sectionReference}. Failure to codify this control constitutes a Level-1 supervisory deficiency, exposing the institution to direct administrative sanctions and license review.`;
-      whatHasChanged = `Material operational gap. While statutory baselines mandate verified controls regarding ${stat.sectionHeading.toLowerCase()}, company operating procedures operate with zero formalized compliance architecture or assigned departmental accountability.`;
-      whatToDo = `Immediate 3-Step Remediation Playbook:\n1. Policy Amendment: Chief Compliance Officer must sponsor adoption of the replacement policy clause below at the next Board Risk Committee.\n2. Standard Operating Procedure (SOP): Operations & Tech leads must implement mandatory verification queues and dual-custody approval.\n3. Regulatory Attestation: Prepare signed attestation proof for examination inspection within ${stat.statutoryTimelineDays || 30} calendar days.`;
-      derivedInsight = `Adopting this remediated clause provides a complete statutory defense during Central Bank examinations, proves institutional governance integrity, and eliminates exposure to statutory fine liabilities.`;
-    } else if (status === 'PARTIALLY_MET') {
-      whatHappened = `Statute demands "${stat.obligationSummary}" under ${stat.legalCitation}. Internal policy references this domain in Section ${match?.sectionNumber} ("${match?.clauseText.slice(0, 100)}..."), but diverges on specific Nigerian supervisory parameters, timeline cut-offs, or mandatory reporting escalations.`;
-      whatToKnow = `Regulatory authorities enforce strict liability on procedural timelines under ${stat.sectionReference}. Bank examiners routinely penalize institutions where high-level policy intent is documented but operational SLAs (e.g. ${stat.statutoryTimelineDays ? `${stat.statutoryTimelineDays} days` : 'statutory timelines'}) and mandatory disclosure triggers are omitted.`;
-      whatHasChanged = `Operational SLA divergence. Internal policy Section ${match?.sectionNumber} establishes general compliance intent but lacks specific statutory reporting triggers, automated audit trail retention, and formal Board Risk Committee reporting mechanisms.`;
-      whatToDo = `Targeted Harmonization Playbook:\n1. Update Section ${match?.sectionNumber} to incorporate statutory timelines (${stat.statutoryTimelineDays ? `${stat.statutoryTimelineDays} calendar days` : 'as prescribed'}) and mandatory disclosure requirements.\n2. Establish automated incident notification to the Compliance Unit within 24 hours of any threshold breach.\n3. Conduct bi-annual compliance audit testing operational adherence to the amended standard.`;
-      derivedInsight = `Harmonizing Section ${match?.sectionNumber} eliminates regulatory ambiguity, converts an operational finding into verified compliance, and prevents administrative remediation orders.`;
-    } else {
-      whatHappened = `Internal policy Section ${match?.sectionNumber} fully satisfies the statutory mandates of ${stat.sectionReference} under ${stat.legalCitation}. Operational procedures, verification baselines, and reporting controls are adequately aligned with current regulatory expectations.`;
-      whatToKnow = `Verified compliance baseline. The institution maintains defensible internal controls satisfying the requirements of ${stat.legalCitation}. Ongoing monitoring is required to ensure staff execution adheres strictly to documented procedures.`;
-      whatHasChanged = `Concordance confirmed. No material divergence detected between internal guidelines and current statutory enactments.`;
-      whatToDo = `Sustained Monitoring Protocol:\n1. Maintain current operational controls and verify annual compliance testing.\n2. Ensure staff training and onboarding documentation remain updated with Section ${match?.sectionNumber}.\n3. Archive annual audit certificates in the compliance evidence vault.`;
-      derivedInsight = `Institutional policy represents best-in-class regulatory concordance. Full audit defense documented and ready for supervisory inspection.`;
-    }
+    const whatHappened = isCritical
+      ? `Statutory requirement under ${stat.legalCitation} (${stat.sectionReference}) requires that: "${stat.obligationSummary}". Internal policy (${pair.policyTitle}) contains no corresponding controls.`
+      : isPartial
+      ? `Statutory requirement under ${stat.legalCitation} (${stat.sectionReference}) requires that: "${stat.obligationSummary}". Internal policy addresses this in Section ${match?.sectionNumber}, with partial procedural concordance.`
+      : `Internal policy Section ${match?.sectionNumber} aligns with statutory requirement (${stat.sectionReference}) under ${stat.legalCitation}.`;
+
+    const whatToKnow = `Enacted under ${stat.legalCitation} supervisory authority. Automated AI synthesis was unable to complete narrative elaboration; evaluation tier derived from deterministic semantic concordance matching.`;
+
+    const whatHasChanged = match
+      ? `Automated gap evaluation incomplete. Verified internal policy text: "${match.clauseText.slice(0, 150)}..."`
+      : 'No matching internal policy section identified.';
+
+    const whatToDo = `Review institutional policy manual against statutory requirement ${stat.sectionReference} (${stat.legalCitation}) and confirm operational controls.`;
+
+    const derivedInsight = 'Statutory concordance finding derived deterministically. Manual review recommended for confirmation.';
 
     const draftReplacementPolicyLanguage = match
-      ? `Section ${match.sectionNumber}.1 (Harmonized Regulatory Control): Pursuant to ${stat.sectionReference} of ${stat.legalCitation}, the institution shall mandatorily enforce: "${stat.obligationSummary}". Operational and business units shall maintain strict procedural concordance, execute required reconciliations within ${stat.statutoryTimelineDays ? `${stat.statutoryTimelineDays} calendar days` : 'statutory windows'}, and preserve immutable, tamper-evident audit logs for examination by the Chief Compliance Officer and visiting regulatory inspectors.`
-      : `Section 4.1.0 (Mandatory Governance & Supervisory Control): In accordance with statutory directives issued under ${stat.sectionReference} of ${stat.legalCitation}, the institution mandates that: "${stat.obligationSummary}". Operating teams must enforce dual-authorization controls, maintain real-time monitoring logs, and provide quarterly assurance certificates to the Board Risk Committee certifying 100% operational conformity.`;
+      ? `Pursuant to ${stat.sectionReference} of ${stat.legalCitation}: ${stat.obligationSummary}`
+      : `Pursuant to statutory directives under ${stat.sectionReference} of ${stat.legalCitation}: ${stat.obligationSummary}`;
 
     return {
       regulatoryClauseReference: stat.sectionReference,

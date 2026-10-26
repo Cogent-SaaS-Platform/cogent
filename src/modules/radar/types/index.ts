@@ -78,6 +78,7 @@ export interface CircularIngestInput {
   manualSubject?: string;
   manualPublicationDate?: string;
   sourceUrl?: string;
+  provenance?: 'PRIMARY' | 'SECONDARY' | 'MANUAL';
 }
 
 /**

@@ -30,6 +30,9 @@ export interface DiscoveredRegulatoryItem {
   publicationDate: string;
   sourceUrl: string;
   content: string;
+  rawBytes?: Buffer;
+  mimeType?: string;
+  provenance?: 'PRIMARY' | 'SECONDARY' | 'MANUAL';
 }
 
 /**
@@ -49,6 +52,35 @@ export class LiveFeedCollector {
   constructor(options: { dbClient: SupabaseClient<Database> }) {
     this.dbClient = options.dbClient;
     this.ingestionService = new CircularIngestionService({ dbClient: this.dbClient });
+  }
+
+  /**
+   * Dynamically detect governing regulator code from title/body text
+   */
+  public detectRegulatorFromContent(text: string): RegulatorCode {
+    const upper = text.toUpperCase();
+    if (upper.includes('CENTRAL BANK') || upper.includes('CBN') || upper.includes('BOFIA') || upper.includes('MONETARY POLICY') || upper.includes('PAYMENT SYSTEM') || upper.includes('NIBSS')) {
+      return 'CBN';
+    }
+    if (upper.includes('DATA PROTECTION') || upper.includes('NDPC') || upper.includes('NDPA') || upper.includes('DATA PRIVACY')) {
+      return 'NDPC';
+    }
+    if (upper.includes('FCCPC') || upper.includes('CONSUMER PROTECTION') || upper.includes('DIGITAL LENDING') || upper.includes('LOAN APPS')) {
+      return 'FCCPC';
+    }
+    if (upper.includes('NFIU') || upper.includes('AML/CFT') || upper.includes('FINANCIAL INTELLIGENCE') || upper.includes('MONEY LAUNDERING')) {
+      return 'NFIU';
+    }
+    if (upper.includes('NDIC') || upper.includes('DEPOSIT INSURANCE')) {
+      return 'NDIC';
+    }
+    if (upper.includes('ARCON') || upper.includes('ADVERTISING') || upper.includes('VETTING')) {
+      return 'ARCON';
+    }
+    if (upper.includes('SECURITIES') || upper.includes('SEC') || upper.includes('CAPITAL MARKET') || upper.includes('INVESTMENTS AND SECURITIES ACT')) {
+      return 'SEC';
+    }
+    return 'CBN';
   }
 
   /**
@@ -76,21 +108,22 @@ export class LiveFeedCollector {
 
   /**
    * Main synchronization orchestrator across registered Nigerian regulatory channels.
+   * Records execution telemetry to source_runs for real-time freshness observability.
    */
   public async syncAllLiveSources(): Promise<LiveSourceSyncSummary> {
     const timestamp = new Date().toISOString();
     logger.info({ timestamp }, 'Starting live regulatory feeds synchronization');
 
     const sources = [
-      { code: 'CBN' as RegulatorCode, name: 'Central Bank of Nigeria Portal', fn: () => this.pollCbnCirculars() },
-      { code: 'SEC' as RegulatorCode, name: 'SEC Nigeria Directives & Rules', fn: () => this.pollSecCirculars() },
-      { code: 'NDPC' as RegulatorCode, name: 'NDPC Regulatory Notices', fn: () => this.pollNdpcNotices() },
-      { code: 'ARCON' as RegulatorCode, name: 'ARCON Advertising Code Enclave', fn: () => this.pollArconNotices() },
-      { code: 'FCCPC' as RegulatorCode, name: 'FCCPC Digital Lending Registry', fn: () => this.pollFccpcDirectives() },
-      { code: 'NFIU' as RegulatorCode, name: 'Nigerian Financial Intelligence Unit', fn: () => this.pollNfiuAdvisories() },
-      { code: 'NDIC' as RegulatorCode, name: 'Nigeria Deposit Insurance Corporation', fn: () => this.pollNdicDirectives() },
-      { code: 'CBN' as RegulatorCode, name: 'Tier-1 Law Firm Advisories (Aluko & Oyebode)', fn: () => this.pollLawFirmAdvisories() },
-      { code: 'SEC' as RegulatorCode, name: 'FinTech Regulatory Wire (Nairametrics)', fn: () => this.pollFintechMedia() },
+      { code: 'CBN' as RegulatorCode, sourceKey: 'CBN_PORTAL', name: 'Central Bank of Nigeria Portal', fn: () => this.pollCbnCirculars() },
+      { code: 'SEC' as RegulatorCode, sourceKey: 'SEC_PORTAL', name: 'SEC Nigeria Directives & Rules', fn: () => this.pollSecCirculars() },
+      { code: 'NDPC' as RegulatorCode, sourceKey: 'NDPC_PORTAL', name: 'NDPC Regulatory Notices', fn: () => this.pollNdpcNotices() },
+      { code: 'ARCON' as RegulatorCode, sourceKey: 'ARCON_PORTAL', name: 'ARCON Advertising Code Enclave', fn: () => this.pollArconNotices() },
+      { code: 'FCCPC' as RegulatorCode, sourceKey: 'FCCPC_PORTAL', name: 'FCCPC Digital Lending Registry', fn: () => this.pollFccpcDirectives() },
+      { code: 'NFIU' as RegulatorCode, sourceKey: 'NFIU_PORTAL', name: 'Nigerian Financial Intelligence Unit', fn: () => this.pollNfiuAdvisories() },
+      { code: 'NDIC' as RegulatorCode, sourceKey: 'NDIC_PORTAL', name: 'Nigeria Deposit Insurance Corporation', fn: () => this.pollNdicDirectives() },
+      { code: 'CBN' as RegulatorCode, sourceKey: 'ALUKO_OYEBODE', name: 'Tier-1 Law Firm Advisories (Aluko & Oyebode)', fn: () => this.pollLawFirmAdvisories() },
+      { code: 'SEC' as RegulatorCode, sourceKey: 'NAIRAMETRICS', name: 'FinTech Regulatory Wire (Nairametrics)', fn: () => this.pollFintechMedia() },
     ];
 
     const sourceResults: FeedSyncResult[] = [];
@@ -107,21 +140,46 @@ export class LiveFeedCollector {
         errors: [],
       };
 
+      const runStartedAt = new Date().toISOString();
+      let runId: string | undefined;
+
+      try {
+        const { data: runRecord } = await this.dbClient
+          .from('source_runs')
+          .insert({
+            source_code: source.sourceKey,
+            source_name: source.name,
+            status: 'RUNNING',
+            started_at: runStartedAt,
+          })
+          .select('id')
+          .single();
+        runId = runRecord?.id;
+      } catch (runErr) {
+        logger.warn({ source: source.sourceKey, err: String(runErr) }, 'Telemetry run initialization skipped');
+      }
+
       try {
         const items = await source.fn();
         result.itemsFound = items.length;
 
         for (const item of items) {
           try {
+            const fileBuf = item.rawBytes || Buffer.from(item.content, 'utf8');
+            const isPdf = item.mimeType === 'application/pdf' && item.rawBytes;
+            const fileExtension = isPdf ? 'pdf' : 'txt';
+            const fileName = `${item.referenceCode.replace(/[^a-zA-Z0-9]/g, '_')}.${fileExtension}`;
+
             const ingestRes = await this.ingestionService.ingestCircular({
-              fileBuffer: Buffer.from(item.content, 'utf8'),
-              fileName: `${item.referenceCode.replace(/[^a-zA-Z0-9]/g, '_')}.txt`,
-              mimeType: 'text/plain',
+              fileBuffer: fileBuf,
+              fileName,
+              mimeType: item.mimeType || (isPdf ? 'application/pdf' : 'text/plain'),
               manualRegulator: item.regulatorCode,
               manualReferenceCode: item.referenceCode,
               manualSubject: item.title,
               manualPublicationDate: item.publicationDate,
               sourceUrl: item.sourceUrl,
+              provenance: item.provenance || 'PRIMARY',
             });
 
             if (ingestRes.deduplicated) {
@@ -131,7 +189,7 @@ export class LiveFeedCollector {
               result.newIngested++;
               totalNew++;
               logger.info(
-                { circularNumber: item.referenceCode, regulator: item.regulatorCode },
+                { circularNumber: item.referenceCode, regulator: item.regulatorCode, provenance: item.provenance },
                 'Successfully ingested new live regulatory circular'
               );
             }
@@ -144,6 +202,28 @@ export class LiveFeedCollector {
         const srcErrMsg = srcErr instanceof Error ? srcErr.message : String(srcErr);
         logger.warn({ source: source.name, error: srcErrMsg }, 'Error polling regulatory feed');
         result.errors.push(`Feed poll failure: ${srcErrMsg}`);
+      }
+
+      // Finalize source run telemetry
+      if (runId) {
+        try {
+          const runStatus = result.errors.length > 0 && result.newIngested === 0 && result.deduplicated === 0
+            ? 'FAILED'
+            : 'SUCCESS';
+          await this.dbClient
+            .from('source_runs')
+            .update({
+              status: runStatus,
+              items_seen: result.itemsFound,
+              items_ingested: result.newIngested,
+              items_deduplicated: result.deduplicated,
+              error_message: result.errors.length > 0 ? result.errors.join('; ') : null,
+              completed_at: new Date().toISOString(),
+            })
+            .eq('id', runId);
+        } catch (telemetryErr) {
+          logger.warn({ source: source.sourceKey, err: String(telemetryErr) }, 'Telemetry run update skipped');
+        }
       }
 
       sourceResults.push(result);
@@ -228,6 +308,25 @@ export class LiveFeedCollector {
               : 'https://www.cbn.gov.ng/documents/circulars.html';
             const description = (c.description || '').trim();
 
+            let rawBytes: Buffer | undefined;
+            let mimeType = 'text/plain';
+
+            if (docLink.toLowerCase().endsWith('.pdf') || docLink.includes('/out/')) {
+              try {
+                const pdfRes = await this.safeFetchWithTimeout(docLink, 15000);
+                if (pdfRes && pdfRes.ok) {
+                  const buf = await pdfRes.buffer();
+                  if (buf && buf.length > 100) {
+                    rawBytes = buf;
+                    mimeType = 'application/pdf';
+                    logger.info({ refCode, bytes: rawBytes.length, docLink }, 'Downloaded authentic CBN circular PDF binary');
+                  }
+                }
+              } catch (pdfErr) {
+                logger.warn({ docLink, err: String(pdfErr) }, 'Could not download PDF from CBN portal; using notice text');
+              }
+            }
+
             // Authentic document content without synthetic fine fabrication
             const content = `CENTRAL BANK OF NIGERIA CIRCULAR
 Reference: ${refCode}
@@ -244,6 +343,9 @@ ${description ? `Official Scope & Addressee:\n${description}\n\n` : ''}Regulator
               publicationDate: pubDate,
               sourceUrl: docLink,
               content,
+              rawBytes,
+              mimeType,
+              provenance: 'PRIMARY',
             });
           }
         }
@@ -305,10 +407,33 @@ Official Document URL: ${fullUrl}
 
 ${cleanTitle}. Directive issued by the Securities and Exchange Commission Nigeria under the Investments and Securities Act.`;
 
+              let rawBytes: Buffer | undefined;
+              let mimeType = 'text/plain';
+
               try {
-                const articleRes = await this.safeFetchWithTimeout(fullUrl, 6000);
+                const articleRes = await this.safeFetchWithTimeout(fullUrl, 10000);
                 if (articleRes && articleRes.ok) {
                   const articleHtml = await articleRes.text();
+
+                  // Look for PDF attachment in article
+                  const pdfLinkMatch = articleHtml.match(/href="([^"]+\.pdf)"/i);
+                  if (pdfLinkMatch) {
+                    const pdfUrl = pdfLinkMatch[1].startsWith('http') ? pdfLinkMatch[1] : `https://sec.gov.ng${pdfLinkMatch[1]}`;
+                    try {
+                      const pdfRes = await this.safeFetchWithTimeout(pdfUrl, 15000);
+                      if (pdfRes && pdfRes.ok) {
+                        const buf = await pdfRes.buffer();
+                        if (buf && buf.length > 100) {
+                          rawBytes = buf;
+                          mimeType = 'application/pdf';
+                          logger.info({ refCode, bytes: rawBytes.length, pdfUrl }, 'Downloaded authentic SEC circular PDF binary');
+                        }
+                      }
+                    } catch (pdfErr) {
+                      logger.warn({ pdfUrl, err: String(pdfErr) }, 'Could not download SEC PDF attachment; falling back to article text');
+                    }
+                  }
+
                   const cleanedBody = articleHtml
                     .replace(/<script[\s\S]*?<\/script>/gi, '')
                     .replace(/<style[\s\S]*?<\/style>/gi, '')
@@ -336,9 +461,12 @@ ${cleanedBody.substring(0, 3000)}`;
                 publicationDate: pubDate,
                 sourceUrl: fullUrl,
                 content: articleContent,
+                rawBytes,
+                mimeType,
+                provenance: 'PRIMARY',
               });
 
-              if (items.length >= 3) break;
+              if (items.length >= 5) break;
             }
           }
         }
@@ -601,9 +729,11 @@ Directive issued pursuant to the Federal Competition and Consumer Protection Act
                 : '';
               const refCode = `AO/ADV/${pubDate.replace(/-/g, '')}/${Math.abs(rawTitle.split('').reduce((a, b) => (a << 5) - a + b.charCodeAt(0), 0) % 1000)}`;
 
+              const detectedRegulator = this.detectRegulatorFromContent(`${rawTitle} ${rawDesc}`);
+
               if (!existingRefs.has(refCode.toLowerCase())) {
                 items.push({
-                  regulatorCode: 'CBN',
+                  regulatorCode: detectedRegulator,
                   referenceCode: refCode,
                   title: rawTitle,
                   publicationDate: pubDate,
@@ -616,6 +746,7 @@ Official Link: ${link}
 
 Legal Analysis:
 ${rawDesc || 'Authoritative Nigerian law firm legal analysis of apex supervisory circular.'}`,
+                  provenance: 'SECONDARY',
                 });
 
                 if (items.length >= 2) break;
@@ -667,9 +798,11 @@ ${rawDesc || 'Authoritative Nigerian law firm legal analysis of apex supervisory
                 : '';
               const refCode = `NM/FIN/${pubDate.replace(/-/g, '')}/${Math.abs(rawTitle.split('').reduce((a, b) => (a << 5) - a + b.charCodeAt(0), 0) % 1000)}`;
 
+              const detectedRegulator = this.detectRegulatorFromContent(`${rawTitle} ${rawDesc}`);
+
               if (!existingRefs.has(refCode.toLowerCase())) {
                 items.push({
-                  regulatorCode: 'SEC',
+                  regulatorCode: detectedRegulator,
                   referenceCode: refCode,
                   title: rawTitle,
                   publicationDate: pubDate,
@@ -682,6 +815,7 @@ Official Link: ${link}
 
 Market & Policy Reporting:
 ${rawDesc || 'Financial regulatory update.'}`,
+                  provenance: 'SECONDARY',
                 });
 
                 if (items.length >= 2) break;

@@ -23,10 +23,11 @@ export async function GET(req: NextRequest) {
     const applicabilityEngine = new ApplicabilityEngine({ dbClient: db });
     const profile = await applicabilityEngine.fetchTenantProfile(organizationId);
 
-    // 2. Fetch circular master records
+    // 2. Fetch circular master records sorted by issuance_date desc, falling back to created_at
     let query: any = (db as any)
       .from('radar_circulars')
-      .select('*, regulatory_document_versions(source_file_url, publication_date, effective_date)')
+      .select('*, regulatory_document_versions(canonical_source_url, source_file_url, publication_date, effective_date)')
+      .order('issuance_date', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false });
 
     if (priority) {
@@ -41,6 +42,30 @@ export async function GET(req: NextRequest) {
     }
 
     const rawCirculars: any[] = circularsData || [];
+    const circularIds = rawCirculars.map((c) => c.id).filter(Boolean);
+
+    // Fetch real audit logs for these circulars (Zero fabricated audit entries)
+    const auditLogsMap = new Map<string, any[]>();
+    if (circularIds.length > 0) {
+      const { data: realAuditLogs } = await (db as any)
+        .from('audit_logs')
+        .select('*')
+        .in('entity_id', circularIds)
+        .order('created_at', { ascending: false });
+
+      if (realAuditLogs) {
+        for (const log of realAuditLogs) {
+          const list = auditLogsMap.get(log.entity_id) || [];
+          list.push({
+            id: log.id,
+            timestamp: new Date(log.created_at).toISOString().replace('T', ' ').slice(0, 16) + ' WAT',
+            action: log.action,
+            author: (log.metadata as any)?.author || 'System Service',
+          });
+          auditLogsMap.set(log.entity_id, list);
+        }
+      }
+    }
 
     // 3. Fetch existing tenant impacts for this organization
     const { data: impactsData } = await db
@@ -202,12 +227,7 @@ export async function GET(req: NextRequest) {
         ...(c.statutory_deadline ? [{ id: `dt-dl-${c.id}`, label: 'Compliance Deadline', date: c.statutory_deadline, description: 'Statutory deadline for institutional certification & audit proof' }] : [])
       ];
 
-      const auditDate = (c.created_at || pubDate).slice(0, 10);
-      const auditLogs = [
-        { id: `log-1-${c.id}`, timestamp: `${pubDate} 08:30 WAT`, action: `Official directive gazetted by ${regulatorCode}`, author: regulatorCode },
-        { id: `log-2-${c.id}`, timestamp: `${auditDate} 09:12 WAT`, action: 'Automated regulatory ingestion & classification completed', author: 'Cogent Ingestion Engine' },
-        { id: `log-3-${c.id}`, timestamp: `${auditDate} 09:15 WAT`, action: isApplicable ? `Applicability evaluated: matched ${matchedLicenses.join(', ') || 'tenant operations'}` : 'Applicability evaluated: no active license conflict', author: 'Applicability Engine' },
-      ];
+      const auditLogs = auditLogsMap.get(c.id) || [];
 
       const topics = Array.from(new Set([
         regulatorCode,
@@ -217,9 +237,13 @@ export async function GET(req: NextRequest) {
       ])).filter(Boolean) as string[];
 
       const docVersions = c.regulatory_document_versions;
-      const sourceUrl = Array.isArray(docVersions)
-        ? docVersions[0]?.source_file_url
-        : docVersions?.source_file_url || (c as any).source_file_url || (c as any).canonical_source_url;
+      const firstDocVersion = Array.isArray(docVersions) ? docVersions[0] : docVersions;
+      const sourceUrl =
+        firstDocVersion?.canonical_source_url ||
+        (c as any).canonical_source_url ||
+        firstDocVersion?.source_file_url ||
+        (c as any).source_file_url ||
+        '';
 
       return {
         id: c.id,

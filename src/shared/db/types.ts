@@ -96,6 +96,7 @@ export interface Database {
           superseded_by_id: string | null;
           repealed_at: string | null;
           repealed_by_document_id: string | null;
+          provenance?: string | null;
           created_at: string;
         };
         Insert: {
@@ -116,6 +117,7 @@ export interface Database {
           superseded_by_id?: string | null;
           repealed_at?: string | null;
           repealed_by_document_id?: string | null;
+          provenance?: string | null;
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['regulatory_document_versions']['Insert']>;
@@ -156,6 +158,16 @@ export interface Database {
           severity_floor: SeverityLevel;
           statutory_timeline_days: number | null;
           mandatory_disclosure_text: string | null;
+          verbatim_quote?: string | null;
+          character_span_start?: number | null;
+          character_span_end?: number | null;
+          page_number?: number | null;
+          actor?: string | null;
+          action?: string | null;
+          target_object?: string | null;
+          condition?: string | null;
+          deadline_text?: string | null;
+          metadata?: Json | null;
           created_at: string;
         };
         Insert: {
@@ -166,6 +178,16 @@ export interface Database {
           severity_floor?: SeverityLevel;
           statutory_timeline_days?: number | null;
           mandatory_disclosure_text?: string | null;
+          verbatim_quote?: string | null;
+          character_span_start?: number | null;
+          character_span_end?: number | null;
+          page_number?: number | null;
+          actor?: string | null;
+          action?: string | null;
+          target_object?: string | null;
+          condition?: string | null;
+          deadline_text?: string | null;
+          metadata?: Json | null;
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['regulatory_obligations']['Insert']>;
@@ -807,6 +829,7 @@ export interface Database {
           raw_text: string | null;
           document_checksum: string | null;
           embedding: number[] | null;
+          source_tier?: string | null;
           created_at: string;
         };
         Insert: {
@@ -827,6 +850,7 @@ export interface Database {
           raw_text?: string | null;
           document_checksum?: string | null;
           embedding?: number[] | null;
+          source_tier?: string | null;
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['radar_circulars']['Insert']>;
@@ -990,6 +1014,38 @@ export interface Database {
           processed_at?: string;
         };
         Update: Partial<Database['public']['Tables']['billing_events']['Insert']>;
+        Relationships: [];
+      };
+      source_runs: {
+        Row: {
+          id: string;
+          source_code: string;
+          source_name: string;
+          status: 'RUNNING' | 'SUCCESS' | 'FAILED' | 'STALE';
+          items_seen: number;
+          items_ingested: number;
+          items_deduplicated: number;
+          error_message: string | null;
+          started_at: string;
+          completed_at: string | null;
+          http_status: number | null;
+          metadata: Json | null;
+        };
+        Insert: {
+          id?: string;
+          source_code: string;
+          source_name: string;
+          status: 'RUNNING' | 'SUCCESS' | 'FAILED' | 'STALE';
+          items_seen?: number;
+          items_ingested?: number;
+          items_deduplicated?: number;
+          error_message?: string | null;
+          started_at?: string;
+          completed_at?: string | null;
+          http_status?: number | null;
+          metadata?: Json | null;
+        };
+        Update: Partial<Database['public']['Tables']['source_runs']['Insert']>;
         Relationships: [];
       };
     };

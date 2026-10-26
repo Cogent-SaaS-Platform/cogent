@@ -211,32 +211,30 @@ export class ConcordanceEngine {
       return 'CRITICAL_GAP';
     }
 
-    const clauseTextLower = match.clauseText.toLowerCase();
-    const statHeadingLower = statutoryClause.sectionHeading.toLowerCase();
-
-    // Check specific statutory timelines (e.g. 72 hours vs 7 days)
-    if (
-      statutoryClause.sectionReference.includes('14') ||
-      statHeadingLower.includes('reporting window') ||
-      statHeadingLower.includes('suspicious') ||
-      statHeadingLower.includes('str')
-    ) {
-      const hasSevenDaysOutdated = /(?:7|seven)\s*(?:\([0-9]+\)\s*)?(?:business\s*|calendar\s*|working\s*)?days/i.test(match.clauseText);
-      const hasFourteenDaysOutdated = /(?:14|fourteen)\s*(?:\([0-9]+\)\s*)?(?:business\s*|calendar\s*|working\s*)?days/i.test(match.clauseText);
-      const hasSeventyTwoHoursCompliant =
-        /(?:72|seventy-?two)\s*(?:\([0-9]+\)\s*)?(?:business\s*|calendar\s*|working\s*)?hours/i.test(match.clauseText) ||
-        /(?:3|three)\s*(?:\([0-9]+\)\s*)?(?:business\s*|calendar\s*|working\s*)?days/i.test(match.clauseText);
-
-      if (hasSevenDaysOutdated || hasFourteenDaysOutdated) {
-        return 'PARTIALLY_MET';
-      }
-      if (hasSeventyTwoHoursCompliant) {
-        return 'ADEQUATELY_MET';
+    // Generalized statutory timeline compliance check
+    const obligation = statutoryClause.obligations[0];
+    const statutoryDays = obligation?.statutoryTimelineDays;
+    if (statutoryDays && statutoryDays > 0) {
+      const policyDaysMatch = match.clauseText.match(/(\d+)\s*(?:business\s*|calendar\s*|working\s*)?days/i);
+      if (policyDaysMatch) {
+        const policyDays = parseInt(policyDaysMatch[1], 10);
+        if (policyDays > statutoryDays) {
+          return 'PARTIALLY_MET';
+        }
       }
     }
 
-    // Check PEP executive governance approval controls
-    if (statHeadingLower.includes('pep') || statHeadingLower.includes('politically exposed')) {
+    // Senior governance control evaluation (e.g. PEP approval, board ratification)
+    const statHeadingLower = statutoryClause.sectionHeading.toLowerCase();
+    const statTextLower = statutoryClause.clauseText.toLowerCase();
+    const clauseTextLower = match.clauseText.toLowerCase();
+
+    if (
+      statHeadingLower.includes('pep') ||
+      statHeadingLower.includes('politically exposed') ||
+      statTextLower.includes('senior management approval') ||
+      statTextLower.includes('board approval')
+    ) {
       const hasSeniorSignoff =
         clauseTextLower.includes('managing director') ||
         clauseTextLower.includes('senior management') ||
@@ -247,38 +245,9 @@ export class ConcordanceEngine {
       if (!hasSeniorSignoff) {
         return 'CRITICAL_GAP';
       }
-      return 'ADEQUATELY_MET';
     }
 
-    // Check Tiered KYC biometric verification
-    if (statHeadingLower.includes('kyc') || statHeadingLower.includes('identity') || statHeadingLower.includes('due diligence')) {
-      if (clauseTextLower.includes('bvn') || clauseTextLower.includes('nin') || clauseTextLower.includes('biometric')) {
-        return 'ADEQUATELY_MET';
-      }
-    }
-
-    // Check record retention duration
-    if (statHeadingLower.includes('retention') || statHeadingLower.includes('record')) {
-      if (
-        clauseTextLower.includes('5 years') ||
-        clauseTextLower.includes('five years') ||
-        clauseTextLower.includes('five (5) years') ||
-        clauseTextLower.includes('6 years') ||
-        clauseTextLower.includes('six years')
-      ) {
-        return 'ADEQUATELY_MET';
-      }
-    }
-
-    // Check Consumer Complaints / Dispute resolution
-    if (statHeadingLower.includes('complaint') || statHeadingLower.includes('dispute') || statHeadingLower.includes('grievance')) {
-      const hasOutdatedWindow = /(?:14|fourteen|30|thirty)\s*(?:\([0-9]+\)\s*)?(?:business\s*|calendar\s*|working\s*)?days/i.test(match.clauseText);
-      if (hasOutdatedWindow && !clauseTextLower.includes('interim')) {
-        return 'PARTIALLY_MET';
-      }
-    }
-
-    // Fall back to similarity threshold
+    // Generalized semantic concordance tiers
     if (match.similarity >= 0.65) {
       return 'ADEQUATELY_MET';
     } else if (match.similarity >= 0.35) {

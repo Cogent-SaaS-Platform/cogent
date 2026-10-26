@@ -205,19 +205,22 @@ export class PolicyVectorIndexService {
 
     if (!data || data.length === 0) return [];
 
-    // Calculate lexical overlap
+    // Calculate authentic lexical overlap
     return data
       .map((row) => {
         const textLower = (row.clause_text || '').toLowerCase();
         const matched = keywords.filter((k) => textLower.includes(k)).length;
-        const score = Math.min(0.85, Math.max(0.1, matched / keywords.length));
+        const score = keywords.length > 0 ? matched / keywords.length : 0;
         return {
           policyClauseId: row.id,
           sectionNumber: row.section_number,
           clauseText: row.clause_text,
+          matched,
           similarity: Math.round(score * 100) / 100,
         };
       })
+      .filter((item) => item.matched > 0)
+      .map(({ matched: _, ...rest }) => rest)
       .sort((a, b) => b.similarity - a.similarity);
   }
 }
