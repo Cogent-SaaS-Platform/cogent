@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
     const profile = await applicabilityEngine.fetchTenantProfile(organizationId);
 
     // 2. Fetch circular master records
-    let query = db
+    let query: any = (db as any)
       .from('radar_circulars')
       .select('*, regulatory_document_versions(source_file_url, publication_date, effective_date)')
       .order('created_at', { ascending: false });
@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, circulars: [] });
     }
 
-    const rawCirculars = circularsData || [];
+    const rawCirculars: any[] = circularsData || [];
 
     // 3. Fetch existing tenant impacts for this organization
     const { data: impactsData } = await db
@@ -134,7 +134,7 @@ export async function GET(req: NextRequest) {
           subject: c.subject,
           summary: c.summary,
           statutoryDeadline: c.statutory_deadline,
-          rawText: c.raw_text,
+          rawText: c.raw_text || undefined,
         },
         tenant: {
           organizationId,

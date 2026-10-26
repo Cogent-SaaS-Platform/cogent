@@ -49,11 +49,12 @@ export async function POST(req: NextRequest) {
 
       if (body.url) {
         // Direct Web Portal / Framework Ingestion (e.g. https://www.cbn.gov.ng/PaymentsSystem/)
-        sourceUrl = body.url.trim();
+        const normalizedUrl = String(body.url).trim();
+        sourceUrl = normalizedUrl;
         logger.info({ url: sourceUrl }, 'Fetching regulatory web framework from URL');
 
         try {
-          const resp = await resilientFetch(sourceUrl);
+          const resp = await resilientFetch(normalizedUrl);
           const html = await resp.text();
 
           // Extract title
@@ -86,12 +87,12 @@ export async function POST(req: NextRequest) {
 
           // Detect regulator from URL if not specified
           if (!body.regulator) {
-            if (sourceUrl.includes('cbn.gov.ng')) manualRegulator = 'CBN';
-            else if (sourceUrl.includes('sec.gov.ng')) manualRegulator = 'SEC';
-            else if (sourceUrl.includes('ndpc.gov.ng')) manualRegulator = 'NDPC';
-            else if (sourceUrl.includes('fccpc.gov.ng')) manualRegulator = 'FCCPC';
-            else if (sourceUrl.includes('nfiu.gov.ng')) manualRegulator = 'NFIU';
-            else if (sourceUrl.includes('ndic.gov.ng')) manualRegulator = 'NDIC';
+            if (normalizedUrl.includes('cbn.gov.ng')) manualRegulator = 'CBN';
+            else if (normalizedUrl.includes('sec.gov.ng')) manualRegulator = 'SEC';
+            else if (normalizedUrl.includes('ndpc.gov.ng')) manualRegulator = 'NDPC';
+            else if (normalizedUrl.includes('fccpc.gov.ng')) manualRegulator = 'FCCPC';
+            else if (normalizedUrl.includes('nfiu.gov.ng')) manualRegulator = 'NFIU';
+            else if (normalizedUrl.includes('ndic.gov.ng')) manualRegulator = 'NDIC';
           }
         } catch (fetchErr) {
           const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);

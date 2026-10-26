@@ -339,7 +339,7 @@ export class GapSynthesisService {
           };
         });
 
-        await client.from('gap_matrix_items').insert(itemsToInsert);
+        await (client.from('gap_matrix_items') as any).insert(itemsToInsert);
       } catch (dbErr) {
         logger.warn({ err: String(dbErr) }, 'Failed persisting evaluation to DB; continuing with response');
       }
