@@ -10,6 +10,10 @@ import { checkRateLimit, createRateLimitResponse } from '@/shared/security';
 
 const isPublicRoute = createRouteMatcher([
   '/',
+  '/pricing(.*)',
+  '/about(.*)',
+  '/contact(.*)',
+  '/features(.*)',
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/login(.*)',
@@ -34,13 +38,13 @@ const handler = isClerkConfigured
 
       // Root entry point routing:
       // If user is already authenticated, redirect straight to '/overview'
-      // If unauthenticated, redirect to our primary sign-in page '/sign-in'
+      // If unauthenticated, allow them to view the public marketing page at '/'
       if (req.nextUrl.pathname === '/') {
         const { userId } = await auth();
         if (userId) {
           return NextResponse.redirect(new URL('/overview', req.url));
         }
-        return NextResponse.redirect(new URL('/sign-in', req.url));
+        return;
       }
 
       // Friendly route aliases for standard auth entry points
@@ -74,7 +78,7 @@ const handler = isClerkConfigured
           return;
         }
 
-        if (!orgId) {
+        if (!orgId && !req.nextUrl.pathname.startsWith('/onboarding')) {
           if (isApiRoute) {
             return NextResponse.json(
               { error: 'Forbidden: Active organization context required' },
@@ -102,7 +106,7 @@ const handler = isClerkConfigured
       }
     })
   : (req: NextRequest): NextResponse => {
-      if (req.nextUrl.pathname === '/' || req.nextUrl.pathname === '/login') {
+      if (req.nextUrl.pathname === '/login') {
         return NextResponse.redirect(new URL('/sign-in', req.url));
       }
       if (req.nextUrl.pathname === '/signup' || req.nextUrl.pathname === '/create-account') {
@@ -120,7 +124,6 @@ const handler = isClerkConfigured
       }
       return NextResponse.next();
     };
-
 
 export default handler;
 export const proxy = handler;
