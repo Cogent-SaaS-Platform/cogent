@@ -18,10 +18,12 @@ import {
   Scale,
   Clock,
 } from 'lucide-react';
-import { RegulatoryInstrumentPresentation } from '../types';
+import { RegulatoryInstrumentPresentation, StatutorySection } from '../types';
 
 interface InstrumentDetailPageProps {
   instrument: RegulatoryInstrumentPresentation;
+  sections?: StatutorySection[];
+  isLoadingSections?: boolean;
   onBack: () => void;
   onViewObligations: () => void;
   onViewDoc: () => void;
@@ -30,6 +32,8 @@ interface InstrumentDetailPageProps {
 
 export function InstrumentDetailPage({
   instrument,
+  sections = [],
+  isLoadingSections = false,
   onBack,
   onViewObligations,
   onViewDoc,
@@ -74,23 +78,14 @@ export function InstrumentDetailPage({
     setTimeout(() => setCopiedCitation(false), 2000);
   };
 
-  // Substantive default key requirement areas if not explicitly provided
-  const keyRequirementAreas = instrument.keyRequirements || [
-    'Institutional Licensing & Capital Sufficiency: Maintenance of statutory capital floors, regulatory approval for capital reduction, and periodic capital adequacy assessments.',
-    'Governance & Fit-and-Proper Approvals: Compulsory CBN/supervisory clearance for directors, designated executive officers, and compliance leads prior to formal appointment.',
-    'Prudential Accounting & Inspection Readout: Maintaining transparent, audited statutory books, AML transaction recording, and submission of routine supervisory returns.',
-    'Operational Risk & Systems Resilience: Implementation of dual authorization, cryptographic customer key security, and business continuity architecture.',
-    'Statutory Sanction Schedules: Strict adherence to mandatory reporting intervals under threat of administrative fines and institutional license suspension.',
-  ];
+  const totalObligationsCount = sections.reduce(
+    (acc, sec) => acc + (sec.obligationsCount || sec.obligations?.length || 0),
+    0
+  );
+  const effectiveSectionsCount = sections.length > 0 ? sections.length : (instrument.sectionsCount || 0);
 
-  const scopeInstitutions = instrument.scopeInstitutions || [
-    'Commercial Banks (National & Regional)',
-    'Merchant Banks & Investment Houses',
-    'Microfinance Banks (MFBs)',
-    'Payment Service Banks (PSBs)',
-    'Switching & Processing Entities',
-    'Mobile Money Operators (MMOs)',
-  ];
+  const scopeInstitutions = instrument.scopeInstitutions || [];
+
 
   return (
     <div className="space-y-6">
@@ -185,86 +180,112 @@ export function InstrumentDetailPage({
 
       {/* 3. Main Two-Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        {/* Left Column (Overview, Scope, Key Requirements) */}
+        {/* Left Column (Overview, Scope, Real Decomposed Sections) */}
         <div className="lg:col-span-2 space-y-6">
           {/* Section: Overview */}
           <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3">
             <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Overview
+              Statutory Overview & Purpose
             </h2>
-            <div className="text-xs text-slate-700 leading-relaxed space-y-3">
+            <div className="text-xs text-slate-700 leading-relaxed space-y-2">
               <p>
                 {instrument.description || instrument.overviewSummary || (
                   <>
-                    The {instrument.fullTitle} serves as the primary statutory framework governing
-                    financial institutions and compliance responsibilities within {jur.name}. Enacted
-                    under authoritative legislative mandate, this instrument establishes binding
-                    prudential rules, supervisory inspection mechanisms, and civil/criminal penalty
-                    schedules for non-compliance.
+                    The {instrument.fullTitle} serves as the operative regulatory instrument issued by{' '}
+                    {instrument.regulatorName} ({instrument.regulator}) in {jur.name}, establishing
+                    binding compliance obligations, supervisory reporting requirements, and enforcement sanctions.
                   </>
                 )}
               </p>
-              <p>
-                Supervised directly by {instrument.regulatorName}, the directive introduces continuous
-                surveillance requirements, mandatory institutional disclosures, and formal fit-and-proper
-                qualifications for executive officers. Financial institutions must align internal
-                compliance controls, risk registers, and automated transaction monitoring systems with
-                these statutory parameters.
+            </div>
+          </div>
+
+          {/* Section: Scope (Only if authentic scope institutions exist) */}
+          {scopeInstitutions.length > 0 && (
+            <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3">
+              <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Scope of Applicability
+              </h2>
+              <p className="text-xs text-slate-600">
+                The statutory provisions and decomposed obligations apply across the following licensed entities and market participants:
               </p>
-            </div>
-          </div>
-
-          {/* Section: Scope */}
-          <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3">
-            <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Scope of Applicability
-            </h2>
-            <p className="text-xs text-slate-600">
-              The statutory provisions and decomposed obligations apply across the following licensed entities and market participants:
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-              {scopeInstitutions.map((institution, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center gap-2 p-2 bg-slate-50 border border-slate-200/70 rounded-lg text-xs text-slate-700"
-                >
-                  <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span className="line-clamp-1">{institution}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Section: Key Requirement Areas */}
-          <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3">
-            <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Key Requirement Areas
-            </h2>
-            <div className="space-y-3">
-              {keyRequirementAreas.map((area, idx) => {
-                const [title, ...desc] = area.split(':');
-                return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                {scopeInstitutions.map((institution, idx) => (
                   <div
                     key={idx}
-                    className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-lg space-y-1"
+                    className="flex items-center gap-2 p-2 bg-slate-50 border border-slate-200/70 rounded-lg text-xs text-slate-700"
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-[11px] font-bold text-slate-900 bg-white border border-slate-200 px-1.5 py-0.5 rounded">
-                        0{idx + 1}
+                    <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span className="line-clamp-1">{institution}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Section: Decomposed Statutory Sections */}
+          <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Decomposed Statutory Sections ({effectiveSectionsCount})
+              </h2>
+              <button
+                type="button"
+                onClick={onViewObligations}
+                className="text-xs font-medium text-slate-900 hover:text-slate-700 hover:underline inline-flex items-center gap-1"
+              >
+                <span>Obligations Register ({totalObligationsCount})</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {isLoadingSections ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map((n) => (
+                  <div key={n} className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-lg animate-pulse space-y-2">
+                    <div className="h-4 bg-slate-200 rounded w-1/3" />
+                    <div className="h-3 bg-slate-100 rounded w-5/6" />
+                  </div>
+                ))}
+              </div>
+            ) : sections.length > 0 ? (
+              <div className="space-y-3">
+                {sections.map((sec, idx) => (
+                  <div
+                    key={sec.id || idx}
+                    onClick={onViewObligations}
+                    className="p-3.5 bg-slate-50 hover:bg-slate-100/70 border border-slate-200/80 rounded-lg space-y-1.5 cursor-pointer transition-colors group"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[11px] font-bold text-slate-900 bg-white border border-slate-200 px-1.5 py-0.5 rounded">
+                          {sec.sectionReference}
+                        </span>
+                        <h3 className="text-xs font-bold text-slate-900 group-hover:text-slate-800">
+                          {sec.sectionHeading}
+                        </h3>
+                      </div>
+                      <span className="text-[10px] font-mono text-slate-500 bg-white border border-slate-200 px-1.5 py-0.5 rounded shrink-0">
+                        {sec.obligationsCount || sec.obligations?.length || 0} {(sec.obligationsCount === 1 || sec.obligations?.length === 1) ? 'obligation' : 'obligations'}
                       </span>
-                      <h3 className="text-xs font-bold text-slate-900">
-                        {title.trim()}
-                      </h3>
                     </div>
-                    {desc.length > 0 && (
-                      <p className="text-xs text-slate-600 leading-relaxed pl-7">
-                        {desc.join(':').trim()}
+                    {sec.clauseText && (
+                      <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                        {sec.clauseText}
                       </p>
                     )}
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-6 text-center border border-dashed border-slate-200 rounded-lg space-y-1">
+                <Layers className="w-6 h-6 text-slate-400 mx-auto mb-1" />
+                <p className="text-xs font-medium text-slate-700">No Decomposed Sections Extracted</p>
+                <p className="text-[11px] text-slate-500">
+                  This instrument does not currently contain parsed statutory clauses. Use the Ingestion drawer to parse authentic sections.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -289,7 +310,7 @@ export function InstrumentDetailPage({
               onClick={onViewObligations}
               className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-bold bg-white text-slate-900 hover:bg-slate-100 rounded-lg shadow-xs transition-colors"
             >
-              <span>View Obligations</span>
+              <span>View Obligations ({totalObligationsCount})</span>
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -382,7 +403,13 @@ export function InstrumentDetailPage({
               <div className="py-2 flex items-center justify-between">
                 <span className="text-slate-500">Decomposed Sections</span>
                 <span className="font-mono font-bold text-slate-900">
-                  {instrument.sectionsCount} Sections
+                  {effectiveSectionsCount} Sections
+                </span>
+              </div>
+              <div className="py-2 flex items-center justify-between">
+                <span className="text-slate-500">Total Obligations</span>
+                <span className="font-mono font-bold text-slate-900">
+                  {totalObligationsCount} Duties
                 </span>
               </div>
             </div>

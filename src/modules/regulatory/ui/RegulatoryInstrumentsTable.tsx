@@ -134,9 +134,17 @@ export function RegulatoryInstrumentsTable({
     result.sort((a, b) => {
       let cmp = 0;
       if (sortField === 'title') {
-        cmp = a.shortTitle.localeCompare(b.shortTitle);
+        const titleA = a.fullTitle || a.shortTitle;
+        const titleB = b.fullTitle || b.shortTitle;
+        cmp = titleA.localeCompare(titleB);
       } else if (sortField === 'year') {
-        cmp = a.year - b.year;
+        const timeA = (a as any).createdAt ? new Date((a as any).createdAt).getTime() : 0;
+        const timeB = (b as any).createdAt ? new Date((b as any).createdAt).getTime() : 0;
+        if (timeA && timeB && timeA !== timeB) {
+          cmp = timeA - timeB;
+        } else {
+          cmp = (a.year || 0) - (b.year || 0);
+        }
       } else if (sortField === 'jurisdiction') {
         cmp = a.jurisdiction.localeCompare(b.jurisdiction);
       }
@@ -327,12 +335,22 @@ export function RegulatoryInstrumentsTable({
                     </td>
 
                     {/* Title & Citation */}
-                    <td className="py-3 px-4">
-                      <div className="font-semibold text-slate-900 group-hover:text-slate-800 line-clamp-1">
-                        {inst.shortTitle}
+                    <td className="py-3 px-4 max-w-md">
+                      <div
+                        className="font-semibold text-slate-900 group-hover:text-slate-800 line-clamp-2 leading-snug"
+                        title={inst.fullTitle || inst.shortTitle}
+                      >
+                        {inst.fullTitle || inst.shortTitle}
                       </div>
-                      <div className="font-mono text-[11px] text-slate-500 line-clamp-1 mt-0.5">
-                        {inst.officialCitation}
+                      <div className="font-mono text-[11px] text-slate-500 line-clamp-1 mt-1 flex items-center gap-1.5">
+                        <span>{inst.officialCitation}</span>
+                        {inst.shortTitle &&
+                          inst.shortTitle !== inst.fullTitle &&
+                          inst.shortTitle !== inst.officialCitation && (
+                            <span className="text-slate-400 font-sans">
+                              · {inst.shortTitle}
+                            </span>
+                          )}
                       </div>
                     </td>
 

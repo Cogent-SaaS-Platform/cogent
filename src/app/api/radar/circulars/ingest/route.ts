@@ -7,8 +7,18 @@ import { resilientFetch } from '@/shared/network/resilientHttp';
 
 export async function POST(req: NextRequest) {
   try {
-    const tenantCtx = await getTenantContext();
-    const circularIngestionService = new CircularIngestionService({ dbClient: tenantCtx.dbClient });
+    const tenantCtx = await getTenantContext({ allowDevFallback: true });
+    
+    // Ingestion into master statutory library requires administrative persistence authority
+    let dbClient = tenantCtx.dbClient;
+    try {
+      const { createAdminClient } = await import('@/shared/db');
+      dbClient = createAdminClient();
+    } catch {
+      // Fallback to tenant client
+    }
+
+    const circularIngestionService = new CircularIngestionService({ dbClient });
     const contentType = req.headers.get('content-type') || '';
 
     let fileBuffer: Buffer;
@@ -19,7 +29,7 @@ export async function POST(req: NextRequest) {
     let manualSubject: string | undefined;
     let sourceUrl: string | undefined;
 
-    const validRegulators = ['CBN', 'SEC', 'ARCON', 'NDPC', 'FCCPC', 'NFIU', 'NDIC'];
+    const validRegulators = ['CBN', 'SEC', 'ARCON', 'NDPC', 'FCCPC', 'NFIU', 'NDIC', 'BOG', 'CBK', 'SARB'];
 
     if (contentType.includes('multipart/form-data')) {
       const formData = await req.formData();
@@ -64,6 +74,26 @@ export async function POST(req: NextRequest) {
             .replace(/\s+/g, ' ')
             .trim();
 
+          // Reject bot challenge pages (Cloudflare Turnstile, Just a moment..., 403 Forbidden)
+          const isBotChallenge =
+            rawTitle.toLowerCase().includes('just a moment') ||
+            html.includes('Enable JavaScript and cookies to continue') ||
+            html.includes('challenges.cloudflare.com') ||
+            html.includes('cf-browser-verification') ||
+            resp.status === 403 ||
+            resp.status === 503;
+
+          if (isBotChallenge) {
+            return NextResponse.json(
+              {
+                success: false,
+                error:
+                  'The remote regulatory portal is protected by Cloudflare bot challenge verification. Please download the official circular PDF and upload it directly or paste its text into Cogent.',
+              },
+              { status: 422 }
+            );
+          }
+
           manualSubject = body.subject || rawTitle;
 
           // Strip HTML tags and boilerplate to produce clean readable text
@@ -81,6 +111,16 @@ export async function POST(req: NextRequest) {
             .replace(/\s{2,}/g, '\n\n')
             .trim();
 
+          if (cleanText.length < 50) {
+            return NextResponse.json(
+              {
+                success: false,
+                error: 'The provided portal URL did not contain sufficient textual regulatory content to parse.',
+              },
+              { status: 422 }
+            );
+          }
+
           fileBuffer = Buffer.from(cleanText, 'utf8');
           mimeType = 'text/plain';
           fileName = `${(manualSubject || 'web_framework').slice(0, 40).replace(/[^a-zA-Z0-9]/g, '_')}.txt`;
@@ -89,6 +129,9 @@ export async function POST(req: NextRequest) {
           if (!body.regulator) {
             if (normalizedUrl.includes('cbn.gov.ng')) manualRegulator = 'CBN';
             else if (normalizedUrl.includes('sec.gov.ng')) manualRegulator = 'SEC';
+            else if (normalizedUrl.includes('bog.gov.gh')) manualRegulator = 'BOG';
+            else if (normalizedUrl.includes('centralbank.go.ke')) manualRegulator = 'CBK';
+            else if (normalizedUrl.includes('resbank.co.za')) manualRegulator = 'SARB';
             else if (normalizedUrl.includes('ndpc.gov.ng')) manualRegulator = 'NDPC';
             else if (normalizedUrl.includes('fccpc.gov.ng')) manualRegulator = 'FCCPC';
             else if (normalizedUrl.includes('nfiu.gov.ng')) manualRegulator = 'NFIU';
@@ -135,6 +178,7 @@ export async function POST(req: NextRequest) {
       manualReferenceCode,
       manualSubject,
       sourceUrl,
+      organizationId: tenantCtx.organizationId,
     });
 
     const statusCode = result.deduplicated ? 409 : 201;

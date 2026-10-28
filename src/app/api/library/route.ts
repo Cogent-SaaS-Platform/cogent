@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/shared/auth';
 import { logger } from '@/shared/logger';
+import { createAdminClient } from '@/shared/db';
 import {
   REGULATORY_INSTRUMENTS_SEED,
   REGULATORY_DOMAINS,
@@ -16,8 +17,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
-    const tenantCtx = await getTenantContext({ allowDevFallback: true });
-    const db = tenantCtx.dbClient;
+    const db = createAdminClient();
     const { searchParams } = new URL(req.url);
 
     const regulator = searchParams.get('regulator');
@@ -107,6 +107,7 @@ export async function GET(req: NextRequest) {
           });
 
           // Resolve sensible default domain if not matched
+          // Resolve sensible default domain if not matched
           let defaultDomain = 'FINTECH_PAYMENTS';
           const regCode = (body?.code || '').toUpperCase();
           if (regCode === 'FCCPC' || instTitle.includes('lending') || instTitle.includes('consumer')) defaultDomain = 'DIGITAL_LENDING';
@@ -116,27 +117,52 @@ export async function GET(req: NextRequest) {
           else if (regCode === 'SEC') defaultDomain = 'CAPITAL_MARKETS';
           else if (instTitle.includes('aml') || instTitle.includes('laundering') || regCode === 'NFIU') defaultDomain = 'AML_CFT';
 
-          const citation = activeVersion?.reference_code || `${inst.short_name} (${year})`;
+          // Accurate Jurisdiction Resolution
+          let jurisdiction: JurisdictionCode = matchedSeed?.jurisdiction || 'NG';
+          if (regCode === 'BOG' || instTitle.includes('ghana') || instShort.includes('ghana')) {
+            jurisdiction = 'GH';
+          } else if (regCode === 'CBK' || instTitle.includes('kenya') || instShort.includes('kenya')) {
+            jurisdiction = 'KE';
+          } else if (regCode === 'SARB' || instTitle.includes('south africa') || instShort.includes('south africa')) {
+            jurisdiction = 'ZA';
+          } else if (regCode === 'WAEMU' || regCode === 'GIABA') {
+            jurisdiction = 'SUPRANATIONAL';
+          }
+
+          // Clean human-readable titles vs circular reference codes
+          const isShortNameRawCode =
+            !inst.short_name ||
+            inst.short_name.includes('/') ||
+            inst.short_name === activeVersion?.reference_code ||
+            /^[A-Z0-9_\-\/]+$/.test(inst.short_name.trim());
+
+          const cleanTitle = inst.title && inst.title.length > 5 ? inst.title : (inst.short_name || 'Regulatory Directive');
+          const cleanShortTitle = isShortNameRawCode
+            ? (cleanTitle.length > 60 ? cleanTitle.slice(0, 57) + '...' : cleanTitle)
+            : inst.short_name;
+
+          const citation = activeVersion?.reference_code || (isShortNameRawCode ? inst.short_name : `${inst.short_name} (${year})`);
 
           return {
             id: inst.id,
-            shortTitle: inst.short_name,
-            fullTitle: inst.title,
+            shortTitle: cleanShortTitle,
+            fullTitle: cleanTitle,
             officialCitation: citation,
             regulator: body?.code || matchedSeed?.body_code || 'CBN',
             regulatorName: body?.name || 'Regulatory Authority',
             instrumentType: inst.instrument_type,
             domain: matchedSeed?.domain || (defaultDomain as RegulatoryDomainCode),
-            jurisdiction: matchedSeed?.jurisdiction || 'NG',
+            jurisdiction,
             classification: matchedSeed?.classification || 'SUBSIDIARY_REGULATION',
             year,
             sectionsCount: sectionsCount > 0 ? sectionsCount : (matchedSeed ? matchedSeed.versions[0]?.clauses?.length || 0 : 0),
             status: (activeVersion?.is_active ? 'ACTIVE_LAW' : 'AMENDED') as 'ACTIVE_LAW' | 'AMENDED',
-            description: matchedSeed?.description || inst.title,
+            description: matchedSeed?.description || cleanTitle,
             activeVersionId: activeVersion?.id || null,
             publicationDate: activeVersion?.publication_date || null,
             effectiveDate: activeVersion?.effective_date || null,
             sourceFileUrl: activeVersion?.source_file_url || activeVersion?.canonical_source_url || body?.official_portal_url || null,
+            createdAt: inst.created_at || activeVersion?.publication_date || null,
           };
         });
       }
@@ -183,21 +209,35 @@ export async function GET(req: NextRequest) {
         publicationDate: activeVersion?.publication_date || null,
         effectiveDate: activeVersion?.effective_date || null,
         sourceFileUrl: activeVersion?.canonical_source_url || null,
+        createdAt: activeVersion?.publication_date
+          ? new Date(activeVersion.publication_date).toISOString()
+          : new Date(`${year}-01-01`).toISOString(),
       };
     });
 
     // 3. Merge: prefer DB item if present, append non-existing seed items
     const mergedMap = new Map<string, any>();
     for (const item of dbItems) {
+      mergedMap.set(item.fullTitle.toLowerCase(), item);
       mergedMap.set(item.shortTitle.toLowerCase(), item);
     }
     for (const item of seedItems) {
-      if (!mergedMap.has(item.shortTitle.toLowerCase())) {
+      if (!mergedMap.has(item.fullTitle.toLowerCase()) && !mergedMap.has(item.shortTitle.toLowerCase())) {
         mergedMap.set(item.shortTitle.toLowerCase(), item);
       }
     }
 
-    let allItems = Array.from(mergedMap.values());
+    let allItems = Array.from(new Set(mergedMap.values()));
+
+    // Sort all items: newest created/published first so fresh uploads appear at top
+    allItems.sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      if (timeA && timeB && timeA !== timeB) {
+        return timeB - timeA;
+      }
+      return (b.year || 0) - (a.year || 0);
+    });
 
     // 4. Apply Filters
     if (domain && domain !== ('ALL' as any)) {

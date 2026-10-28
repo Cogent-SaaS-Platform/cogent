@@ -103,8 +103,8 @@ export function HorizonAlertFeed({
       // Assignee filter
       if (selectedAssignee !== 'ALL') {
         if (selectedAssignee === 'UN' && c.assignee) return false;
-        if (selectedAssignee === 'SJ' && c.assignee?.avatar !== 'SJ' && !c.assignee?.name.includes('Sam')) return false;
-        if (selectedAssignee === 'AM' && c.assignee?.avatar !== 'AM' && !c.assignee?.name.includes('Alex')) return false;
+        if (selectedAssignee === 'CCO' && c.assignee?.avatar !== 'CCO' && !c.assignee?.name?.toLowerCase().includes('compliance')) return false;
+        if (selectedAssignee === 'AM' && c.assignee?.avatar !== 'AM' && !c.assignee?.name?.toLowerCase().includes('alex')) return false;
       }
 
       // Time range filter

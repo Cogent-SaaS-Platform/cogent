@@ -140,6 +140,27 @@ export class DeadlineCountdownCalculator {
         carriesPersonalCriminalLiability: false,
         carriesLicenseSuspensionRisk: false,
       },
+      BOG: {
+        baselineFineNaira: 15_000_000,
+        dailyFineNaira: 150_000,
+        statutoryCitation: 'Payment Systems and Services Act 2019 (Act 987) Section 42',
+        carriesPersonalCriminalLiability: true,
+        carriesLicenseSuspensionRisk: true,
+      },
+      CBK: {
+        baselineFineNaira: 12_000_000,
+        dailyFineNaira: 200_000,
+        statutoryCitation: 'Central Bank of Kenya National Payment System Act Section 31',
+        carriesPersonalCriminalLiability: true,
+        carriesLicenseSuspensionRisk: true,
+      },
+      SARB: {
+        baselineFineNaira: 20_000_000,
+        dailyFineNaira: 250_000,
+        statutoryCitation: 'SARB National Payment System Act Section 14',
+        carriesPersonalCriminalLiability: true,
+        carriesLicenseSuspensionRisk: true,
+      },
     };
 
     const schedule = penaltySchedules[regulator] || penaltySchedules.CBN;

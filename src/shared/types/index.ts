@@ -10,7 +10,7 @@ export type InstrumentId = string & { readonly __brand: unique symbol };
 export type ClauseId = string & { readonly __brand: unique symbol };
 export type ScanId = string & { readonly __brand: unique symbol };
 
-// Nigerian Regulators
+// Regional Regulators
 export type RegulatorCode =
   | 'CBN'    // Central Bank of Nigeria
   | 'ARCON'  // Advertising Regulatory Council of Nigeria
@@ -18,7 +18,10 @@ export type RegulatorCode =
   | 'NDPC'   // Nigeria Data Protection Commission
   | 'FCCPC'  // Federal Competition & Consumer Protection Commission
   | 'NFIU'   // Nigerian Financial Intelligence Unit
-  | 'NDIC';  // Nigeria Deposit Insurance Corporation
+  | 'NDIC'   // Nigeria Deposit Insurance Corporation
+  | 'BOG'    // Bank of Ghana
+  | 'CBK'    // Central Bank of Kenya
+  | 'SARB';  // South African Reserve Bank
 
 // Circular Lineage & Supersession Enums
 export type LineageStatus = 'ACTIVE_LAW' | 'AMENDED' | 'SUPERSEDED';

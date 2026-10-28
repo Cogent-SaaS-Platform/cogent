@@ -116,28 +116,20 @@ export function HorizonAlertDetail({
   const auditLogs = circular.auditLogs && circular.auditLogs.length > 0
     ? circular.auditLogs
     : [
-        { id: 'l1', timestamp: `${circular.publicationDate} 08:30 WAT`, action: `Official directive gazetted by ${circular.regulator}`, author: circular.regulator },
-        { id: 'l2', timestamp: `${circular.publicationDate} 09:12 WAT`, action: 'Automated regulatory ingestion & classification completed', author: 'Cogent Ingestion Engine' },
-        { id: 'l3', timestamp: `${circular.publicationDate} 09:15 WAT`, action: circular.applicability?.isApplicable ? 'Applicability confirmed: matched operating licenses' : 'Applicability scanned: no direct license conflict', author: 'Applicability Engine' },
+        { id: 'l1', timestamp: `${circular.publicationDate}`, action: `Official notice gazetted by ${circular.regulator}`, author: circular.regulator },
+        { id: 'l2', timestamp: `${circular.publicationDate}`, action: 'Deterministic regulatory ingestion and classification completed', author: 'System' },
+        ...(circular.applicability?.isApplicable ? [{ id: 'l3', timestamp: `${circular.publicationDate}`, action: 'Statutory applicability matched operating licenses', author: 'Applicability Engine' }] : []),
       ];
 
   // Key Points list
-  const keyPoints = circular.keyPoints || [
-    `Formal statutory enactment under ${circular.regulator} supervisory authority: Establishes binding operating rules across all regulated institutions.`,
-    `Mandatory operational controls and policy concordance: Demands immediate review and update of internal standard operating procedures.`,
-    `Enforced reporting & documentation obligations: All records, audit trails, and transactional evidence must be systematically preserved for examination.`,
-    `Supervisory deadline & compliance escalation: Strict enforcement schedule with auto-escalation to the Chief Compliance Officer and Board Risk Committee.`,
-    `Statutory liability & fine exposure: Non-compliance carries progressive daily default fines and administrative remediation orders.`,
-  ];
+  const keyPoints = circular.keyPoints && circular.keyPoints.length > 0 ? circular.keyPoints : [];
   const displayedKeyPoints = showAllKeyPoints ? keyPoints : keyPoints.slice(0, 3);
 
   // Executive summary paragraphs
   const summaryParagraphs = circular.executiveSummary
     ? circular.executiveSummary.split('\n\n').filter(Boolean)
     : [
-        `On ${circular.publicationDate}, the ${circular.regulator} enacted circular directive ${circular.circularNumber} concerning '${circular.subject}', formally exercising statutory supervisory powers. The directive establishes binding standards across all regulated operations to enhance systemic risk controls, eliminate supervisory deficiencies, and ensure institutional alignment with current prudential baselines.`,
-        `The directive mandates comprehensive operational compliance regarding ${circular.subject.toLowerCase()}. Affected licensed institutions must review their internal risk appetite, governance controls, customer onboarding documentation, and automated technical rails. Operating teams are directed to eliminate any policy ambiguity, implement strict access and reporting mechanisms, and ensure total conformity across partner networks.`,
-        `Failure to conform to the statutory mandates set out in this circular exposes the institution to regulatory sanctions, monetary penalties, administrative escalation, and potential review of operating permissions. Accountable departmental leads are required to execute immediate concordance reviews, compile remediation evidence, and secure executive sign-off.`,
+        circular.summary || circular.subject || `Official regulatory notice issued by ${circular.regulator} under reference ${circular.circularNumber}.`,
       ];
 
   const handleCopyLink = () => {
@@ -422,16 +414,20 @@ export function HorizonAlertDetail({
               )}
             </div>
 
-            <div className="space-y-2.5">
-              {displayedKeyPoints.map((pt, idx) => (
-                <div key={`kp-${idx}`} className="flex items-start gap-2.5 text-xs text-slate-700">
-                  <span className="font-mono text-[11px] font-bold text-slate-400 shrink-0 mt-0.5">
-                    {(idx + 1).toString().padStart(2, '0')}.
-                  </span>
-                  <div className="leading-relaxed">{pt}</div>
-                </div>
-              ))}
-            </div>
+            {keyPoints.length > 0 ? (
+              <div className="space-y-2.5">
+                {displayedKeyPoints.map((pt, idx) => (
+                  <div key={`kp-${idx}`} className="flex items-start gap-2.5 text-xs text-slate-700">
+                    <span className="font-mono text-[11px] font-bold text-slate-400 shrink-0 mt-0.5">
+                      {(idx + 1).toString().padStart(2, '0')}.
+                    </span>
+                    <div className="leading-relaxed">{pt}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-slate-500 italic">No extracted key points recorded for this notice.</p>
+            )}
           </div>
 
           {/* Departments */}
@@ -634,7 +630,7 @@ export function HorizonAlertDetail({
                 {/* Add Comment input */}
                 <form onSubmit={handleAddComment} className="flex gap-2">
                   <div className="w-7 h-7 rounded-full bg-slate-900 text-white font-mono text-[10px] font-bold flex items-center justify-center shrink-0">
-                    SJ
+                    CO
                   </div>
                   <div className="flex-1 space-y-2">
                     <textarea

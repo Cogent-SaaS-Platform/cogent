@@ -35,13 +35,38 @@ export class PdfStructureExtractor {
   }
 
   /**
+   * Layout-preserving local PDF text extractor using unpdf
+   */
+  private async extractPdfText(buffer: Buffer | Uint8Array): Promise<string> {
+    try {
+      const { extractText } = await import('unpdf');
+      const buf = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+      const uint8 = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+      const { text } = await extractText(uint8);
+      return Array.isArray(text) ? text.join('\n\n') : (text || '');
+    } catch (err) {
+      logger.warn({ err }, 'Local unpdf text extraction failed');
+      return '';
+    }
+  }
+
+  /**
    * Extracts layout-preserved structured data from a PDF buffer or text document
    */
   public async extractStructure(params: StructureExtractorParams): Promise<ExtractedCircularStructure> {
     const { fileBuffer, mimeType, rawText, fileName } = params;
 
+    let localPdfText = '';
+    const isPdf = Boolean(
+      (fileBuffer && (mimeType === 'application/pdf' || fileName?.endsWith('.pdf') || this.isPdfBuffer(fileBuffer)))
+    );
+
+    if (isPdf && fileBuffer) {
+      localPdfText = await this.extractPdfText(fileBuffer);
+    }
+
     // 1. Try Gemini Multimodal Document Understanding if PDF buffer is available
-    if (this.ai && fileBuffer && (mimeType === 'application/pdf' || fileName?.endsWith('.pdf') || this.isPdfBuffer(fileBuffer))) {
+    if (this.ai && fileBuffer && isPdf) {
       try {
         const base64Data = Buffer.isBuffer(fileBuffer)
           ? fileBuffer.toString('base64')
@@ -108,13 +133,13 @@ Return a valid JSON object matching the requested schema.`;
       } catch (geminiErr) {
         logger.warn(
           { err: String(geminiErr) },
-          'Gemini multimodal document extraction failed; falling back to deterministic extractor'
+          'Gemini multimodal document extraction failed or quota reached; using unpdf layout-preserving extraction'
         );
       }
     }
 
-    // 2. Deterministic Layout-Preserving Extractor Fallback
-    const sourceText = rawText || (fileBuffer ? Buffer.from(fileBuffer).toString('utf8') : '');
+    // 2. Deterministic Layout-Preserving Extractor Fallback (powered by unpdf or provided text)
+    const sourceText = rawText || localPdfText || (fileBuffer && !isPdf ? Buffer.from(fileBuffer).toString('utf8') : '');
     return this.parseTextDeterministically(sourceText, fileName);
   }
 
@@ -189,27 +214,51 @@ Return a valid JSON object matching the requested schema.`;
 
     // If subject wasn't explicitly prefixed, infer from early uppercase line
     if (!subject) {
-      for (let i = 0; i < Math.min(lines.length, 25); i++) {
+      for (let i = 0; i < Math.min(lines.length, 30); i++) {
         const line = lines[i].trim();
+        const upper = line.toUpperCase();
         if (
-          line.length > 15 &&
-          line === line.toUpperCase() &&
-          !line.includes('CENTRAL BANK') &&
-          !line.includes('CIRCULAR') &&
-          !line.includes('FEDERAL REPUBLIC') &&
-          !line.includes('TEL:') &&
-          !line.startsWith('AND ') &&
-          !line.startsWith('TO:') &&
-          !line.includes('DEPOSIT MONEY') &&
-          !line.includes('GENERAL PUBLIC')
+          line.length > 12 &&
+          line === upper &&
+          !upper.includes('CENTRAL BANK') &&
+          !upper.includes('CIRCULAR') &&
+          !upper.includes('FEDERAL REPUBLIC') &&
+          !upper.includes('TEL:') &&
+          !upper.includes('WEBSITE:') &&
+          !upper.includes('EMAIL:') &&
+          !upper.includes('P.M.B.') &&
+          !upper.includes('CORPORATE HEAD') &&
+          !upper.includes('CENTRAL BUSINESS') &&
+          !upper.startsWith('AND ') &&
+          !upper.startsWith('TO:') &&
+          !upper.includes('DEPOSIT MONEY') &&
+          !upper.includes('GENERAL PUBLIC') &&
+          !upper.includes('AUTHORISED DEALERS') &&
+          !upper.includes('MERCHANT AND NON-INTEREST') &&
+          !upper.includes('ALL LICENSED')
         ) {
-          subject = line;
+          // Check if the next line is also uppercase continuation
+          const nextLine = (lines[i + 1] || '').trim();
+          const nextUpper = nextLine.toUpperCase();
+          if (
+            nextLine.length > 5 &&
+            nextLine === nextUpper &&
+            !nextUpper.startsWith('1.') &&
+            !nextUpper.startsWith('THE ') &&
+            !nextUpper.includes('ACCORDINGLY') &&
+            !nextUpper.includes('SECTION')
+          ) {
+            subject = `${line} ${nextLine}`;
+          } else {
+            subject = line;
+          }
           break;
         }
       }
     }
-    if (!subject) {
-      subject = fileName ? fileName.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ') : 'Regulatory Circular';
+
+    if (!subject || subject.length < 5) {
+      subject = fileName ? fileName.replace(/\.[^/.]+$/, '').replace(/[_-]/g, ' ') : 'Regulatory Circular Directive';
     }
 
     // Signatory detection (look from bottom of document)

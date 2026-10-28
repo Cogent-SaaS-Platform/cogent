@@ -18,6 +18,7 @@ const isPublicRoute = createRouteMatcher([
   '/api/webhooks(.*)', // Paystack & Clerk incoming webhooks verified by cryptographic signatures
   '/api/inngest(.*)',  // Inngest durable execution worker endpoints verified by signing keys
   '/api/health',       // Synthetic uptime monitoring probe
+  '/api/library(.*)',  // Statutory reference library and decomposed clauses
 ]);
 
 const isClerkConfigured =

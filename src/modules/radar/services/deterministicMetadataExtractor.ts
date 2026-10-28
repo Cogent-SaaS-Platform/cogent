@@ -112,6 +112,15 @@ export class DeterministicMetadataExtractor {
     if (/Nigeria Deposit Insurance|\bNDIC\b|Deposit Insurance Scheme/i.test(text)) {
       return 'NDIC';
     }
+    if (/Bank of Ghana|\bBOG\b|Republic of Ghana/i.test(text)) {
+      return 'BOG';
+    }
+    if (/Central Bank of Kenya|\bCBK\b/i.test(text)) {
+      return 'CBK';
+    }
+    if (/South African Reserve Bank|\bSARB\b/i.test(text)) {
+      return 'SARB';
+    }
 
     return 'CBN'; // Default regulator if unspecified in Nigerian FinTech domain
   }
@@ -145,6 +154,18 @@ export class DeterministicMetadataExtractor {
       NDIC: [
         /\b(NDIC\/(?:DIR|CIR|REG|DIS)\/[A-Z0-9\/\-_]+)\b/i,
         /\b(NDIC\/[A-Z0-9\/\-_]{5,35})\b/i,
+      ],
+      BOG: [
+        /\b(BOG\/(?:PSD|DIR|FMD|REG)\/[A-Z0-9\/\-_]+)\b/i,
+        /\b(BOG\/[A-Z0-9\/\-_]{5,35})\b/i,
+      ],
+      CBK: [
+        /\b(CBK\/(?:BSD|NPS|DIR|REG)\/[A-Z0-9\/\-_]+)\b/i,
+        /\b(CBK\/[A-Z0-9\/\-_]{5,35})\b/i,
+      ],
+      SARB: [
+        /\b(SARB\/(?:NPS|DIR|REG)\/[A-Z0-9\/\-_]+)\b/i,
+        /\b(SARB\/[A-Z0-9\/\-_]{5,35})\b/i,
       ],
     };
 
@@ -460,6 +481,9 @@ export class DeterministicMetadataExtractor {
       FCCPC: 'Federal Competition and Consumer Protection Commission',
       ARCON: 'Advertising Regulatory Council of Nigeria',
       NDIC: 'Nigeria Deposit Insurance Corporation',
+      BOG: 'Bank of Ghana',
+      CBK: 'Central Bank of Kenya',
+      SARB: 'South African Reserve Bank',
     };
 
     const regStatutes: Record<RegulatorCode, string> = {
@@ -470,6 +494,9 @@ export class DeterministicMetadataExtractor {
       FCCPC: 'Federal Competition and Consumer Protection Act (FCCPA 2018) and Digital Lending Guidelines',
       ARCON: 'Advertising Regulatory Council of Nigeria Act (ARCON Act 2022) and Nigerian Code of Advertising Practice',
       NDIC: 'Nigeria Deposit Insurance Corporation Act 2023 and Supervisory Resolution Protocols',
+      BOG: 'Payment Systems and Services Act 2019 (Act 987) and Bank of Ghana Directives',
+      CBK: 'Central Bank of Kenya Act and National Payment System Regulations',
+      SARB: 'South African Reserve Bank Act and National Payment System Act',
     };
 
     const fullRegName = regNames[params.regulatorCode] || params.regulatorCode;

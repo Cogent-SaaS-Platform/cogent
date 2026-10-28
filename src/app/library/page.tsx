@@ -50,6 +50,9 @@ export default function RegulatoryLibraryPage() {
 
       const res = await fetch(`/api/library?${params.toString()}`);
       if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error('Your session token is refreshing. Please refresh your browser or re-authenticate.');
+        }
         throw new Error(`Failed to load statutory library: HTTP ${res.status}`);
       }
       const data = await res.json();
@@ -327,6 +330,8 @@ export default function RegulatoryLibraryPage() {
         {viewMode === 'instrument' && activeInstrument && (
           <InstrumentDetailPage
             instrument={activeInstrument}
+            sections={sections}
+            isLoadingSections={isLoadingSections}
             onBack={() => setViewMode('hub')}
             onViewObligations={() => setViewMode('obligations')}
             onViewDoc={() => setViewMode('viewer')}

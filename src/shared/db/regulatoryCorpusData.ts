@@ -1072,7 +1072,7 @@ export const REGULATORY_INSTRUMENTS_SEED: RegulatoryInstrumentSeed[] = [
 
   // 10. BANK OF GHANA PAYMENT SYSTEMS AND SERVICES ACT 2019 (PAN-AFRICAN CORRIDOR)
   {
-    body_code: 'CBN', // Mapped to primary banking supervisor for cross-border corridor
+    body_code: 'BOG',
     title: 'Bank of Ghana Payment Systems and Services Act 2019 (Act 987)',
     short_name: 'BOG Act 987 (Ghana)',
     instrument_type: 'PRIMARY_ACT',

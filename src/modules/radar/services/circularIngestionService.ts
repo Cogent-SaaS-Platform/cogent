@@ -281,13 +281,61 @@ export class CircularIngestionService {
 
       if (existingCirculars && existingCirculars.length > 0) {
         const existing = existingCirculars[0];
+        const nowIso = new Date().toISOString();
+
+        // 1. Bump radar_circulars timestamp and update subject if better metadata available
+        const updatePayload: { created_at: string; subject?: string } = { created_at: nowIso };
+        if (metadata.subject && metadata.subject.length > 10) {
+          updatePayload.subject = metadata.subject;
+        }
+        await (client.from('radar_circulars').update as any)(updatePayload).eq('id', existing.id);
+
+        // 2. Also bump the regulatory instrument timestamp and title so it surfaces at the top of Library
+        if (existing.document_version_id) {
+          const { data: ver } = await client
+            .from('regulatory_document_versions')
+            .select('instrument_id')
+            .eq('id', existing.document_version_id)
+            .maybeSingle();
+
+          if (ver?.instrument_id) {
+            const instPayload: { created_at: string; title?: string; short_name?: string } = { created_at: nowIso };
+            if (metadata.subject && metadata.subject.length > 10) {
+              instPayload.title = metadata.subject;
+              instPayload.short_name = metadata.subject.length > 50 ? metadata.subject.slice(0, 47) + '...' : metadata.subject;
+            }
+            await (client.from('regulatory_instruments').update as any)(instPayload).eq('id', ver.instrument_id);
+          }
+
+          // 3. If this version has 0 clauses in the database, segment & persist them now!
+          const { count: clauseCount } = await client
+            .from('regulatory_clauses')
+            .select('id', { count: 'exact', head: true })
+            .eq('document_version_id', existing.document_version_id);
+
+          if (!clauseCount || clauseCount === 0) {
+            const segmentedClauses = ClauseSegmentationEngine.segmentAndDecompose({
+              rawText,
+              sections,
+              regulatorCode: metadata.regulatorCode,
+              circularNumber: metadata.circularNumber,
+              subject: metadata.subject,
+              priority: metadata.priority,
+              statutoryDeadline: metadata.statutoryDeadline,
+            });
+            if (segmentedClauses.length > 0) {
+              await ClauseSegmentationEngine.persistDocumentClauses(client, existing.document_version_id, segmentedClauses);
+            }
+          }
+        }
+
         logger.info(
           {
             circularId: existing.id,
             circularNumber: existing.circular_number,
             sourceFileHashPrefix: sourceFileHash.slice(0, 8),
           },
-          'Circular with matching SHA-256 hash or circular reference already exists; returning deduplicated record'
+          'Circular with matching SHA-256 hash or circular reference updated, timestamp bumped, and surfaced at top of Library'
         );
         return {
           circularId: existing.id,
@@ -318,10 +366,23 @@ export class CircularIngestionService {
 
         if (matchedInst) {
           instrumentId = matchedInst.id;
+          if (metadata.subject && metadata.subject.length > 10) {
+            await client
+              .from('regulatory_instruments')
+              .update({
+                title: metadata.subject,
+                short_name: metadata.subject.length > 50 ? metadata.subject.slice(0, 47) + '...' : metadata.subject,
+              })
+              .eq('id', matchedInst.id);
+          }
         } else {
           const instTitle = metadata.subject && metadata.subject.length > 10
             ? metadata.subject
             : `${metadata.regulatorCode} Regulatory Directive (${metadata.circularNumber})`;
+
+          const shortName = metadata.subject && metadata.subject.length > 5
+            ? (metadata.subject.length > 50 ? metadata.subject.slice(0, 47) + '...' : metadata.subject)
+            : `${metadata.regulatorCode} Directive`;
 
           const { data: newInst } = await client
             .from('regulatory_instruments')
@@ -329,7 +390,7 @@ export class CircularIngestionService {
               id: instrumentId,
               body_id: bodyId,
               title: instTitle,
-              short_name: metadata.circularNumber,
+              short_name: shortName,
               instrument_type: 'CIRCULAR_DIRECTIVE',
             })
             .select('id')

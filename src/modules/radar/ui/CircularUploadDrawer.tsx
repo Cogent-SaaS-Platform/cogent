@@ -198,8 +198,11 @@ export function CircularUploadDrawer({
                 onChange={(e) => setRegulator(e.target.value as RegulatorCode)}
                 className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 focus:border-slate-400 focus:outline-hidden"
               >
-                <option value="CBN">Central Bank of Nigeria (CBN)</option>
-                <option value="SEC">Securities and Exchange Commission (SEC)</option>
+                <option value="CBN">Central Bank of Nigeria (CBN) — Nigeria 🇳🇬</option>
+                <option value="SEC">Securities and Exchange Commission (SEC) — Nigeria 🇳🇬</option>
+                <option value="BOG">Bank of Ghana (BOG) — Ghana 🇬🇭</option>
+                <option value="CBK">Central Bank of Kenya (CBK) — Kenya 🇰🇪</option>
+                <option value="SARB">South African Reserve Bank (SARB) — South Africa 🇿🇦</option>
                 <option value="NDPC">Nigeria Data Protection Commission (NDPC)</option>
                 <option value="FCCPC">Federal Competition & Consumer Protection Commission (FCCPC)</option>
                 <option value="NFIU">Nigerian Financial Intelligence Unit (NFIU)</option>
