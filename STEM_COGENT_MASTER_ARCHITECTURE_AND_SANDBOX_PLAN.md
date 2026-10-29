@@ -158,8 +158,8 @@ To keep the codebase modular, professional, and free of noise, the **Public Mark
   - [`src/proxy.ts`](file:///c:/Users/Alex%20Marco/Documents/Cogent/src/proxy.ts): Public marketing routes whitelisted; unauthenticated visitors viewing `/` can access the marketing landing page; authenticated sessions auto-forward to `/overview`; onboarding redirect loop protection in place.
 - [x] **Compilation & Type Safety**: `npm run typecheck` passes with **0 errors**.
 
-### Remaining Milestone: The Public Marketing Website
-- [ ] **Task 3: Public Website Architecture Scaffolding**:
-  - Create dedicated isolated component directory: `src/modules/marketing-site/` (e.g. `Navbar.tsx`, `Hero.tsx`, `FeaturesGrid.tsx`, `Footer.tsx`).
-  - Prepare `src/app/page.tsx` as the landing root cleanly importing from `src/modules/marketing-site/`.
-  - Connect CTA buttons directly to `/sign-up` ("Start 7-Day Pilot") and `/sign-in` ("Client Sign In").
+- [x] **Task 3: Public Website Architecture Scaffolding**:
+  - Dedicated isolated component directory created at `src/modules/marketing-site/` (`Navbar.tsx`, `Hero.tsx`, `MetricStrip.tsx`, `PillarsSection.tsx`, `RegulatoryFrameworks.tsx`, `ArchitectureSecurity.tsx`, `InstitutionalPilot.tsx`, `Footer.tsx`, `index.ts`).
+  - Landing root `src/app/page.tsx` assembled cleanly importing solely from `src/modules/marketing-site/`.
+  - All CTAs connected directly to `/sign-up` ("Start 7-Day Pilot") and `/sign-in` ("Client Sign In").
+  - Enterprise RegTech styling applied strictly adhering to `AGENTS.md` (monochrome numbers, hairline dividers, plain monospace codes, no decorative icons or sparkles).
