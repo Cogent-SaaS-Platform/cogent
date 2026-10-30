@@ -4,22 +4,26 @@ import { ArrowRight, Check } from 'lucide-react';
 
 export function InstitutionalPilot() {
   return (
-    <section id="pilot" className="py-20 bg-white border-b border-slate-200 scroll-mt-16">
+    <section id="pilot" className="py-20 md:py-28 bg-white border-b border-slate-200 scroll-mt-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-slate-900 rounded-xl p-8 sm:p-12 lg:p-16 text-white relative overflow-hidden shadow-lg">
+        <div className="bg-slate-900 rounded-2xl p-8 sm:p-12 lg:p-16 text-white relative overflow-hidden shadow-xl border border-slate-800">
           <div className="max-w-2xl relative z-10 space-y-6">
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-slate-800 border border-slate-700 text-xs">
+            {/* Closing Eyebrow */}
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded bg-slate-800 border border-slate-700 text-xs">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              <span className="font-mono text-slate-300">SELF-SERVE INSTITUTIONAL EVALUATION</span>
+              <span className="font-mono text-slate-300">
+                Zero Procurement Wall · Instant 7-Day Institutional Evaluation Pilot
+              </span>
             </div>
 
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-white leading-tight">
-              Begin Your 7-Day Institutional Pilot Today
+            {/* Closing Headline */}
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-white leading-tight">
+              Run Institutional Compliance at FinTech Velocity.
             </h2>
 
-            <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
-              No simulated sandboxes or synthetic dummy data. Test your actual campaign copy, 
-              ingest live regulatory circulars, and run statutory concordance against your internal manuals.
+            {/* Closing Subtext */}
+            <p className="text-sm sm:text-base text-slate-300 leading-relaxed max-w-xl">
+              Test your active marketing campaigns or audit your internal policies against gazetted Nigerian regulations today.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-300">
@@ -41,20 +45,29 @@ export function InstitutionalPilot() {
               </div>
             </div>
 
-            <div className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              <Link
-                href="/sign-up"
-                className="inline-flex items-center justify-center gap-2 bg-white text-slate-900 hover:bg-slate-100 rounded-lg font-medium text-xs px-6 py-3 shadow-xs transition-colors"
-              >
-                <span>Start 7-Day Pilot</span>
-                <ArrowRight className="w-4 h-4 text-slate-900" />
-              </Link>
-              <Link
-                href="/sign-in"
-                className="inline-flex items-center justify-center gap-2 bg-slate-800 text-slate-200 hover:bg-slate-700 border border-slate-700 rounded-lg font-medium text-xs px-6 py-3 transition-colors"
-              >
-                <span>Existing Client Sign In</span>
-              </Link>
+            {/* CTA Button Pair & Subtext */}
+            <div className="pt-4 space-y-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                <Link
+                  href="/sign-up"
+                  className="inline-flex items-center justify-center gap-2 bg-[#2A4BFF] hover:bg-[#1E3AE5] text-white rounded-lg font-semibold text-xs px-6 py-3.5 shadow-sm transition-colors"
+                >
+                  <span>Start 7-Day Institutional Pilot</span>
+                  <ArrowRight className="w-4 h-4 text-white" />
+                </Link>
+                <Link
+                  href="/sign-in"
+                  className="inline-flex items-center justify-center gap-2 bg-slate-800 text-slate-200 hover:bg-slate-700 border border-slate-700 rounded-lg font-semibold text-xs px-6 py-3.5 transition-colors"
+                >
+                  <span>Sign in</span>
+                </Link>
+              </div>
+
+              {/* Subtext */}
+              <div className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span>Instant Workspace Provisioning · Google OAuth Enabled · Zero Procurement Gate</span>
+              </div>
             </div>
           </div>
 
@@ -65,3 +78,4 @@ export function InstitutionalPilot() {
     </section>
   );
 }
+

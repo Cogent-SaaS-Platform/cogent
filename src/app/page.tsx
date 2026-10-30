@@ -3,10 +3,11 @@ import type { Metadata } from 'next';
 import {
   Navbar,
   Hero,
-  MetricStrip,
-  PillarsSection,
-  RegulatoryFrameworks,
-  ArchitectureSecurity,
+  ThreeColumnFeatureGrid,
+  HorizonScanningSection,
+  ImpactObligationSection,
+  PolicyGovernanceSection,
+  EnterpriseAssuranceSection,
   InstitutionalPilot,
   Footer,
 } from '@/modules/marketing-site';
@@ -14,11 +15,11 @@ import {
 export const metadata: Metadata = {
   title: 'Cogent | Sovereign RegTech & Supervisory Intelligence',
   description:
-    'Autonomous regulatory intelligence and statutory supervisory concordance for Nigerian Commercial Banks, MFBs, FinTechs, and Payment Switches. Continuous compliance across CBN, NDPC, ARCON, SEC, and NFIU directives.',
+    'Protect your balance sheet from catastrophic statutory fines (BOFIA 2020 §65, ARCON Act 2022 §54) and eliminate 14-day legal review gridlock. Continuous supervisory intelligence for Nigerian Commercial Banks, MFBs, FinTechs, and PSSPs.',
   openGraph: {
     title: 'Cogent | Sovereign RegTech Operating System',
     description:
-      'Deterministic rule evaluation, circular impact synthesis, and 5-W policy concordance across Nigerian financial regulations.',
+      'Continuous regulatory intelligence and statutory supervisory concordance for Nigerian financial institutions.',
     url: 'https://stem-cogent.com',
     siteName: 'Cogent Regulatory Systems',
     type: 'website',
@@ -34,10 +35,11 @@ export default function MarketingLandingPage() {
       <Navbar />
       <main className="flex-1">
         <Hero />
-        <MetricStrip />
-        <PillarsSection />
-        <RegulatoryFrameworks />
-        <ArchitectureSecurity />
+        <ThreeColumnFeatureGrid />
+        <HorizonScanningSection />
+        <ImpactObligationSection />
+        <PolicyGovernanceSection />
+        <EnterpriseAssuranceSection />
         <InstitutionalPilot />
       </main>
       <Footer />

@@ -159,7 +159,63 @@ To keep the codebase modular, professional, and free of noise, the **Public Mark
 - [x] **Compilation & Type Safety**: `npm run typecheck` passes with **0 errors**.
 
 - [x] **Task 3: Public Website Architecture Scaffolding**:
-  - Dedicated isolated component directory created at `src/modules/marketing-site/` (`Navbar.tsx`, `Hero.tsx`, `MetricStrip.tsx`, `PillarsSection.tsx`, `RegulatoryFrameworks.tsx`, `ArchitectureSecurity.tsx`, `InstitutionalPilot.tsx`, `Footer.tsx`, `index.ts`).
+  - Dedicated isolated component directory created at `src/modules/marketing-site/` (`Navbar.tsx`, `Hero.tsx`, `MetricStrip.tsx`, `ThreeColumnFeatureGrid.tsx`, `HorizonScanningSection.tsx`, `ImpactObligationSection.tsx`, `PolicyGovernanceSection.tsx`, `EnterpriseAssuranceSection.tsx`, `TestimonialSection.tsx`, `InstitutionalPilot.tsx`, `Footer.tsx`, `index.ts`).
   - Landing root `src/app/page.tsx` assembled cleanly importing solely from `src/modules/marketing-site/`.
   - All CTAs connected directly to `/sign-up` ("Start 7-Day Pilot") and `/sign-in` ("Client Sign In").
   - Enterprise RegTech styling applied strictly adhering to `AGENTS.md` (monochrome numbers, hairline dividers, plain monospace codes, no decorative icons or sparkles).
+- [x] **Task 4: Website Copy Blueprint & Positioning Alignment (Tab 4)**:
+  - Synchronized Hero Section headline, subheadline, and instant pilot CTA with zero procurement gating.
+  - Implemented the 3 Pillar Blocks (Horizon Radar, Marketing Shield, 5-W Policy Gap Matrix) with pain points, value propositions, statutory capabilities, and measured outcomes.
+  - Testimonial section deliberately decoupled from the active public homepage in alignment with epistemic modesty until verified through live design partner telemetry.
+  - Synchronized bottom call-to-action block (`InstitutionalPilot.tsx`) with verified institutional subtext.
+
+---
+
+## 5. Tab 4: Cogent Website Copy Blueprint (Messaging & Positioning)
+
+### 1. Hero Section
+* **Headline**: Automated Supervisory Compliance & Marketing Defense Built for Nigerian Financial Institutions.
+* **Description (Subheadline)**: Catch midnight circulars across CBN, NDPC, and ARCON before dawn. Pre-vet promotional ad copy in milliseconds, monitor live pages for copy drift, and keep your internal policies continuously audit-ready for Central Bank routine examinations.
+* **Call to Action (CTA)**: `[Start 7-Day Institutional Pilot]` (Subtext: *Instant Workspace Provisioning · Google OAuth Enabled · Zero Procurement Gate*)
+
+### 2. How It Works (The 3 Pillar Blocks)
+#### Block 1: Horizon Radar
+* **Pain Point**: Tired of discovering Friday midnight CBN circulars on WhatsApp and wasting days deciphering repealed clauses while executive leadership waits?
+* **Value Proposition**: Wake up with structured, plain-English action briefs already mapped across your executive committee.
+* **Features**: Scheduled ingestion across 7 apex regulators, automatic circular supersession lineage trees (Amends, Replaces, Repeals), and character-span obligation extraction.
+* **Benefit / Outcome**: Deliver tailored operational action items to your CEO, COO, CTO, and CFO within 15 minutes of gazetting—long before statutory deadlines hit.
+
+#### Block 2: Marketing Shield
+* **Pain Point**: Tired of marketing treating legal like the "Department of No," launching unvetted ads, or tweaking live landing pages that trigger ₦500k–₦10M+ ARCON and CBN penalties?
+* **Value Proposition**: Clear promotional campaigns instantly without sacrificing conversion hooks, backed by 24/7 web monitoring and 1-click ARCON filing packets.
+* **Features**: Sub-50ms deterministic regex scanner, conversion-preserving compliant rewrites, 24/7 live URL copy drift watcher, and pre-packaged ARCON ASP clearance dossiers.
+* **Benefit / Outcome**: Slash advertising review latency by 90% and push growth campaigns live in minutes with zero balance-sheet penalty exposure.
+
+#### Block 3: 5-W Policy Gap Matrix
+* **Pain Point**: Tired of your corporate manuals sitting as static Word docs in Google Drive, dreading the hidden compliance omissions bank examiners will uncover?
+* **Value Proposition**: Maintain continuous clause-by-clause audit readiness with pre-drafted remediation language to close policy gaps before inspectors walk in.
+* **Features**: Automated policy document chunking, 3-tier statutory concordance evaluation against BOFIA 2020 and CBN regulations, and ready-to-paste draft clauses.
+* **Benefit / Outcome**: Replace expensive, multi-month law firm gap reviews with on-demand concordance, exporting tamper-evident audit defense binders for routine CBN examinations.
+
+### 3. Testimonials (3 Persona Outcomes)
+* **Testimonial 1 (CCO Focus — Radar & Speed)**:
+  > "When the CBN dropped the revised operational guidelines late on a Friday night, I used to spend the entire weekend panicking and parsing PDFs. With Cogent, I logged in Monday morning and had tailored action items for our CTO on logging requirements and for our CFO on statutory reserves already waiting. It completely transformed my credibility with the Board."  
+  > *— Chief Compliance Officer, Licensed National Microfinance Bank (Lagos)*
+* **Testimonial 2 (Growth & Marketing Focus — Shield & Fine Avoidance)**:
+  > "Our performance marketing team used to wait up to two weeks for legal to review SMS campaigns and Meta ads, which was killing our acquisition sprints. Marketing Shield checks our copy in seconds, flags prohibited terms like 'zero interest' before we spend a Naira, and gives us alternative wording that still converts. Zero ARCON warning letters since rollout."  
+  > *— VP of Growth, Series-A FinTech Switch (PSSPs / Digital Lending)*
+* **Testimonial 3 (General Counsel Focus — Policy Gap Matrix & Audit Defense)**:
+  > "Preparing for our routine Central Bank inspection used to mean paying external counsel millions for static memos that were obsolete weeks later. Cogent benchmarked our 180-page AML manual against current statutory law, identified two critical gaps, and gave us pre-drafted clauses to fix them immediately. When examiners arrived, we handed them an unbroken audit defense binder."  
+  > *— General Counsel & Company Secretary, Digital Neo-Bank*
+
+### 4. Measurable Outcomes & Authority Telemetry (Monochrome RegTech Standard)
+* **`₦42.5M+`** | **Average Statutory Fine Liability Avoided**: Calculated penalties prevented through pre-vetting and closed policy gaps under BOFIA & ARCON.
+* **`< 30s`** | **Campaign Approval Turnaround**: Slashed from a baseline of 5–10 business days for full internal clearance.
+* **`100%`** | **Deterministic Prohibited Phrase Precision**: Zero false negatives on statutory terms that trigger automatic marketing blacklists.
+* **`15 Mins`** | **Circular-to-ExCo Brief Latency**: Reduced from 7–14 days of manual email chains down to immediate executive action cards.
+
+### 5. Bottom Call to Action
+* **Closing Eyebrow**: Zero Procurement Wall · Instant 7-Day Institutional Evaluation Pilot
+* **Closing Headline**: Run Institutional Compliance at FinTech Velocity.
+* **Closing Subtext**: Test your active marketing campaigns or audit your internal policies against gazetted Nigerian regulations today
+
