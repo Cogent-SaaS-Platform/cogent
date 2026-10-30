@@ -16,19 +16,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 1.0,
     },
     {
-      url: `${baseUrl}/pricing`,
+      url: `${baseUrl}/sign-up`,
       lastModified,
-      changeFrequency: 'weekly',
+      changeFrequency: 'monthly',
       priority: 0.8,
     },
     {
-      url: `${baseUrl}/about`,
-      lastModified,
-      changeFrequency: 'monthly',
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/contact`,
+      url: `${baseUrl}/sign-in`,
       lastModified,
       changeFrequency: 'monthly',
       priority: 0.6,
