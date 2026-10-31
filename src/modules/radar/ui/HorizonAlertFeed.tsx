@@ -16,6 +16,11 @@ import {
   ShieldAlert,
   ArrowUpRight,
   TrendingUp,
+  UserPlus,
+  User,
+  Copy,
+  FileText,
+  ShieldCheck,
 } from 'lucide-react';
 import { RadarCircularPresentationCard } from '../types';
 import { RegulatorCode } from '@/shared/types';
@@ -31,6 +36,7 @@ interface HorizonAlertFeedProps {
   onOpenIngest: () => void;
   onToggleRelevant?: (id: string, e: React.MouseEvent) => void;
   onToggleStar?: (id: string, e: React.MouseEvent) => void;
+  onUpdateCircular?: (updated: Partial<RadarCircularPresentationCard> & { id: string }) => void;
   lastUpdatedText?: string;
   initialSearchQuery?: string;
 }
@@ -45,7 +51,8 @@ export function HorizonAlertFeed({
   onOpenIngest,
   onToggleRelevant,
   onToggleStar,
-  lastUpdatedText = 'Today, 10:45 AM',
+  onUpdateCircular,
+  lastUpdatedText = 'Just now',
   initialSearchQuery = '',
 }: HorizonAlertFeedProps) {
   // Feed Tab Filter: 'pending' | 'all' | 'starred'
@@ -111,6 +118,57 @@ export function HorizonAlertFeed({
       return next;
     });
     if (onToggleStar) onToggleStar(id, e);
+  };
+
+  // Interactive Table Action States (Assign Popover & Context Menu)
+  const [activeAssignRowId, setActiveAssignRowId] = useState<string | null>(null);
+  const [activeMenuRowId, setActiveMenuRowId] = useState<string | null>(null);
+  const [copiedRowId, setCopiedRowId] = useState<string | null>(null);
+
+  const handleSelectAssignee = async (
+    circularId: string,
+    selection: {
+      type: 'USER' | 'ROLE' | 'UNASSIGNED';
+      id?: string;
+      name: string;
+      initials?: string;
+      department?: string;
+    }
+  ) => {
+    const newAssignee =
+      selection.type === 'UNASSIGNED'
+        ? null
+        : { id: selection.id || selection.name, name: selection.name, avatar: selection.initials };
+
+    onUpdateCircular?.({ id: circularId, assignee: newAssignee });
+    setActiveAssignRowId(null);
+
+    try {
+      await fetch(`/api/radar/circulars/${encodeURIComponent(circularId)}/assign`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assignedToUserId: selection.type === 'USER' ? selection.id : null,
+          assignedRole: selection.type === 'ROLE' ? (selection.name || selection.id) : null,
+          targetDepartment: selection.department || null,
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to persist circular assignment', err);
+    }
+  };
+
+  const handleCopyCircularRef = (refCode: string, id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      navigator.clipboard.writeText(refCode);
+      setCopiedRowId(id);
+      setTimeout(() => {
+        setCopiedRowId(null);
+      }, 2000);
+    } catch {
+      // Ignore clipboard error
+    }
   };
 
   // Filter pipeline
@@ -661,21 +719,156 @@ export function HorizonAlertFeed({
                     </td>
 
                     {/* Assign */}
-                    <td className="py-3 px-3" onClick={(e) => e.stopPropagation()}>
+                    <td className="py-3 px-3 relative" onClick={(e) => e.stopPropagation()}>
                       {c.assignee ? (
-                        <div className="inline-flex items-center gap-1.5 text-slate-700 text-xs">
-                          <span className="w-5 h-5 rounded-full bg-slate-100 border border-slate-300 flex items-center justify-center font-mono text-[9px] font-bold text-slate-700">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveAssignRowId((prev) => (prev === c.id ? null : c.id));
+                            setActiveMenuRowId(null);
+                          }}
+                          className="inline-flex items-center gap-1.5 text-slate-700 hover:text-slate-900 text-xs px-1.5 py-0.5 rounded hover:bg-slate-100 transition-colors cursor-pointer group"
+                          title="Click to reassign circular"
+                        >
+                          <span className="w-5 h-5 rounded-full bg-slate-100 border border-slate-300 flex items-center justify-center font-mono text-[9px] font-bold text-slate-700 group-hover:border-slate-400">
                             {c.assignee.avatar || c.assignee.name.slice(0, 2).toUpperCase()}
                           </span>
-                          <span className="truncate max-w-[80px]">{c.assignee.name}</span>
-                        </div>
+                          <span className="truncate max-w-[80px] font-medium text-[11px]">{c.assignee.name}</span>
+                        </button>
                       ) : (
                         <button
-                          onClick={() => {}}
-                          className="text-[11px] font-medium text-slate-500 hover:text-slate-800 border border-dashed border-slate-300 hover:border-slate-400 rounded px-2 py-0.5 transition-colors"
+                          type="button"
+                          onClick={() => {
+                            setActiveAssignRowId((prev) => (prev === c.id ? null : c.id));
+                            setActiveMenuRowId(null);
+                          }}
+                          className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-slate-900 border border-dashed border-slate-300 hover:border-slate-400 rounded px-2 py-0.5 transition-colors bg-white hover:bg-slate-50 cursor-pointer shadow-2xs"
+                          title="Assign to team member or functional role"
                         >
-                          + Assign
+                          <UserPlus className="w-3 h-3 text-slate-400" />
+                          <span>+ Assign</span>
                         </button>
+                      )}
+
+                      {/* Assignee Dropdown Popover */}
+                      {activeAssignRowId === c.id && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-40"
+                            onClick={() => setActiveAssignRowId(null)}
+                          />
+                          <div className="absolute left-0 top-full mt-1 w-64 max-h-72 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-xl z-50 p-1.5 space-y-2 text-xs animate-in fade-in zoom-in-95 duration-100">
+                            {/* Unassign option */}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleSelectAssignee(c.id, {
+                                  type: 'UNASSIGNED',
+                                  name: 'Unassigned',
+                                  initials: 'UN',
+                                })
+                              }
+                              className="w-full px-2 py-1 text-left rounded hover:bg-slate-50 flex items-center justify-between text-slate-600 transition-colors"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                                <span>Unassigned</span>
+                              </div>
+                              {!c.assignee && <Check className="w-3.5 h-3.5 text-slate-900" />}
+                            </button>
+
+                            {/* Organization Team Members */}
+                            {teamMembers.length > 0 && (
+                              <div>
+                                <div className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                                  Team Members
+                                </div>
+                                <div className="space-y-0.5 pt-1">
+                                  {teamMembers.map((m) => {
+                                    const isSelected =
+                                      c.assignee?.id === m.userId || c.assignee?.name === m.fullName;
+                                    return (
+                                      <button
+                                        key={m.userId}
+                                        type="button"
+                                        onClick={() =>
+                                          handleSelectAssignee(c.id, {
+                                            type: 'USER',
+                                            id: m.userId,
+                                            name: m.fullName,
+                                            initials: m.initials,
+                                            department: m.department,
+                                          })
+                                        }
+                                        className={`w-full px-2 py-1.5 text-left rounded flex items-center justify-between transition-colors ${
+                                          isSelected ? 'bg-slate-100 font-semibold' : 'hover:bg-slate-50'
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <div className="w-5 h-5 rounded-full bg-slate-900 text-white font-mono text-[9px] font-bold flex items-center justify-center shrink-0">
+                                            {m.initials}
+                                          </div>
+                                          <div className="min-w-0">
+                                            <div className="truncate text-slate-900 font-medium text-xs">
+                                              {m.fullName}
+                                            </div>
+                                            <div className="text-[10px] text-slate-500 font-mono truncate">
+                                              {m.jobTitle || m.department.replace(/_/g, ' ')}
+                                            </div>
+                                          </div>
+                                        </div>
+                                        {isSelected && <Check className="w-3.5 h-3.5 text-slate-900 shrink-0" />}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Canonical Functional Roles */}
+                            {functionalRoles.length > 0 && (
+                              <div>
+                                <div className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
+                                  Statutory Roles
+                                </div>
+                                <div className="space-y-0.5 pt-1">
+                                  {functionalRoles.map((r) => {
+                                    const isSelected =
+                                      c.assignee?.id === r.roleId || c.assignee?.name === r.roleTitle;
+                                    return (
+                                      <button
+                                        key={r.roleId}
+                                        type="button"
+                                        onClick={() =>
+                                          handleSelectAssignee(c.id, {
+                                            type: 'ROLE',
+                                            id: r.roleId,
+                                            name: r.roleTitle,
+                                            initials: r.roleId.slice(0, 2).toUpperCase(),
+                                            department: r.department,
+                                          })
+                                        }
+                                        className={`w-full px-2 py-1.5 text-left rounded flex items-center justify-between transition-colors ${
+                                          isSelected ? 'bg-slate-100 font-semibold' : 'hover:bg-slate-50'
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-2 min-w-0">
+                                          <div className="w-5 h-5 rounded-full bg-slate-100 text-slate-700 font-mono text-[9px] font-bold flex items-center justify-center shrink-0 border border-slate-300">
+                                            {r.roleId.slice(0, 2).toUpperCase()}
+                                          </div>
+                                          <div className="truncate text-slate-800 text-xs font-medium">
+                                            {r.roleTitle}
+                                          </div>
+                                        </div>
+                                        {isSelected && <Check className="w-3.5 h-3.5 text-slate-900 shrink-0" />}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </>
                       )}
                     </td>
 
@@ -696,13 +889,110 @@ export function HorizonAlertFeed({
                     </td>
 
                     {/* Context menu */}
-                    <td className="py-3 px-2 text-center" onClick={(e) => e.stopPropagation()}>
+                    <td className="py-3 px-2 text-center relative" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
-                        className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                        onClick={() => {
+                          setActiveMenuRowId((prev) => (prev === c.id ? null : c.id));
+                          setActiveAssignRowId(null);
+                        }}
+                        className={`p-1 rounded transition-colors ${
+                          activeMenuRowId === c.id
+                            ? 'bg-slate-200 text-slate-900'
+                            : 'text-slate-400 hover:text-slate-700 hover:bg-slate-100'
+                        }`}
+                        title="More options"
                       >
                         <MoreHorizontal className="w-3.5 h-3.5" />
                       </button>
+
+                      {/* Dropdown Menu */}
+                      {activeMenuRowId === c.id && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-40"
+                            onClick={() => setActiveMenuRowId(null)}
+                          />
+                          <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-slate-200 rounded-lg shadow-xl z-50 py-1 text-left text-xs animate-in fade-in zoom-in-95 duration-100">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveMenuRowId(null);
+                                onSelectCircular(c.id);
+                              }}
+                              className="w-full px-3 py-1.5 text-left text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2 transition-colors cursor-pointer"
+                            >
+                              <FileText className="w-3.5 h-3.5 text-slate-400" />
+                              <span>View Statutory Brief</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                setActiveMenuRowId(null);
+                                onToggleRelevant?.(c.id, e);
+                              }}
+                              className="w-full px-3 py-1.5 text-left text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2 transition-colors cursor-pointer"
+                            >
+                              <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
+                              <span>
+                                {c.applicability.isApplicable
+                                  ? 'Mark Non-Applicable'
+                                  : 'Mark Applicable'}
+                              </span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                setActiveMenuRowId(null);
+                                handleStarClick(c.id, e);
+                              }}
+                              className="w-full px-3 py-1.5 text-left text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2 transition-colors cursor-pointer"
+                            >
+                              <Star
+                                className={`w-3.5 h-3.5 ${
+                                  isStarred ? 'text-amber-500 fill-amber-500' : 'text-slate-400'
+                                }`}
+                              />
+                              <span>{isStarred ? 'Unstar Directive' : 'Star Directive'}</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                handleCopyCircularRef(c.circularNumber, c.id, e);
+                              }}
+                              className="w-full px-3 py-1.5 text-left text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2 transition-colors cursor-pointer"
+                            >
+                              {copiedRowId === c.id ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span className="text-emerald-700 font-medium">Reference Copied!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>Copy Reference</span>
+                                </>
+                              )}
+                            </button>
+
+                            {c.sourceUrl && (
+                              <a
+                                href={c.sourceUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={() => setActiveMenuRowId(null)}
+                                className="w-full px-3 py-1.5 text-left text-slate-700 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-2 transition-colors cursor-pointer"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+                                <span>Official Source Link</span>
+                              </a>
+                            )}
+                          </div>
+                        </>
+                      )}
                     </td>
                   </tr>
                 );

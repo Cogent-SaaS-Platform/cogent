@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation';
 import {
   ChevronRight,
   Search,
-  Bell,
   ShieldCheck,
   LayoutDashboard,
   Radio,
@@ -23,8 +22,6 @@ export interface BreadcrumbSegment {
 export interface GlobalHeaderProps {
   breadcrumbs?: BreadcrumbSegment[];
   onOpenCommandPalette?: () => void;
-  onOpenNotifications?: () => void;
-  unreadNotificationsCount?: number;
   activePillar?: string;
   isRailExpanded?: boolean;
 }
@@ -44,8 +41,6 @@ const ROUTE_BREADCRUMBS: Record<string, BreadcrumbSegment[]> = {
 export function GlobalHeader({
   breadcrumbs,
   onOpenCommandPalette,
-  onOpenNotifications,
-  unreadNotificationsCount = 3,
   activePillar,
   isRailExpanded = false,
 }: GlobalHeaderProps) {
@@ -159,21 +154,6 @@ export function GlobalHeader({
           <kbd className="px-1.5 py-0.5 text-[10px] font-mono bg-white text-[#4B5565] border border-[#DDE3EE] rounded shadow-xs">
             ⌘K
           </kbd>
-        </button>
-
-
-        {/* AI Smart Insight Notification Trigger */}
-        <button
-          type="button"
-          onClick={onOpenNotifications}
-          className="relative p-2 rounded-lg text-[#4B5565] hover:text-[#0B0F1A] hover:bg-[#F5F6FA] border border-transparent hover:border-[#DDE3EE] transition-all"
-          title="AI Smart Insight & Notifications"
-          aria-label="View notifications"
-        >
-          <Bell className="w-4 h-4" />
-          {unreadNotificationsCount > 0 && (
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#2A4BFF] ring-2 ring-white" />
-          )}
         </button>
       </div>
     </header>

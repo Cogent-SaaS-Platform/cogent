@@ -44,7 +44,24 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
   const [isUploadDrawerOpen, setIsUploadDrawerOpen] = useState<boolean>(false);
   const [isLoadingLive, setIsLoadingLive] = useState<boolean>(false);
   const [isSyncingFeeds, setIsSyncingFeeds] = useState<boolean>(false);
-  const [lastSyncTime, setLastSyncTime] = useState<string>('Today, 10:45 AM');
+  const [lastSyncTime, setLastSyncTime] = useState<string>('Just now');
+
+  // Load persisted sync time on client mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('cogent_radar_last_sync');
+      if (stored) {
+        setLastSyncTime(stored);
+      } else {
+        const now = new Date();
+        const timeStr = `Today, ${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+        setLastSyncTime(timeStr);
+        localStorage.setItem('cogent_radar_last_sync', timeStr);
+      }
+    } catch {
+      // Ignore localStorage errors
+    }
+  }, []);
 
   // Tenant Profile Context
   const [tenantProfile, setTenantProfile] = useState<{
@@ -90,14 +107,22 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
       setIsSyncingFeeds(true);
       const res = await fetch('/api/radar/sync', { method: 'POST' });
       const data = await res.json();
+      const now = new Date();
+      const timeStr = `Today, ${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+      setLastSyncTime(timeStr);
+      try {
+        localStorage.setItem('cogent_radar_last_sync', timeStr);
+      } catch {
+        // Ignore localStorage error
+      }
       if (data.success) {
-        const now = new Date();
-        const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-        setLastSyncTime(`Today, ${timeStr}`);
         await fetchLiveCirculars();
       }
     } catch (err: unknown) {
       console.error('Sync network failure', err);
+      const now = new Date();
+      const timeStr = `Today, ${now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+      setLastSyncTime(timeStr);
     } finally {
       setIsSyncingFeeds(false);
     }
@@ -375,6 +400,7 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
               onOpenIngest={() => setIsUploadDrawerOpen(true)}
               onToggleRelevant={(id) => handleToggleRelevant(id)}
               onToggleStar={(id) => handleToggleStar(id)}
+              onUpdateCircular={handleUpdateCircular}
               lastUpdatedText={lastSyncTime}
               initialSearchQuery={urlSearch || initialContext?.searchTerm || ''}
             />
@@ -402,6 +428,7 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
               onOpenIngest={() => setIsUploadDrawerOpen(true)}
               onToggleRelevant={(id) => handleToggleRelevant(id)}
               onToggleStar={(id) => handleToggleStar(id)}
+              onUpdateCircular={handleUpdateCircular}
               lastUpdatedText={lastSyncTime}
               initialSearchQuery={urlSearch || initialContext?.searchTerm || ''}
             />

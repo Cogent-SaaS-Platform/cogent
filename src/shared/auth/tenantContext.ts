@@ -61,7 +61,14 @@ async function resolveOrganizationSubscription(
   organizationId: string
 ): Promise<TenantSubscriptionSummary> {
   try {
-    const { data: subData, error: subError } = await client
+    let admin: SupabaseClient<Database>;
+    try {
+      admin = createAdminClient();
+    } catch {
+      admin = client;
+    }
+
+    const { data: subData, error: subError } = await admin
       .from('tenant_subscriptions')
       .select('*')
       .eq('organization_id', organizationId)
@@ -70,7 +77,7 @@ async function resolveOrganizationSubscription(
     if (subError) {
       logger.warn(
         { error: subError.message, organizationId },
-        'Database query error fetching tenant subscription, defaulting to trial'
+        'Database query error fetching tenant subscription, checking organization registration date'
       );
     }
 
@@ -88,10 +95,53 @@ async function resolveOrganizationSubscription(
       });
     }
 
+    // 2. Retrieve organization's true registration timestamp
+    const { data: orgData } = await admin
+      .from('organizations')
+      .select('created_at')
+      .eq('id', organizationId)
+      .maybeSingle();
+
+    const createdAt = orgData?.created_at ? new Date(orgData.created_at) : new Date();
+    // 7-day institutional evaluation trial exactly anchored to registration date
+    const trialEndsAt = new Date(createdAt.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    // Persist this row so trial duration is real and does NOT reset on every request!
+    try {
+      const { data: insertedSub } = await admin
+        .from('tenant_subscriptions')
+        .insert({
+          organization_id: organizationId,
+          tier: 'STARTER',
+          status: 'trialing',
+          trial_ends_at: trialEndsAt,
+          current_period_start: createdAt.toISOString(),
+          current_period_end: trialEndsAt,
+          marketing_scan_quota: 10,
+          policy_document_quota: 1,
+        })
+        .select('*')
+        .maybeSingle();
+
+      if (insertedSub) {
+        return EntitlementEngine.computeSummary({
+          tier: insertedSub.tier as SubscriptionTier,
+          status: insertedSub.status,
+          trialEndsAt: insertedSub.trial_ends_at,
+          gracePeriodEndsAt: insertedSub.grace_period_ends_at,
+          currentPeriodEnd: insertedSub.current_period_end,
+          marketingScanQuota: insertedSub.marketing_scan_quota,
+          policyDocumentQuota: insertedSub.policy_document_quota,
+        });
+      }
+    } catch (insertErr) {
+      logger.warn({ insertErr, organizationId }, 'Failed to persist default subscription row');
+    }
+
     return EntitlementEngine.computeSummary({
       tier: 'STARTER',
       status: 'trialing',
-      trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      trialEndsAt,
     });
   } catch (err: unknown) {
     const error = err instanceof Error ? err : new Error(String(err));

@@ -40,6 +40,20 @@ export async function POST(req: NextRequest) {
       userId,
     });
 
+    if (organizationId && evaluation) {
+      try {
+        await tenantCtx.dbClient.from('notifications').insert({
+          organization_id: organizationId,
+          title: `📊 Policy Gap Assessment: ${policyTitle || 'Corporate Policy'}`,
+          message: `Evaluation completed against statutory benchmark. Review pre-cleared remediation clauses.`,
+          link: `/gap`,
+          is_read: false,
+        });
+      } catch (notifErr) {
+        logger.warn({ notifErr }, 'Failed to record gap evaluation notification');
+      }
+    }
+
     return NextResponse.json({ success: true, data: evaluation });
   } catch (error: unknown) {
     if (error instanceof AppError) {

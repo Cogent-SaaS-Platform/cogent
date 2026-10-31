@@ -37,6 +37,22 @@ export async function PATCH(
       userId
     );
 
+    // Emit live notification to tenant enclave
+    if (organizationId) {
+      try {
+        const assigneeLabel = body.assignedRole || 'Team Member';
+        await dbClient.from('notifications').insert({
+          organization_id: organizationId,
+          title: `👤 Directive Assigned: ${assigneeLabel}`,
+          message: `Statutory directive review assigned to ${assigneeLabel}. Check your action brief for workflow deadlines.`,
+          link: `/radar`,
+          is_read: false,
+        });
+      } catch (notifErr) {
+        logger.warn({ notifErr }, 'Failed to record assignment notification');
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Radar alert assignment successfully updated',

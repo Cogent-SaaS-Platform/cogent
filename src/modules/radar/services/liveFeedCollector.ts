@@ -111,9 +111,9 @@ export class LiveFeedCollector {
    * Main synchronization orchestrator across registered Nigerian regulatory channels.
    * Records execution telemetry to source_runs for real-time freshness observability.
    */
-  public async syncAllLiveSources(): Promise<LiveSourceSyncSummary> {
+  public async syncAllLiveSources(organizationId?: string): Promise<LiveSourceSyncSummary> {
     const timestamp = new Date().toISOString();
-    logger.info({ timestamp }, 'Starting live regulatory feeds synchronization');
+    logger.info({ timestamp, organizationId }, 'Starting live regulatory feeds synchronization');
 
     const sources = [
       { code: 'CBN' as RegulatorCode, sourceKey: 'CBN_PORTAL', name: 'Central Bank of Nigeria Portal', fn: () => this.pollCbnCirculars() },
@@ -181,6 +181,7 @@ export class LiveFeedCollector {
               manualPublicationDate: item.publicationDate,
               sourceUrl: item.sourceUrl,
               provenance: item.provenance || 'PRIMARY',
+              organizationId,
             });
 
             if (ingestRes.deduplicated) {

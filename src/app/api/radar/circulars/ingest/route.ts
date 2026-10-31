@@ -4,13 +4,17 @@ import { CircularIngestionService } from '@/modules/radar/services/circularInges
 import { logger } from '@/shared/logger';
 import { RegulatorCode } from '@/shared/types';
 import { resilientFetch } from '@/shared/network/resilientHttp';
-
 import { DomSanitizer } from '@/modules/radar/services/domSanitizer';
+import { EntitlementEngine } from '@/shared/billing';
+import { SubscriptionRequiredError } from '@/shared/errors';
 
 export async function POST(req: NextRequest) {
   try {
     const tenantCtx = await getTenantContext({ allowDevFallback: true });
     
+    // Feature gate: ensure subscription is active (read-only mode blocks new ingestion)
+    EntitlementEngine.assertEngineActive(tenantCtx.subscription, 'Statutory circular ingestion');
+
     // Ingestion into master statutory library requires administrative persistence authority
     let dbClient = tenantCtx.dbClient;
     try {
@@ -245,6 +249,9 @@ export async function POST(req: NextRequest) {
       { status: statusCode }
     );
   } catch (error: unknown) {
+    if (error instanceof SubscriptionRequiredError) {
+      return NextResponse.json(error.toJSON(), { status: error.statusCode });
+    }
     const err = error instanceof Error ? error : new Error(String(error));
     logger.error({ error: err.message }, 'Error in /api/radar/circulars/ingest');
     return NextResponse.json(

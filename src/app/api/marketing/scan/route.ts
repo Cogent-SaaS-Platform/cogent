@@ -107,6 +107,20 @@ export async function POST(req: NextRequest) {
 
     const elapsedMs = Math.round(performance.now() - startTime);
 
+    if (resolvedOrgId && (viewModel.status === 'BLOCKING_ISSUE' || viewModel.status === 'ISSUE_DETECTED')) {
+      try {
+        await tenantCtx.dbClient.from('notifications').insert({
+          organization_id: resolvedOrgId,
+          title: `⚠️ Marketing Shield Alert: ${campaignName}`,
+          message: `Scan identified statutory risk violations (${viewModel.findings.length} findings). Review flagged claims before public dissemination.`,
+          link: '/marketing',
+          is_read: false,
+        });
+      } catch (notifErr) {
+        logger.warn({ notifErr }, 'Failed to insert marketing scan notification');
+      }
+    }
+
     return NextResponse.json({
       success: true,
       data: viewModel,

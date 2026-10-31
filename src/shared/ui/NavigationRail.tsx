@@ -163,11 +163,11 @@ export function NavigationRail({
           title="cogent"
         >
           {isExpanded ? (
-            <span className="text-2xl font-bold tracking-tight text-[#0B0F1A] lowercase select-none">
+            <span className="text-2xl font-bold tracking-tight text-[#2A4BFF] lowercase select-none">
               cogent
             </span>
           ) : (
-            <span className="w-10 h-10 flex items-center justify-center text-xl font-bold tracking-tight text-[#0B0F1A] lowercase select-none">
+            <span className="w-10 h-10 flex items-center justify-center text-xl font-bold tracking-tight text-[#2A4BFF] lowercase select-none">
               c
             </span>
           )}

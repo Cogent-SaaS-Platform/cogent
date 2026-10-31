@@ -141,10 +141,8 @@ export class TenantSyncService {
           { onConflict: 'organization_id,user_id' }
         );
 
-      // 4. Bootstrap Baseline Licenses & Rails if brand new organization
-      if (isNewOrganization) {
-        await this.bootstrapTenantDefaults(orgId);
-      }
+      // 4. Ensure tenant subscription exists (anchored to org created_at)
+      await this.ensureTenantSubscription(orgId, existingOrg?.created_at);
 
       logger.info(
         {
@@ -173,19 +171,29 @@ export class TenantSyncService {
   }
 
   /**
-   * Seeds foundational statutory licenses and payment rails for a newly registered tenant
+   * Ensures an active institutional subscription is provisioned, anchored to org registration date
    */
-  private async bootstrapTenantDefaults(organizationId: string): Promise<void> {
+  private async ensureTenantSubscription(organizationId: string, orgCreatedAt?: string): Promise<void> {
     try {
-      // Baseline 7-day institutional evaluation trial subscription (real licenses and rails configured during onboarding)
+      const { data: existing } = await this.adminClient
+        .from('tenant_subscriptions')
+        .select('id')
+        .eq('organization_id', organizationId)
+        .maybeSingle();
+
+      if (existing) return;
+
+      const createdAt = orgCreatedAt ? new Date(orgCreatedAt) : new Date();
+      const trialEndsAt = new Date(createdAt.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
       await this.adminClient.from('tenant_subscriptions').insert([
         {
           organization_id: organizationId,
           tier: 'STARTER',
           status: 'trialing',
-          trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-          current_period_start: new Date().toISOString(),
-          current_period_end: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+          trial_ends_at: trialEndsAt,
+          current_period_start: createdAt.toISOString(),
+          current_period_end: trialEndsAt,
           marketing_scan_quota: 10,
           policy_document_quota: 1,
         },

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/shared/auth';
 import { LiveFeedCollector } from '@/modules/radar/services/liveFeedCollector';
 import { logger } from '@/shared/logger';
+import { EntitlementEngine } from '@/shared/billing';
+import { SubscriptionRequiredError } from '@/shared/errors';
 
 /**
  * On-Demand Live Regulatory Source Synchronization Endpoint (Phase 5 / Pillar 2)
@@ -11,18 +13,48 @@ import { logger } from '@/shared/logger';
 export async function POST(req: NextRequest) {
   try {
     const tenantCtx = await getTenantContext();
+
+    // Feature gate: ensure active subscription (expired trial / read-only blocks live sync)
+    EntitlementEngine.assertEngineActive(tenantCtx.subscription, 'Live regulatory circular feed sync');
+
     const collector = new LiveFeedCollector({ dbClient: tenantCtx.dbClient });
 
     logger.info({ organizationId: tenantCtx.organizationId }, 'Live regulatory sync requested by tenant');
 
-    const summary = await collector.syncAllLiveSources();
+    const summary = await collector.syncAllLiveSources(tenantCtx.organizationId);
+
+    // Emit live notification to tenant enclave
+    if (tenantCtx.organizationId) {
+      try {
+        const title = summary.totalNewIngested > 0
+          ? `📡 Live Regulatory Sync: ${summary.totalNewIngested} New Directives Indexed`
+          : `📡 Live Regulatory Scan Completed`;
+        const message = summary.totalNewIngested > 0
+          ? `Synchronized live portals (CBN, SEC, NDPC, ARCON, FCCPC). Ingested ${summary.totalNewIngested} new directives, verified ${summary.totalDeduplicated} existing statutory publications.`
+          : `Synchronized live portals (CBN, SEC, NDPC, ARCON, FCCPC). All statutory circulars and regulatory directives verified current and active.`;
+
+        await tenantCtx.dbClient.from('notifications').insert({
+          organization_id: tenantCtx.organizationId,
+          title,
+          message,
+          link: '/radar',
+          is_read: false,
+        });
+      } catch (notifErr) {
+        logger.warn({ notifErr }, 'Failed to record sync notification');
+      }
+    }
 
     return NextResponse.json({
       success: true,
       message: `Live regulatory scan completed: ${summary.totalNewIngested} new circulars indexed, ${summary.totalDeduplicated} verified existing.`,
       data: summary,
+      syncedAt: new Date().toISOString(),
     });
   } catch (error: unknown) {
+    if (error instanceof SubscriptionRequiredError) {
+      return NextResponse.json(error.toJSON(), { status: error.statusCode });
+    }
     const err = error instanceof Error ? error : new Error(String(error));
     logger.error({ error: err.message }, 'Failed executing live regulatory feed sync');
     return NextResponse.json(
