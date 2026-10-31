@@ -37,6 +37,20 @@ export default function RegulatoryLibraryPage() {
   const [starredInstrumentIds, setStarredInstrumentIds] = useState<Set<string>>(new Set());
   const [starredObligationIds, setStarredObligationIds] = useState<Set<string>>(new Set());
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [urlCircularId, setUrlCircularId] = useState<string | undefined>(undefined);
+
+  // Check URL params on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const sp = new URLSearchParams(window.location.search);
+      const view = sp.get('view');
+      const cId = sp.get('circularId');
+      if (cId) setUrlCircularId(cId);
+      if (view === 'obligations' || cId) {
+        setViewMode('obligations');
+      }
+    }
+  }, []);
 
   // 1. Fetch Instruments from /api/library
   const fetchInstruments = useCallback(async () => {
@@ -340,14 +354,18 @@ export default function RegulatoryLibraryPage() {
         )}
 
         {/* View Mode 3: Statutory Obligations Register View & Slide-Over Drawer */}
-        {viewMode === 'obligations' && activeInstrument && (
+        {viewMode === 'obligations' && (
           <ObligationsRegisterView
             instrument={activeInstrument}
             sections={sections}
             isLoading={isLoadingSections}
-            onBack={() => setViewMode('instrument')}
+            onBack={() => {
+              if (activeInstrument) setViewMode('instrument');
+              else setViewMode('hub');
+            }}
             onUpdateObligationOverride={handleUpdateObligationOverride}
             onToggleStar={handleToggleStarObligation}
+            circularId={urlCircularId}
           />
         )}
 

@@ -149,6 +149,7 @@ export interface RadarCircularPresentationCard {
   financialBriefCfo?: string;
   technicalBriefCto?: string;
   governanceBriefCeoCro?: string;
+  generalCounselBrief?: string;
   actionItems?: RadarActionItemPresentation[];
   sourceFileUrl?: string;
   rawText?: string;

@@ -91,7 +91,7 @@ describe('Epic 19: Unified Executive Dashboard & Overview (Task 19.1)', () => {
     });
   });
 
-  it('sorts urgent compliance gates chronologically by days remaining', () => {
+  it('sorts urgent compliance gates chronologically and anchors to current future dates', () => {
     const gates = overview.urgentGates;
 
     expect(gates.length).toBeGreaterThanOrEqual(3);
@@ -99,10 +99,49 @@ describe('Epic 19: Unified Executive Dashboard & Overview (Task 19.1)', () => {
       expect(gates[i].daysRemaining).toBeLessThanOrEqual(gates[i + 1].daysRemaining);
     }
 
+    const todayIso = new Date().toISOString().split('T')[0];
     gates.forEach((gate) => {
       expect(gate.sourcePillar).toBeDefined();
       expect(['marketing', 'radar', 'gap-matrix']).toContain(gate.sourcePillar);
       expect(gate.actionRequired).toBeDefined();
+      expect(gate.deadlineDate).toBeDefined();
+      // Ensure deadline is not in the past or static dummy date
+      expect(gate.deadlineDate >= todayIso || gate.daysRemaining > 0).toBe(true);
+    });
+  });
+
+  it('dynamically computes and returns regulatory trending topics', () => {
+    const topics = overview.trendingTopics;
+
+    expect(topics).toBeDefined();
+    expect(topics!.length).toBeGreaterThanOrEqual(4);
+
+    topics!.forEach((topic) => {
+      expect(topic.name).toBeDefined();
+      expect(topic.count).toBeGreaterThan(0);
+      expect(topic.max).toBeGreaterThanOrEqual(topic.count);
+      expect(['UP', 'DOWN', 'STABLE']).toContain(topic.trend);
+      expect(topic.trendValue).toBeDefined();
+    });
+
+    const topicNames = topics!.map((t) => t.name);
+    expect(topicNames.some((n) => n.includes('AML') || n.includes('Consumer') || n.includes('Data') || n.includes('Cyber'))).toBe(true);
+  });
+
+  it('dynamically computes and returns most impacted policies', () => {
+    const policies = overview.impactedPolicies;
+
+    expect(policies).toBeDefined();
+    expect(policies!.length).toBeGreaterThanOrEqual(3);
+
+    policies!.forEach((pol) => {
+      expect(pol.id).toBeDefined();
+      expect(pol.name).toBeDefined();
+      expect(pol.regulators).toBeInstanceOf(Array);
+      expect(pol.regulators.length).toBeGreaterThan(0);
+      expect(pol.alertCount).toBeGreaterThan(0);
+      expect(pol.ownerInitials).toBeDefined();
+      expect(pol.ownerInitials.length).toBeGreaterThanOrEqual(2);
     });
   });
 

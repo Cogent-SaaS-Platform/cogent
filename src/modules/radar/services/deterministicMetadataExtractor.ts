@@ -458,6 +458,111 @@ export class DeterministicMetadataExtractor {
     );
   }
 
+  /**
+   * General text parsing for statutory directives (extracts fines, limits, citations, timeframes, and prudential metrics)
+   */
+  public static parseStatutoryDirectives(text: string) {
+    const finesMatch =
+      text.match(/(?:sanctions?|penalt(?:y|ies)|fine|forfeit(?:ure)?)[^0-9\n]{0,60}(?:₦|NGN|\bN)\s*([0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]+)?|[0-9]+\s*(?:million|billion|m|b)?)/i) ||
+      text.match(/(?:₦|NGN|\bN)\s*([0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]+)?|[0-9]+\s*(?:million|billion|m|b)?)[^.\n]{0,60}(?:sanctions?|penalt(?:y|ies)|fine)/i) ||
+      text.match(/(?:₦|NGN|\bN)\s*([0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]+)?)/i);
+
+    const singleLimitMatch =
+      text.match(/(?:transaction ceiling|single transaction|single limit|limit per single|limit per transaction|without PIN)[^0-9\n]{0,60}(?:₦|NGN|\bN)\s*([0-9]{1,3}(?:,[0-9]{3})*|[0-9]+)/i) ||
+      text.match(/(?:maximum of|up to)\s*(?:₦|NGN|\bN)\s*([0-9]{1,3}(?:,[0-9]{3})*|[0-9]+)[^.\n]{0,60}(?:per single|single|per transaction)/i) ||
+      text.match(/(?:₦|NGN|\bN)\s*([0-9]{1,3}(?:,[0-9]{3})*|[0-9]+)[^.\n]{0,60}(?:per single|single transaction|per transaction)/i);
+
+    const dailyLimitMatch =
+      text.match(/(?:daily\s+transaction\s+limit|cumulative\s+daily|daily\s+cumulative|daily\s+limit|per\s+day\s+limit)[^0-9\n]{0,60}(?:₦|NGN|\bN)\s*([0-9]{1,3}(?:,[0-9]{3})*|[0-9]+)/i) ||
+      text.match(/(?:₦|NGN|\bN)\s*([0-9]{1,3}(?:,[0-9]{3})*|[0-9]+)[^.\n]{0,40}(?:\/day|per day|daily cumulative|cumulative daily)/i);
+
+    const timeframeMatch = text.match(/\b(?:within|not later than)\s*(\d+\s*(?:hours?|days?|business days?|weeks?|months?))\b/i);
+
+    const citations = text.match(/\b(?:Section|§)\s*\d+[A-Za-z0-9\(\)]*|\b(?:BOFIA|ISA|NDPA|FCCPA|CAMA|MLA|TPA|CBN Act)\b(?:\s+(?:20\d\d|19\d\d))?/gi) || [];
+
+    const sentences = text
+      .split(/(?<=[.?!])\s+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 20 && /\b(?:shall|must|is required to|are required to|prohibited from|freeze without delay|hereby directs|mandated to|comply with|cease and desist|maintain)\b/i.test(s));
+
+    const has2FA = /2fa|two-factor|pin|multi-factor|customer verification method/i.test(text);
+
+    // Dynamic Prudential & Solvency metrics
+    const hasPrudentialCapital = /capital adequacy|minimum capital|paid-up capital|solvency buffer|liquidity ratio|reserve requirement|cash reserve ratio|\bcrr\b|\bldr\b|\bcar\b/i.test(text);
+    const capitalRatioMatch = text.match(/\b(?:CAR|capital adequacy ratio|liquidity ratio|cash reserve ratio|CRR|LDR)\s*(?:of|is|at|shall be not less than)?\s*(\d+(?:\.\d+)?%)/i);
+    const minCapitalMatch = text.match(/(?:minimum (?:paid-up )?capital|capital base|capital requirement)[^0-9\n]{0,40}(?:₦|NGN|\bN)\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]+)?|[0-9]+\s*(?:billion|million|trillion))/i);
+
+    // Dynamic domain triggers
+    const hasUnlicensedProhibition = /unlicensed|unauthorized (?:entity|operator|institution)|illegal operator|cease and desist|prohibit|disconnection/i.test(text);
+    const hasDataProtection = /data protection|ndpa|ndpc|data breach|privacy policy|\bdpo\b|personal data/i.test(text);
+    const hasFxMandate = /foreign exchange|\bfx\b|remittance|imto|diaspora|repatriation|export proceeds/i.test(text);
+    const hasConsumerProtection = /consumer protection|excess charge|unauthorized deduction|dispute resolution|tariff cap|fee cap/i.test(text);
+
+    // Open-world corporate & operational event archetypes
+    const hasRestructuringOrLayoff = /layoff|layoffs|redundanc|workforce reduction|retrenchment|strip down|downscale|downsized|downsizing|shut down|close operations|closes us|closed us|closure of us|closure of subsidiary|employee exit|severance|staff cut/i.test(text);
+    const hasMergerAcquisition = /merger|acquisition|acquire|acquired|takeover|equity stake|divestment|divestiture|consolidation|joint venture|series [a-z]|seed round|equity funding/i.test(text);
+    const hasLitigationOrEnforcement = /court injunction|lawsuit|sues\b|sued\b|judicial ruling|arbitration|national industrial court|federal high court|supreme court|contempt of court|winding up petition|asset recovery|legal dispute/i.test(text);
+    const hasSystemOutage = /outage|system downtime|service disruption|infrastructure failure|api degradation|cloud failure|incident response|switch failure|unscheduled downtime/i.test(text);
+    const hasExecutiveTransition = /appointed new|resignation|stepped down|board of directors|executive transition|new ceo|new md|removal of director|managing director resigns|managing director appointed/i.test(text);
+    const hasFraudSecurity = /unauthorized debit|cyber attack|security breach|ransomware|insider fraud|phishing wave|credential stuffing|zero-day exploit/i.test(text);
+
+    // Entity recognition across Nigerian & African FinTech/Banking ecosystem
+    const knownInstitutions = [
+      'Moniepoint', 'Flutterwave', 'Paystack', 'OPay', 'Kuda', 'FairMoney', 'Carbon',
+      'Interswitch', 'Nomba', 'Paga', 'Chipper Cash', 'PalmPay', 'Piggyvest', 'Cowrywise',
+      'Access Bank', 'Zenith Bank', 'First Bank', 'GTBank', 'Guaranty Trust Bank',
+      'United Bank for Africa', 'UBA', 'Stanbic IBTC', 'Fidelity Bank', 'Wema Bank',
+      'Sterling Bank', 'Union Bank', 'Ecobank', 'Polaris Bank', 'Providus Bank',
+      'Jaiz Bank', 'Taj Bank', 'Lotus Bank'
+    ];
+    const detectedEntities: string[] = [];
+    for (const inst of knownInstitutions) {
+      if (new RegExp(`\\b${inst}\\b`, 'i').test(text)) {
+        detectedEntities.push(inst);
+      }
+    }
+
+    // Salient operative & factual sentences from article/circular body
+    const factSentences = text
+      .split(/(?<=[.?!])\s+|\n+/)
+      .map((s) => s.replace(/^(?:Market\s*&\s*Policy\s*Reporting:?|Legal\s*Analysis:?|Dispatch:?|Client\s*Briefing:?)\s*/i, '').trim())
+      .filter((s) =>
+        s.length > 25 &&
+        s.length < 350 &&
+        !/^ADVERTISING REGULATORY|^CENTRAL BANK|^SECURITIES AND EXCHANGE|^FEDERAL COMPETITION|^Date:|^Notice Reference:|^Title:|^Official (?:Link|Document)/i.test(s) &&
+        /\b(?:announced|confirmed|disclosed|reported|decided|suspended|terminated|commenced|approved|instituted|directed|executed|experienced|faced|laid off|closed|downsized|acquired|filed|entered into|agreed to|appointed|stepped down|realigned)\b/i.test(s)
+      );
+
+    const mergedSentences = sentences.length > 0 ? sentences : factSentences;
+
+    return {
+      fine: finesMatch ? finesMatch[1] : null,
+      singleLimit: singleLimitMatch ? singleLimitMatch[1] : null,
+      dailyLimit: dailyLimitMatch ? dailyLimitMatch[1] : null,
+      timeframe: timeframeMatch ? timeframeMatch[1] : null,
+      citations: Array.from(new Set(citations)),
+      hasCriminalLiability: /criminal liability|imprisonment|prosecution|personal liability/i.test(text),
+      hasAssetFreeze: /freeze without delay|asset freeze|freezing of|designated person/i.test(text),
+      has2FA,
+      hasTwoFactorPrompt: has2FA,
+      hasPrudentialCapital,
+      capitalRatio: capitalRatioMatch ? capitalRatioMatch[1] : null,
+      minimumCapital: minCapitalMatch ? minCapitalMatch[1] : null,
+      hasUnlicensedProhibition,
+      hasDataProtection,
+      hasFxMandate,
+      hasConsumerProtection,
+      hasRestructuringOrLayoff,
+      hasMergerAcquisition,
+      hasLitigationOrEnforcement,
+      hasSystemOutage,
+      hasExecutiveTransition,
+      hasFraudSecurity,
+      detectedEntities: Array.from(new Set(detectedEntities)),
+      operativeSentences: mergedSentences.slice(0, 4),
+    };
+  }
+
   public static generateExecutiveSynthesis(params: {
     regulatorCode: RegulatorCode;
     circularNumber: string;
@@ -509,65 +614,136 @@ export class DeterministicMetadataExtractor {
       ? 'Universal mandate applying across all licensed financial institutions. '
       : '';
 
-    const p1 = `On ${params.publicationDate || 'official notice'}, the ${fullRegName} (${params.regulatorCode}) enacted circular directive ${params.circularNumber} concerning '${params.subject}', formally exercising statutory supervisory powers under the ${statute}. ${universalClause}The directive establishes binding standards across all regulated operations to enhance systemic risk controls, eliminate supervisory deficiencies, and ensure institutional alignment with current prudential baselines.`;
+    const combinedText = `${params.subject || ''} ${params.rawText || ''}`;
+    const parsed = DeterministicMetadataExtractor.parseStatutoryDirectives(combinedText);
 
-    const p2 = `The directive mandates comprehensive operational compliance regarding ${params.subject.toLowerCase()}. Affected licensed institutions must review their internal risk appetite, governance controls, customer onboarding documentation, and automated technical rails. Operating teams are directed to eliminate any policy ambiguity, implement strict access and reporting mechanisms, and ensure total conformity across partner networks and client-facing interfaces.`;
+    const primaryCitation = parsed.citations.length > 0
+      ? parsed.citations.join(' and ')
+      : statute;
 
-    const p3 = `Failure to conform to the statutory mandates set out in this circular exposes the institution to regulatory sanctions, monetary penalties, administrative escalation, and potential review of operating permissions. ${deadlineStr} Accountable departmental leads are required to execute immediate concordance reviews, compile remediation evidence, and secure executive sign-off.`;
+    // 1. Paragraph 1: Statutory Authority & Scope
+    const entityMention = parsed.detectedEntities.length > 0
+      ? ` The intelligence briefing directly involves ${parsed.detectedEntities.join(', ')}.`
+      : '';
+    let p1 = `The ${fullRegName} (${params.regulatorCode}) issued Circular Directive ${params.circularNumber} concerning '${params.subject}', establishing statutory compliance obligations under ${primaryCitation}. ${universalClause}This regulatory issuance establishes mandatory supervisory baselines binding covered institutional operations and supervisory compliance registers.${entityMention}`;
+    if (parsed.operativeSentences.length > 0) {
+      p1 += ` Specifically, the directive establishes that: ${parsed.operativeSentences[0]}`;
+    }
+
+    // 2. Paragraph 2: Operational Mandates & Control Framework (Dynamic Domain Branching)
+    let p2Parts: string[] = [];
+    if (parsed.operativeSentences.length > 1) {
+      p2Parts.push(parsed.operativeSentences.slice(1, 3).join(' '));
+    }
+
+    if (parsed.hasAssetFreeze) {
+      p2Parts.push(`Under statutory sanctions provisions, covered institutions must immediately freeze without delay all funds, financial assets, and economic resources connected to designated targets, and file mandatory statutory notifications${parsed.timeframe ? ` within ${parsed.timeframe}` : ' promptly'}. Operational switches and payment rails must intercept and reject any payment attempt, settlement transfer, or clearing instruction referencing designated entities.`);
+    } else if (parsed.singleLimit || parsed.dailyLimit) {
+      p2Parts.push(`Payment and transaction orchestration systems must enforce statutory value ceilings${parsed.singleLimit ? ` of ₦${parsed.singleLimit} per single transaction` : ''}${parsed.dailyLimit ? ` and cumulative daily limit of ₦${parsed.dailyLimit}` : ''}${parsed.has2FA ? ', requiring mandatory multi-factor authentication step-up when thresholds are exceeded' : ''}. Switch configurations and terminal fleets must enforce verification limits at the hardware application layer.`);
+    } else if (parsed.hasUnlicensedProhibition) {
+      p2Parts.push(`Regulated institutions are strictly prohibited from facilitating banking or payment channels for unauthorized entities. Operating teams must immediately terminate active API integrations, payment aggregation credentials, and settlement off-ramps, placing administrative holds on associated merchant balances.`);
+    } else if (parsed.hasPrudentialCapital) {
+      p2Parts.push(`Covered entities must verify compliance with prudential capital and liquidity standards${parsed.minimumCapital ? ` (minimum capital threshold of ₦${parsed.minimumCapital})` : ''}${parsed.capitalRatio ? ` maintaining capital ratio of ${parsed.capitalRatio}` : ''}. Treasury and Finance departments must review regulatory capital computations and calibrate liquidity buffers against supervisory default thresholds.`);
+    } else if (parsed.hasDataProtection) {
+      p2Parts.push(`Covered entities must enforce statutory data processing safeguards under the Nigeria Data Protection Act. Mandatory data breach reporting must be filed with the Commission within 72 hours of discovery, alongside implementation of end-to-end cryptographic controls and annual compliance audits.`);
+    } else if (parsed.hasFxMandate) {
+      p2Parts.push(`Foreign exchange and remittance operations must strictly observe statutory allocation guidelines, documentation mandates, and counterparty reporting timelines, verifying authorized dealer credentials and ensuring seamless transaction reconciliation.`);
+    } else if (parsed.hasConsumerProtection) {
+      p2Parts.push(`Customer operations must strictly adhere to statutory fee limits and consumer protection guidelines, ensuring transparent disclosure, automated refund processing for unfulfilled transactions, and prompt dispute turnaround.`);
+    } else if (parsed.hasRestructuringOrLayoff) {
+      p2Parts.push(`The intelligence alert documents material corporate restructuring and workforce realignment (including workforce downscaling, redundancy proceedings, or international subsidiary closure). Institutions under supervisory oversight must ensure strict compliance with statutory redundancy obligations (Labour Act § 20), regulatory disclosure of material structural changes, automated de-provisioning of employee system credentials, and balance sheet liability provisioning for accrued terminal severance benefits.`);
+    } else if (parsed.hasMergerAcquisition) {
+      p2Parts.push(`The alert details corporate merger, acquisition, or strategic equity restructuring. Transactions exceeding statutory asset thresholds require mandatory pre-notification filings with the Federal Competition and Consumer Protection Commission (FCCPA 2018) and Securities and Exchange Commission (SEC) approval, alongside counterparty payment rail technical due diligence.`);
+    } else if (parsed.hasLitigationOrEnforcement) {
+      p2Parts.push(`The event establishes judicial enforcement or contentious litigation proceedings. Institutions must review existing counterparty indemnities, assess prospective legal disclosure liabilities, and establish appropriate litigation risk reserves.`);
+    } else if (parsed.hasSystemOutage) {
+      p2Parts.push(`The alert indicates core infrastructure failure, API service degradation, or payment switch interruption. In accordance with Central Bank operational resilience frameworks, engineering teams must execute disaster recovery failovers, reconcile in-flight transaction ledgers, and document incident root-cause logs for supervisory examination.`);
+    } else if (parsed.hasExecutiveTransition) {
+      p2Parts.push(`The disclosure details principal officer transition or board governance restructuring. Under BOFIA 2020 § 47, appointment or departure of executive directors, Chief Compliance Officers, and Board members requires formal regulatory vetting, Fit and Proper clearance, and board risk delegation review.`);
+    } else if (parsed.hasFraudSecurity) {
+      p2Parts.push(`The alert identifies cyber intrusion or unauthorized payment activity. The institution must initiate automated containment protocols, trigger 72-hour regulatory incident notifications under NDPA/CBN guidelines, and freeze vulnerable payment switch endpoints.`);
+    } else {
+      const entityStr = parsed.detectedEntities.length > 0
+        ? ` concerning ${parsed.detectedEntities.join(', ')}`
+        : '';
+      const operativeContext = parsed.operativeSentences.length > 0
+        ? ` Specifically, operating teams must analyze: ${parsed.operativeSentences.slice(0, 2).join(' ')}`
+        : '';
+      p2Parts.push(`This supervisory intelligence briefing${entityStr} establishes operational baselines requiring internal impact assessment across governance, technology, and operating procedures.${operativeContext} Relevant operating departments must evaluate institutional exposure, verify partner relationships, and ensure continuous compliance readiness.`);
+    }
+    const p2 = p2Parts.join(' ');
+
+    // 3. Paragraph 3: Supervisory Enforcement, Statutory Exposure & Timelines
+    let penaltyClause = parsed.fine
+      ? `Statutory non-compliance attracts financial penalties of not less than ₦${parsed.fine}`
+      : `Default statutory enforcement penalties apply pursuant to ${params.regulatorCode} supervisory powers`;
+    if (parsed.hasCriminalLiability) {
+      penaltyClause += ', alongside potential operating license suspension and personal criminal liability for corporate directors and principal officers under governing enactments.';
+    } else {
+      penaltyClause += ', alongside administrative escalation and potential operating license review.';
+    }
+    const p3 = `${penaltyClause} ${deadlineStr}`;
 
     const executiveSummary = `${p1}\n\n${p2}\n\n${p3}`;
 
-    const subjLower = (params.subject || '').toLowerCase();
-    const isPayments = /payment|settlement|switch|interchange|pos|card|terminal|contactless|mmo|pssp|direct debit|open banking/i.test(subjLower);
-    const isFx = /foreign exchange|fx|bureau de change|bdc|export proceeds|remittance|domiciliary|currency/i.test(subjLower);
-    const isAml = /anti-money|aml|cft|counter-terrorism|kyc|politically exposed|pep|suspicious transaction|str|sanction/i.test(subjLower);
-    const isPrivacy = /data protection|privacy|ndpa|ndpc|breach|personal data|consent|data subject/i.test(subjLower);
-    const isLending = /digital lend|consumer credit|fair interest|debt recovery|fccpc|borrower|loan/i.test(subjLower);
+    // Dynamic Key Points (derived from parsed facts and sentences)
+    let keyPoints: string[] = [];
+    if (parsed.hasAssetFreeze) {
+      keyPoints.push('Mandatory Asset Freeze: Immediate freeze without delay of all funds, financial assets, and economic resources connected to designated targets.');
+    }
+    if (parsed.hasPrudentialCapital) {
+      keyPoints.push(`Prudential Capital Mandate: Compliance with capital requirements${parsed.minimumCapital ? ` (₦${parsed.minimumCapital})` : ''}${parsed.capitalRatio ? ` and CAR of ${parsed.capitalRatio}` : ''}.`);
+    }
+    if (parsed.timeframe) {
+      keyPoints.push(`Statutory Reporting Timeline: Mandatory statutory reporting and filing window enforced within ${parsed.timeframe}.`);
+    }
+    if (parsed.singleLimit || parsed.dailyLimit) {
+      keyPoints.push(`Transaction Value Ceilings: Mandatory limits enforced${parsed.singleLimit ? ` at ₦${parsed.singleLimit} per transaction` : ''}${parsed.dailyLimit ? ` and ₦${parsed.dailyLimit} daily cumulative` : ''}.`);
+    }
+    if (parsed.has2FA) {
+      keyPoints.push('Cryptographic Step-Up Authentication: Mandatory multi-factor or PIN verification required when transaction parameters are breached.');
+    }
+    if (parsed.hasRestructuringOrLayoff) {
+      keyPoints.push('Corporate Restructuring & Redundancy: Downscaling triggers statutory Labour Act redundancy obligations and mandatory IT credential de-provisioning.');
+    }
+    if (parsed.hasMergerAcquisition) {
+      keyPoints.push('Mergers & Acquisitions Pre-Clearance: Equity transactions trigger mandatory statutory filings under the FCCPA 2018 and SEC approval.');
+    }
+    if (parsed.hasLitigationOrEnforcement) {
+      keyPoints.push('Judicial & Dispute Risk: Contentious legal proceedings mandate contractual indemnity review and provisioning of litigation reserves.');
+    }
+    if (parsed.hasSystemOutage) {
+      keyPoints.push('Operational Resilience & SLA Recovery: System downtime triggers statutory incident reporting (2-hour window) and transaction backlog reconciliation.');
+    }
+    if (parsed.hasExecutiveTransition) {
+      keyPoints.push('Corporate Governance & Officer Vetting: Board and executive transitions require statutory Fit and Proper Person clearance under BOFIA § 47.');
+    }
+    if (parsed.hasFraudSecurity) {
+      keyPoints.push('Cybersecurity & Fraud Containment: Security incidents require 72-hour regulatory breach disclosure and immediate payment rail credential rotation.');
+    }
+    if (parsed.fine) {
+      keyPoints.push(`Statutory Penalty Exposure: Non-compliance attracts monetary fines of not less than ₦${parsed.fine} plus administrative default charges.`);
+    }
+    if (parsed.hasCriminalLiability) {
+      keyPoints.push('Personal Officer Liability: Statutory provisions explicitly enforce personal liability and potential criminal sanctions on responsible corporate directors.');
+    }
 
-    let keyPoints: string[];
+    for (const sent of parsed.operativeSentences) {
+      if (keyPoints.length < 5 && !keyPoints.some((k) => k.includes(sent.slice(0, 30)))) {
+        keyPoints.push(`Operative Fact: ${sent}`);
+      }
+    }
 
-    if (isPayments) {
-      keyPoints = [
-        `Mandatory Payment Rail & Interchange Compliance: Aligns payment orchestration with statutory fee margin thresholds and terminal certification baselines under ${params.regulatorCode}.`,
-        `Clearing & Settlement Cut-Off Adherence: Enforces strict daily reconciliation and settlement windows with clearing banks without transaction drop-offs.`,
-        `Cryptographic Authentication & 2FA Enforcement: Mandates multi-factor authentication and transaction parameter validation on all digital payment channels.`,
-        `Dispute Resolution SLAs: Establishes binding operational timelines for customer transaction dispute resolution, reversals, and audit logging.`,
-        `Tamper-Evident Audit Ledger Preservation: Systemic requirement to maintain 6-year immutable event logs conforming to CAMA and BOFIA statutory examination baselines.`,
-      ];
-    } else if (isFx) {
-      keyPoints = [
-        `Statutory FX Conduit & Documentation Controls: Enforces strict documentation verification across all foreign exchange settlement channels.`,
-        `Net Open Position (NOP) Prudential Calibration: Mandatory alignment of corporate treasury exposure with Central Bank prudential risk limits.`,
-        `Prohibition of Unauthorized Corridors: Strict liability for transacting on non-approved exchange windows with heavy administrative fine penalties.`,
-        `Electronic Regulatory Reporting: Requires same-day transmission of completed foreign currency transactions to the official regulatory supervisory portal.`,
-      ];
-    } else if (isAml) {
-      keyPoints = [
-        `Continuous Sanctions & PEP Screening: Enforces real-time screening of all customer profiles against domestic and international consolidated watchlists.`,
-        `24-Hour Mandatory STR Filing with NFIU: Strict statutory window to file Suspicious Transaction Reports upon identifying anomalous transaction patterns.`,
-        `Ultimate Beneficial Ownership (UBO) Verification: Mandates multi-tier verification of controlling natural persons behind corporate institutional accounts.`,
-        `Zero AML Defense Compromise: Strict liability on compliance leadership for failing to maintain comprehensive compliance examination proof.`,
-      ];
-    } else if (isPrivacy) {
-      keyPoints = [
-        `Lawful Basis & Explicit Consent Validation: Mandates documented lawful bases for all personal data collection under the Nigeria Data Protection Act 2023.`,
-        `72-Hour Statutory Breach Escalation to NDPC: Enforces mandatory reporting to supervisory authorities upon detection of security incidents.`,
-        `Data Subject Rights Infrastructure: Engineering obligation to provide automated user mechanisms for data access, rectification, and erasure.`,
-        `Annual Privacy Audit & DPCO Certification: Obligation to undergo comprehensive compliance assessments by licensed data protection professionals.`,
-      ];
-    } else if (isLending) {
-      keyPoints = [
-        `Prohibition of Unlawful Recovery Practices: Strict ban on unauthorized contact scraping, third-party disclosure, and coercive collection tactics.`,
-        `Full APR & Fee Transparency: Mandatory clear disclosure of all financing charges and terms prior to consumer credit agreement execution.`,
-        `Regulatory Registration Proof: Mandatory certification and registration proof under FCCPC digital lending frameworks.`,
-      ];
-    } else {
-      keyPoints = [
-        `Formal Statutory Enactment under ${params.regulatorCode}: Establishes legally binding operating baselines across all authorized institutional departments.`,
-        `Operational SOP & Internal Policy Concordance: Demands immediate gap assessment and Board-level revision of internal operating manuals.`,
-        `Supervisory Compliance Deadlines: Strict implementation timetable with automatic escalation to the Chief Compliance Officer and Board Risk Committee.`,
-        `Statutory Defense & Fine Containment: Active implementation eliminates exposure to daily compounding default penalties under applicable Nigerian law.`,
-      ];
+    const defaultBaselines = [
+      `Statutory Baseline under ${params.regulatorCode}: Establishes binding operating baselines across all authorized institutional departments.`,
+      'Operational Concordance: Demands immediate gap assessment and Board-level revision of internal operating manuals.',
+      'Supervisory Timetable: Strict implementation timetable with automatic escalation to the Chief Compliance Officer and Board Risk Committee.',
+      'Audit Defense Readiness: Mandatory preservation of tamper-evident compliance audit evidence for regulatory inspection.',
+    ];
+    for (const baseline of defaultBaselines) {
+      if (keyPoints.length < 4) {
+        keyPoints.push(baseline);
+      }
     }
 
     const departments = [

@@ -27,9 +27,9 @@ export async function POST(req: NextRequest) {
     // 1. Fetch circular record from database
     const { data: circular, error: circularError } = await db
       .from('radar_circulars')
-      .select('*')
+      .select('*, regulatory_document_versions(id, canonical_source_url, source_file_url)')
       .eq('id', circularId)
-      .single();
+      .maybeSingle();
 
     if (circularError || !circular) {
       return NextResponse.json(
@@ -69,9 +69,46 @@ export async function POST(req: NextRequest) {
       circularTargeting
     );
 
+    // 4. Fetch obligations if circular links to document version
+    let obligations: any[] = [];
+    const docVersionId = (circular as any)?.regulatory_document_versions?.id || circular.document_version_id;
+    if (docVersionId) {
+      const { data: dbClauses } = await db
+        .from('regulatory_clauses')
+        .select('id')
+        .eq('document_version_id', docVersionId);
+
+      if (dbClauses && dbClauses.length > 0) {
+        const clauseIds = dbClauses.map((c) => c.id);
+        const { data: dbObligations } = await db
+          .from('regulatory_obligations')
+          .select('*')
+          .in('clause_id', clauseIds);
+
+        if (dbObligations && dbObligations.length > 0) {
+          obligations = dbObligations.map((obl: any) => ({
+            obligationId: obl.id,
+            clauseId: obl.clause_id,
+            obligationType: obl.obligation_type || 'MANDATORY',
+            summary: obl.summary,
+            verbatimQuote: obl.verbatim_quote || obl.summary,
+            actor: obl.actor || 'Regulated Institution',
+            action: obl.action || 'Implement statutory controls',
+            targetObject: obl.target_object || 'Operational rail',
+            condition: obl.condition || 'Upon statutory circular commencement',
+            statutoryTimelineDays: obl.statutory_timeline_days || 30,
+            deadlineText: obl.deadline_text || undefined,
+            complianceCriteria: (obl.metadata as any)?.compliance_criteria || [],
+            assessment: (obl.metadata as any)?.assessment || 'Deterministic regulatory mandate',
+            penalties: [],
+          }));
+        }
+      }
+    }
+
     let synthesisResult = null;
 
-    // 4. If applicable and synthesis requested, invoke 4-way ExCo synthesis
+    // 5. If applicable and synthesis requested, invoke 5-way ExCo synthesis
     if (applicabilityResult.isApplicable && synthesizeBriefs) {
       synthesisResult = await roleSynthesisService.synthesizeRoleImpacts({
         circular: {
@@ -82,6 +119,7 @@ export async function POST(req: NextRequest) {
           summary: circular.summary,
           statutoryDeadline: circular.statutory_deadline,
           rawText: circular.raw_text || undefined,
+          obligations: obligations.length > 0 ? obligations : undefined,
         },
         tenant: {
           organizationId,

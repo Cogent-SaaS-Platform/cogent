@@ -25,10 +25,14 @@ import {
   ShieldCheck,
   BookOpen,
   X,
+  Layers,
 } from 'lucide-react';
+import Link from 'next/link';
 import { RadarCircularPresentationCard } from '../types';
 import { RegulatorCode } from '@/shared/types';
 import { RoleBriefViewer } from './RoleBriefViewer';
+import { AssigneeSelect, AssigneeSelection } from '@/modules/organization/ui/AssigneeSelect';
+
 
 interface HorizonAlertDetailProps {
   circular: RadarCircularPresentationCard;
@@ -52,6 +56,9 @@ export function HorizonAlertDetail({
   // Local state for interactive items
   const [isStarred, setIsStarred] = useState<boolean>(Boolean(circular.isStarred));
   const [workflowStatus, setWorkflowStatus] = useState<string>(circular.workflowStatus || 'Pending Review');
+  const [currentAssignee, setCurrentAssignee] = useState<string | null>(
+    circular.assignee?.id || circular.assignee?.name || null
+  );
   const [alertType, setAlertType] = useState<'Actionable' | 'Informative'>(
     circular.alertType || (circular.priority === 'CRITICAL_EMERGENCY' || circular.priority === 'HIGH' ? 'Actionable' : 'Informative')
   );
@@ -59,6 +66,31 @@ export function HorizonAlertDetail({
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [showAllKeyPoints, setShowAllKeyPoints] = useState<boolean>(false);
   const [showArchiveDrawer, setShowArchiveDrawer] = useState<boolean>(false);
+
+  const handleAssigneeChange = async (sel: AssigneeSelection) => {
+    const nextVal = sel.type === 'UNASSIGNED' ? null : (sel.id || sel.name);
+    setCurrentAssignee(nextVal);
+
+    onUpdateCircular?.({
+      id: circular.id,
+      assignee: sel.type === 'UNASSIGNED' ? null : { id: sel.id || sel.name, name: sel.name, avatar: sel.initials },
+    });
+
+    try {
+      await fetch(`/api/radar/circulars/${encodeURIComponent(circular.id)}/assign`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assignedToUserId: sel.type === 'USER' ? sel.id : null,
+          assignedRole: sel.type === 'ROLE' ? (sel.name || sel.id) : null,
+          targetDepartment: sel.department || null,
+          workflowStatus,
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to persist radar alert assignment', err);
+    }
+  };
 
   // Important Dates tab & records
   const [datesTab, setDatesTab] = useState<'important' | 'other'>('important');
@@ -94,6 +126,7 @@ export function HorizonAlertDetail({
   useEffect(() => {
     setIsStarred(Boolean(circular.isStarred));
     setWorkflowStatus(circular.workflowStatus || 'Pending Review');
+    setCurrentAssignee(circular.assignee?.id || circular.assignee?.name || null);
     setAlertType(
       circular.alertType ||
         (circular.priority === 'CRITICAL_EMERGENCY' || circular.priority === 'HIGH' ? 'Actionable' : 'Informative')
@@ -239,6 +272,16 @@ export function HorizonAlertDetail({
             </button>
           </div>
 
+          {/* View in Obligations Register */}
+          <Link
+            href={`/library?view=obligations&circularId=${encodeURIComponent(circular.id)}&circularNumber=${encodeURIComponent(circular.circularNumber)}`}
+            className="h-8 px-3 rounded-md bg-slate-900 text-white hover:bg-slate-800 text-xs font-medium flex items-center gap-1.5 transition-colors shadow-2xs"
+            title="View 4-Phase Statutory Obligations Register"
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">View in Obligations Register</span>
+          </Link>
+
           {/* Share */}
           <button
             onClick={handleCopyLink}
@@ -374,6 +417,30 @@ export function HorizonAlertDetail({
             </div>
           </div>
 
+          {/* 4-Phase Statutory Obligation Register Action Card */}
+          <div className="bg-white border border-slate-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-md bg-slate-100 flex items-center justify-center text-slate-800 shrink-0">
+                <Layers className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-slate-900">
+                  4-Phase Statutory Obligation Architecture
+                </div>
+                <div className="text-[11px] text-slate-500">
+                  Inspect atomic regulatory duties, orphan gap risk, internal safeguards, and audit evidence health.
+                </div>
+              </div>
+            </div>
+            <Link
+              href={`/library?view=obligations&circularId=${encodeURIComponent(circular.id)}&circularNumber=${encodeURIComponent(circular.circularNumber)}`}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-900 text-white hover:bg-slate-800 text-xs font-medium shrink-0 transition-colors shadow-2xs"
+            >
+              <span>View in Obligations Register</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+
           {/* Executive Summary */}
           <div className="bg-white border border-slate-200 rounded-lg p-5 sm:p-6 shadow-2xs space-y-3">
             <div className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
@@ -386,9 +453,10 @@ export function HorizonAlertDetail({
             </div>
           </div>
 
-          {/* Departmental Impact Briefs (CCO, COO, CTO, CFO, CEO/CRO) */}
+          {/* Departmental Impact Briefs (General Counsel, CCO, COO, CTO, CFO, CEO/CRO) */}
           <RoleBriefViewer
             circularNumber={circular.circularNumber}
+            generalCounselBrief={circular.generalCounselBrief}
             executiveBriefCco={circular.executiveBriefCco}
             actionBriefCoo={circular.actionBriefCoo}
             technicalBriefProductEng={circular.technicalBriefProductEng}
@@ -727,16 +795,12 @@ export function HorizonAlertDetail({
             {/* Assignee */}
             <div>
               <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">
-                Assignee
+                Supervisory Assignment
               </label>
-              <div className="relative">
-                <select className="w-full h-8 pl-3 pr-8 text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded-md appearance-none hover:border-slate-300 focus:outline-hidden">
-                  <option value="CCO">Chief Compliance Officer</option>
-                  <option value="AM">Alex Marco</option>
-                  <option value="UN">Unassigned</option>
-                </select>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" />
-              </div>
+              <AssigneeSelect
+                value={currentAssignee}
+                onChange={handleAssigneeChange}
+              />
             </div>
 
             {/* Quick Actions */}

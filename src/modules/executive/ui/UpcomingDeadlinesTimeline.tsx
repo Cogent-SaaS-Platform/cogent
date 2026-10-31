@@ -15,14 +15,35 @@ export function UpcomingDeadlinesTimeline({
 }: UpcomingDeadlinesTimelineProps) {
   const [selectedGateId, setSelectedGateId] = useState<string | null>(null);
 
-  // Default Nigerian financial statutory milestones if gates array is small or empty
+  const now = new Date();
+
+  // Helper to format ISO dates to clean "14 Nov" format
+  const formatDisplayDate = (dateStr?: string, daysRemaining?: number): string => {
+    if (!dateStr) return `${daysRemaining ?? 0}d`;
+    if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+      try {
+        const d = new Date(dateStr);
+        return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' }).format(d);
+      } catch {
+        return dateStr;
+      }
+    }
+    return dateStr;
+  };
+
+  const formatFutureTimelineDate = (daysAhead: number): string => {
+    const d = new Date(now.getTime() + daysAhead * 86400000);
+    return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' }).format(d);
+  };
+
+  // Dynamic Nigerian financial statutory milestones anchored to current date if gates array is empty
   const defaultMilestones: UrgentComplianceGate[] = [
     {
       id: 'gate_arcon',
-      title: 'ARCON Easter Micro-Credit Ad Campaign Pre-Clearance',
+      title: 'ARCON Promotional Ad Campaign Pre-Clearance Dossier',
       regulatorCode: 'ARCON',
       sourcePillar: 'marketing',
-      deadlineDate: '12 May',
+      deadlineDate: formatFutureTimelineDate(7),
       daysRemaining: 7,
       priority: 'HIGH',
       actionRequired: 'Submit ASP Form 01 with verified compliant APR and fee disclosures to ARCON Secretariat.',
@@ -30,67 +51,72 @@ export function UpcomingDeadlinesTimeline({
     },
     {
       id: 'gate_nfiu',
-      title: 'NFIU Suspicious Transaction Reporting Window (72h Gate)',
+      title: 'NFIU Suspicious Transaction Reporting Window (72h Gate & Bi-Weekly Review)',
       regulatorCode: 'NFIU',
       sourcePillar: 'gap-matrix',
-      deadlineDate: '20 May',
-      daysRemaining: 15,
+      deadlineDate: formatFutureTimelineDate(14),
+      daysRemaining: 14,
       priority: 'CRITICAL_EMERGENCY',
-      actionRequired: 'Board Risk Committee approval of Section 4.1 wording amendment on AML/CFT STR SLA.',
+      actionRequired: 'Board Risk Committee approval of AML/CFT statutory concordance report on STR SLAs.',
       linkContext: { targetPillar: 'gap-matrix', action: 'open_drawer' },
     },
     {
       id: 'gate_cbn_2fa',
-      title: 'CBN Biometric 2FA Protocol on Interbank Transfers > ₦1M',
+      title: 'CBN Biometric 2FA Protocol & Interbank Settlement Rail Reconciliation',
       regulatorCode: 'CBN',
       sourcePillar: 'radar',
-      deadlineDate: '9 Jun',
-      daysRemaining: 35,
+      deadlineDate: formatFutureTimelineDate(30),
+      daysRemaining: 30,
       priority: 'HIGH',
       actionRequired: 'Engineering deployment of biometric token validation on interbank settlement rails.',
       linkContext: { targetPillar: 'radar', action: 'open_drawer' },
     },
     {
       id: 'gate_ndpc',
-      title: 'NDPA 2023 Statutory Data Protection Compliance Audit',
+      title: 'NDPA 2023 Statutory Data Protection Controller Registry Filing',
       regulatorCode: 'NDPC',
       sourcePillar: 'radar',
-      deadlineDate: '30 Jun',
-      daysRemaining: 56,
+      deadlineDate: formatFutureTimelineDate(60),
+      daysRemaining: 60,
       priority: 'MEDIUM',
-      actionRequired: 'Filing of annual data controller audit report with Nigeria Data Protection Commission.',
+      actionRequired: 'Annual data controller audit filing with Nigeria Data Protection Commission.',
       linkContext: { targetPillar: 'radar', action: 'open_drawer' },
     },
     {
       id: 'gate_sec',
-      title: 'SEC Rules on Digital Sub-Brokers & VASP Capital Adequacy',
+      title: 'SEC Digital Asset Custody & VASP Capital Adequacy Attestation',
       regulatorCode: 'SEC',
       sourcePillar: 'gap-matrix',
-      deadlineDate: '15 Jul',
-      daysRemaining: 71,
+      deadlineDate: formatFutureTimelineDate(90),
+      daysRemaining: 90,
       priority: 'MEDIUM',
-      actionRequired: 'Capital buffer recalculation and CCO sign-off for digital asset brokerage operations.',
+      actionRequired: 'Quarterly regulatory capital buffer calculation and CCO sign-off for digital asset operations.',
       linkContext: { targetPillar: 'gap-matrix', action: 'open_drawer' },
     },
     {
       id: 'gate_fccpc',
-      title: 'FCCPC Digital Lending Consumer Interest Rate Transparency',
+      title: 'FCCPC Digital Lending Consumer Interest Rate Transparency Audit',
       regulatorCode: 'FCCPC',
       sourcePillar: 'marketing',
-      deadlineDate: '28 Jul',
-      daysRemaining: 84,
+      deadlineDate: formatFutureTimelineDate(120),
+      daysRemaining: 120,
       priority: 'LOW',
       actionRequired: 'Verification of APR calculators and borrower complaint escalation protocols.',
       linkContext: { targetPillar: 'marketing', action: 'open_dossier' },
     },
   ];
 
-  const milestones = gates.length >= 3 ? gates : defaultMilestones;
+  const milestones = gates.length > 0 ? gates : defaultMilestones;
   const activeGate = milestones.find((m) => m.id === selectedGateId);
 
-  // Calculate percentage positions across May - Aug timeline
+  // Dynamic 4-month axis labels starting from current month
+  const monthLabels = Array.from({ length: 4 }).map((_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+    return new Intl.DateTimeFormat('en-GB', { month: 'short' }).format(d);
+  });
+
+  // Calculate percentage positions across timeline
   const getPositionPercent = (index: number, total: number) => {
-    // Distribute nicely along timeline width: 14% to 92%
     if (total <= 1) return 50;
     return Math.round(14 + (index / (total - 1)) * 78);
   };
@@ -119,12 +145,12 @@ export function UpcomingDeadlinesTimeline({
           title="Imminent Enforcement Window (<30 days)"
         />
 
-        {/* Month Axis Labels at bottom */}
+        {/* Dynamic Month Axis Labels at bottom */}
         <div className="absolute bottom-1 left-4 right-4 flex justify-between text-[11px] font-semibold text-slate-400 select-none">
-          <span className="w-16 text-left">May</span>
-          <span className="w-16 text-center">Jun</span>
-          <span className="w-16 text-center">Jul</span>
-          <span className="w-16 text-right">Aug</span>
+          <span className="w-16 text-left">{monthLabels[0]}</span>
+          <span className="w-16 text-center">{monthLabels[1]}</span>
+          <span className="w-16 text-center">{monthLabels[2]}</span>
+          <span className="w-16 text-right">{monthLabels[3]}</span>
         </div>
 
         {/* Continuous Horizontal Axis Line */}
@@ -143,6 +169,7 @@ export function UpcomingDeadlinesTimeline({
             const leftPercent = getPositionPercent(idx, milestones.length);
             const isImminent = (milestone.daysRemaining ?? 30) <= 20;
             const isSelected = selectedGateId === milestone.id;
+            const displayDate = formatDisplayDate(milestone.deadlineDate, milestone.daysRemaining);
 
             return (
               <div
@@ -153,7 +180,7 @@ export function UpcomingDeadlinesTimeline({
               >
                 {/* Date Label */}
                 <span className="text-[11px] font-bold text-slate-700 whitespace-nowrap group-hover:text-slate-900 transition-colors">
-                  {milestone.deadlineDate || `${milestone.daysRemaining}d`}
+                  {displayDate}
                 </span>
 
                 {/* Regulator / Statute Badge */}
@@ -194,7 +221,7 @@ export function UpcomingDeadlinesTimeline({
                 {activeGate.title}
               </span>
               <span className="text-slate-500 font-mono text-[11px]">
-                Due: {activeGate.deadlineDate} ({activeGate.daysRemaining}d remaining)
+                Due: {formatDisplayDate(activeGate.deadlineDate)} ({activeGate.daysRemaining}d remaining)
               </span>
             </div>
             <p className="text-slate-600 text-[11px] leading-relaxed">

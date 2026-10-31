@@ -7,6 +7,7 @@ import { RegulatorCode, RadarPriority, LicenseType, PaymentRail, LineageStatus }
 import { CircularTargetingContext } from '@/modules/radar/types';
 import { DeterministicMetadataExtractor } from '@/modules/radar/services/deterministicMetadataExtractor';
 import { RoleSynthesisService } from '@/modules/radar/services/roleSynthesisService';
+import { computeInitials } from '@/modules/organization/services/teamService';
 
 export async function GET(req: NextRequest) {
   try {
@@ -74,9 +75,25 @@ export async function GET(req: NextRequest) {
       .eq('organization_id', organizationId);
 
     const impactsMap = new Map<string, any>();
+    const assignedUserIds = new Set<string>();
+
     if (impactsData) {
       for (const impact of impactsData) {
         impactsMap.set(impact.circular_id, impact);
+        if (impact.assigned_to_user_id) assignedUserIds.add(impact.assigned_to_user_id);
+        if (impact.acknowledged_by) assignedUserIds.add(impact.acknowledged_by);
+      }
+    }
+
+    const usersMap = new Map<string, any>();
+    if (assignedUserIds.size > 0) {
+      const { data: usersData } = await (db.from('users') as any)
+        .select('id, full_name, email, avatar_url')
+        .in('id', Array.from(assignedUserIds));
+      if (usersData) {
+        for (const u of usersData) {
+          usersMap.set(u.id, u);
+        }
       }
     }
 
@@ -169,35 +186,67 @@ export async function GET(req: NextRequest) {
         },
       });
 
+      const isLegacyMadLibText = (text?: string | null): boolean => {
+        if (!text || typeof text !== 'string') return true;
+        const lower = text.toLowerCase();
+        return (
+          lower.includes('on official notice') ||
+          lower.includes('enacted circular directive') ||
+          lower.includes('the directive mandates comprehensive operational compliance regarding') ||
+          lower.includes('failure to conform to the statutory mandates set out in this circular exposes') ||
+          lower.includes('the central bank of nigeria has enacted circular') ||
+          lower.includes('has enacted circular')
+        );
+      };
+
       const executiveBriefCco =
-        existingImpact?.executive_brief_cco && existingImpact.executive_brief_cco.length > 120
+        existingImpact?.executive_brief_cco &&
+        existingImpact.executive_brief_cco.length > 120 &&
+        !isLegacyMadLibText(existingImpact.executive_brief_cco)
           ? existingImpact.executive_brief_cco
           : richBriefs.executiveBriefCco;
 
       const actionBriefCoo =
-        existingImpact?.action_brief_coo && existingImpact.action_brief_coo.length > 120
+        existingImpact?.action_brief_coo &&
+        existingImpact.action_brief_coo.length > 120 &&
+        !isLegacyMadLibText(existingImpact.action_brief_coo)
           ? existingImpact.action_brief_coo
           : richBriefs.actionBriefCoo;
 
       const technicalBriefProductEng =
-        existingImpact?.technical_brief_product_eng && existingImpact.technical_brief_product_eng.length > 120
+        existingImpact?.technical_brief_product_eng &&
+        existingImpact.technical_brief_product_eng.length > 120 &&
+        !isLegacyMadLibText(existingImpact.technical_brief_product_eng)
           ? existingImpact.technical_brief_product_eng
           : richBriefs.technicalBriefCto || richBriefs.technicalBriefProductEng;
 
       const technicalBriefCto =
-        existingImpact?.brief_cto?.summary && existingImpact.brief_cto.summary.length > 120
+        existingImpact?.brief_cto?.summary &&
+        existingImpact.brief_cto.summary.length > 120 &&
+        !isLegacyMadLibText(existingImpact.brief_cto.summary)
           ? existingImpact.brief_cto.summary
           : richBriefs.technicalBriefCto || richBriefs.technicalBriefProductEng;
 
       const financialBriefCfo =
-        existingImpact?.financial_brief_cfo && existingImpact.financial_brief_cfo.length > 120
+        existingImpact?.financial_brief_cfo &&
+        existingImpact.financial_brief_cfo.length > 120 &&
+        !isLegacyMadLibText(existingImpact.financial_brief_cfo)
           ? existingImpact.financial_brief_cfo
           : richBriefs.financialBriefCfo;
 
       const governanceBriefCeoCro =
-        existingImpact?.brief_ceo_cro?.summary && existingImpact.brief_ceo_cro.summary.length > 120
+        existingImpact?.brief_ceo_cro?.summary &&
+        existingImpact.brief_ceo_cro.summary.length > 120 &&
+        !isLegacyMadLibText(existingImpact.brief_ceo_cro.summary)
           ? existingImpact.brief_ceo_cro.summary
           : richBriefs.governanceBriefCeoCro;
+
+      const generalCounselBrief =
+        existingImpact?.brief_legal?.summary &&
+        existingImpact.brief_legal.summary.length > 120 &&
+        !isLegacyMadLibText(existingImpact.brief_legal.summary)
+          ? existingImpact.brief_legal.summary
+          : richBriefs.generalCounselBrief;
 
       const actionItems =
         existingImpact?.radar_action_items && existingImpact.radar_action_items.length > 1
@@ -245,6 +294,33 @@ export async function GET(req: NextRequest) {
         (c as any).source_file_url ||
         '';
 
+      let resolvedAssignee: { id: string; name: string; avatar?: string } | null = null;
+      if (existingImpact?.assigned_to_user_id && usersMap.has(existingImpact.assigned_to_user_id)) {
+        const u = usersMap.get(existingImpact.assigned_to_user_id);
+        resolvedAssignee = {
+          id: u.id,
+          name: u.full_name,
+          avatar: computeInitials(u.full_name),
+        };
+      } else if (existingImpact?.assigned_role) {
+        resolvedAssignee = {
+          id: existingImpact.assigned_role,
+          name: existingImpact.assigned_role,
+          avatar: computeInitials(existingImpact.assigned_role),
+        };
+      } else if (existingImpact?.acknowledged_by && usersMap.has(existingImpact.acknowledged_by)) {
+        const u = usersMap.get(existingImpact.acknowledged_by);
+        resolvedAssignee = {
+          id: u.id,
+          name: u.full_name,
+          avatar: computeInitials(u.full_name),
+        };
+      }
+
+      const resolvedWorkflowStatus =
+        (existingImpact?.workflow_status as any) ||
+        (existingImpact?.status === 'RESOLVED' ? 'Reviewed' : 'Pending Review');
+
       return {
         id: c.id,
         circularNumber: c.circular_number,
@@ -261,8 +337,8 @@ export async function GET(req: NextRequest) {
         importantDates,
         comments: [],
         auditLogs,
-        workflowStatus: 'Pending Review' as const,
-        assignee: undefined,
+        workflowStatus: resolvedWorkflowStatus,
+        assignee: resolvedAssignee,
         topics: topics.length > 0 ? topics : [regulatorCode, 'Regulatory Directive'],
         publicationDate: pubDate,
         effectiveDate: effDate,
@@ -290,6 +366,7 @@ export async function GET(req: NextRequest) {
         technicalBriefCto,
         financialBriefCfo,
         governanceBriefCeoCro,
+        generalCounselBrief,
         actionItems,
         sourceFileUrl: sourceUrl || undefined,
         rawText: c.raw_text || undefined,

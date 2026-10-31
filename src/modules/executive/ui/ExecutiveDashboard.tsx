@@ -232,10 +232,10 @@ export function ExecutiveDashboard({
         onInspectGate={(gate) =>
           handleNavigate(
             gate.sourcePillar === 'radar'
-              ? '/insight'
+              ? `/insight?search=${encodeURIComponent(gate.regulatorCode || gate.title)}`
               : gate.sourcePillar === 'gap-matrix'
-              ? '/gap'
-              : '/marketing',
+              ? `/gap?gate=${encodeURIComponent(gate.id)}`
+              : `/marketing?gate=${encodeURIComponent(gate.id)}`,
             gate.linkContext.targetPillar,
             gate.linkContext
           )
@@ -246,8 +246,10 @@ export function ExecutiveDashboard({
       <RegulatoryPressureStrip
         telemetry={data?.liveTelemetry}
         regulators={data?.regulatorCoverage}
-        onSelectTopic={(topic) => router.push('/insight')}
-        onSelectPolicy={(policyName) => router.push('/gap')}
+        trendingTopics={data?.trendingTopics}
+        impactedPolicies={data?.impactedPolicies}
+        onSelectTopic={(topic) => router.push(`/insight?topic=${encodeURIComponent(topic)}`)}
+        onSelectPolicy={(policyName) => router.push(`/gap?policy=${encodeURIComponent(policyName)}`)}
       />
 
       {/* MODAL 1: Interactive Cascade Orchestration Simulator */}

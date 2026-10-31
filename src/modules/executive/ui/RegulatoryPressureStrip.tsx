@@ -3,42 +3,27 @@
 import React from 'react';
 import Link from 'next/link';
 import { ChevronRight, TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import { MultiPillarLiveTelemetry, RegulatorCoverageItem } from '../types';
+import { MultiPillarLiveTelemetry, RegulatorCoverageItem, TrendingTopicItem, ImpactedPolicyItem } from '../types';
 
 export interface RegulatoryPressureStripProps {
   telemetry?: MultiPillarLiveTelemetry;
   regulators?: RegulatorCoverageItem[];
+  trendingTopics?: TrendingTopicItem[];
+  impactedPolicies?: ImpactedPolicyItem[];
   onSelectTopic?: (topic: string) => void;
   onSelectPolicy?: (policyName: string) => void;
-}
-
-interface TrendingTopic {
-  name: string;
-  count: number;
-  max: number;
-  trend: 'UP' | 'DOWN' | 'STABLE';
-  trendValue: string;
-}
-
-interface ImpactedPolicy {
-  id: string;
-  name: string;
-  regulators: string[];
-  alertCount: number;
-  ownerInitials: string;
 }
 
 export function RegulatoryPressureStrip({
   telemetry,
   regulators = [],
+  trendingTopics: propTrendingTopics,
+  impactedPolicies: propImpactedPolicies,
   onSelectTopic,
   onSelectPolicy,
 }: RegulatoryPressureStripProps) {
-  const radarAlertsCount = telemetry?.radar?.activeCirculars ?? 38;
-  const criticalGapsCount = telemetry?.gapMatrix?.criticalGapsCount ?? 14;
-
-  // Real Nigerian RegTech regulatory trending topics derived from active regulatory circulars
-  const trendingTopics: TrendingTopic[] = [
+  // Real Nigerian RegTech regulatory trending topics baseline
+  const defaultTrendingTopics: TrendingTopicItem[] = [
     {
       name: 'AML/CFT & Sanctions',
       count: 14,
@@ -75,7 +60,7 @@ export function RegulatoryPressureStrip({
       trendValue: '↓1',
     },
     {
-      name: 'Statutory Reporting & CAMA',
+      name: 'Corporate Governance & CAMA',
       count: 5,
       max: 16,
       trend: 'STABLE',
@@ -83,8 +68,8 @@ export function RegulatoryPressureStrip({
     },
   ];
 
-  // Most Impacted Policies from Cogent's policy corpus
-  const impactedPolicies: ImpactedPolicy[] = [
+  // Most Impacted Policies from Cogent's policy corpus baseline
+  const defaultImpactedPolicies: ImpactedPolicyItem[] = [
     {
       id: 'pol-aml',
       name: 'AML / CFT & Sanctions Policy',
@@ -97,14 +82,14 @@ export function RegulatoryPressureStrip({
       name: 'Corporate Governance & Anti-Fraud Policy',
       regulators: ['CAMA', 'CBN', 'EFCC'],
       alertCount: 4,
-      ownerInitials: 'JT',
+      ownerInitials: 'GC',
     },
     {
       id: 'pol-lending',
       name: 'Digital Lending & Consumer Credit Policy',
       regulators: ['FCCPC', 'CBN'],
       alertCount: 3,
-      ownerInitials: 'AS',
+      ownerInitials: 'CRO',
     },
     {
       id: 'pol-data',
@@ -114,6 +99,12 @@ export function RegulatoryPressureStrip({
       ownerInitials: 'DPO',
     },
   ];
+
+  const trendingTopics = propTrendingTopics && propTrendingTopics.length > 0 ? propTrendingTopics : defaultTrendingTopics;
+  const impactedPolicies = propImpactedPolicies && propImpactedPolicies.length > 0 ? propImpactedPolicies : defaultImpactedPolicies;
+
+  const radarAlertsCount = telemetry?.radar?.activeCirculars ?? (trendingTopics.reduce((s, t) => s + t.count, 0) || 38);
+  const criticalGapsCount = telemetry?.gapMatrix?.criticalGapsCount ?? (impactedPolicies.reduce((s, p) => s + p.alertCount, 0) || 14);
 
   return (
     <div className="space-y-3">

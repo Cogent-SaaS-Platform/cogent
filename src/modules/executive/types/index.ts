@@ -114,6 +114,22 @@ export interface ExecutiveComplianceExportResult {
   };
 }
 
+export interface TrendingTopicItem {
+  name: string;
+  count: number;
+  max: number;
+  trend: 'UP' | 'DOWN' | 'STABLE';
+  trendValue: string;
+}
+
+export interface ImpactedPolicyItem {
+  id: string;
+  name: string;
+  regulators: string[];
+  alertCount: number;
+  ownerInitials: string;
+}
+
 export interface ExecutiveOverviewData {
   organizationId: string;
   organizationName: string;
@@ -132,4 +148,6 @@ export interface ExecutiveOverviewData {
   departmentalReadiness: DepartmentalReadinessItem[];
   urgentGates: UrgentComplianceGate[];
   recentActivities: CrossPillarActivityItem[];
+  trendingTopics?: TrendingTopicItem[];
+  impactedPolicies?: ImpactedPolicyItem[];
 }

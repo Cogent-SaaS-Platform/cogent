@@ -898,6 +898,12 @@ export interface Database {
           brief_cfo: Json | null;
           brief_cto: Json | null;
           brief_ceo_cro: Json | null;
+          assigned_to_user_id?: string | null;
+          assigned_role?: string | null;
+          target_department?: string | null;
+          assignment_notes?: string | null;
+          workflow_status?: string | null;
+          assigned_at?: string | null;
           created_at: string;
         };
         Insert: {
@@ -921,6 +927,12 @@ export interface Database {
           brief_cfo?: Json | null;
           brief_cto?: Json | null;
           brief_ceo_cro?: Json | null;
+          assigned_to_user_id?: string | null;
+          assigned_role?: string | null;
+          target_department?: string | null;
+          assignment_notes?: string | null;
+          workflow_status?: string | null;
+          assigned_at?: string | null;
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['radar_tenant_impacts']['Insert']>;
@@ -935,10 +947,12 @@ export interface Database {
           action_title: string;
           action_description: string;
           assigned_to_user_id: string | null;
+          assigned_role?: string | null;
           suggested_deadline: string | null;
           is_completed: boolean;
           completed_at: string | null;
           created_at: string;
+          updated_at?: string;
         };
         Insert: {
           id?: string;
@@ -948,10 +962,12 @@ export interface Database {
           action_title: string;
           action_description: string;
           assigned_to_user_id?: string | null;
+          assigned_role?: string | null;
           suggested_deadline?: string | null;
           is_completed?: boolean;
           completed_at?: string | null;
           created_at?: string;
+          updated_at?: string;
         };
         Update: Partial<Database['public']['Tables']['radar_action_items']['Insert']>;
         Relationships: [];
@@ -1128,6 +1144,46 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['compliance_cascade_events']['Insert']>;
+        Relationships: [];
+      };
+      tenant_obligation_controls: {
+        Row: {
+          id: string;
+          organization_id: string;
+          obligation_id: string;
+          control_id: string | null;
+          control_name: string | null;
+          policy_id: string | null;
+          policy_name: string | null;
+          custodian_role: string | null;
+          department: string | null;
+          effectiveness_status: string;
+          evidence_status: string;
+          evidence_artifact_name: string | null;
+          notes: string | null;
+          last_audited_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          obligation_id: string;
+          control_id?: string | null;
+          control_name?: string | null;
+          policy_id?: string | null;
+          policy_name?: string | null;
+          custodian_role?: string | null;
+          department?: string | null;
+          effectiveness_status?: string;
+          evidence_status?: string;
+          evidence_artifact_name?: string | null;
+          notes?: string | null;
+          last_audited_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['tenant_obligation_controls']['Insert']>;
         Relationships: [];
       };
     };

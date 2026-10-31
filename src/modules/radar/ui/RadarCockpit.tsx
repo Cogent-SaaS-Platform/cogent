@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   PlatformPillar,
   CrossPillarLinkContext,
@@ -32,6 +33,9 @@ export interface RadarCockpitProps {
 }
 
 export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitProps) {
+  const searchParams = useSearchParams();
+  const urlSearch = searchParams?.get('search') || searchParams?.get('topic') || '';
+
   const [circulars, setCirculars] = useState<RadarCircularPresentationCard[]>([]);
   const [selectedCircularId, setSelectedCircularId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'feed' | 'detail'>('feed');
@@ -372,6 +376,7 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
               onToggleRelevant={(id) => handleToggleRelevant(id)}
               onToggleStar={(id) => handleToggleStar(id)}
               lastUpdatedText={lastSyncTime}
+              initialSearchQuery={urlSearch || initialContext?.searchTerm || ''}
             />
           ) : selectedCircular ? (
             <HorizonAlertDetail
@@ -398,6 +403,7 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
               onToggleRelevant={(id) => handleToggleRelevant(id)}
               onToggleStar={(id) => handleToggleStar(id)}
               lastUpdatedText={lastSyncTime}
+              initialSearchQuery={urlSearch || initialContext?.searchTerm || ''}
             />
           )}
         </main>

@@ -5,6 +5,7 @@ import { logger } from '@/shared/logger';
 import { REGULATORY_INSTRUMENTS_SEED } from '@/shared/db/regulatoryCorpusData';
 import { ClauseSegmentationEngine } from '@/modules/radar/services/clauseSegmentationEngine';
 import { createAdminClient } from '@/shared/db';
+import { sanitizeRequirementText } from '@/modules/regulatory/services/obligationMetricsService';
 
 export const dynamic = 'force-dynamic';
 
@@ -174,11 +175,12 @@ export async function GET(req: NextRequest) {
                 const penalties = penaltiesMap.get(obl.id) || [];
                 const meta = (obl.metadata || {}) as Record<string, any>;
                 const rawCriteria = meta.complianceCriteria;
+                const cleanOblSummary = sanitizeRequirementText(obl.summary);
 
                 const assessmentCriteria = Array.isArray(rawCriteria) && rawCriteria.length > 0
                   ? rawCriteria.map((crit: any, cIdx: number) => ({
                       id: crit.id || `crit-${obl.id}-${cIdx + 1}`,
-                      criterionText: crit.criterionText || crit.title || String(crit),
+                      criterionText: sanitizeRequirementText(crit.criterionText || crit.title || String(crit)),
                       evidenceRequired: crit.evidenceRequired || 'Statutory compliance verification record',
                       isMandatory: crit.isMandatory ?? true,
                       defaultChecked: crit.defaultChecked ?? false,
@@ -186,7 +188,7 @@ export async function GET(req: NextRequest) {
                   : [
                       {
                         id: `crit-${obl.id}-1`,
-                        criterionText: `Internal operational manual contains unambiguous rules implementing ${obl.summary}`,
+                        criterionText: `Internal operational manual contains unambiguous rules implementing: ${cleanOblSummary}`,
                         evidenceRequired: 'Approved institutional policy document or standard operating procedure',
                         isMandatory: true,
                         defaultChecked: true,
@@ -203,7 +205,7 @@ export async function GET(req: NextRequest) {
                 arr.push({
                   id: obl.id,
                   obligationType: obl.obligation_type,
-                  summary: obl.summary,
+                  summary: cleanOblSummary || obl.summary,
                   severityFloor: obl.severity_floor,
                   statutoryTimelineDays: obl.statutory_timeline_days,
                   mandatoryDisclosureText: obl.mandatory_disclosure_text,
@@ -236,10 +238,23 @@ export async function GET(req: NextRequest) {
                   .replace(/\r?\n+/g, ' ')
                   .split(/(?<=[.?!])\s+/)
                   .map((s: string) => s.replace(/^[\d\.\-\s]+/, '').trim())
-                  .filter((s: string) => s.length > 20 && !s.toLowerCase().startsWith('http') && !s.toLowerCase().startsWith('date:'));
+                  .filter((s: string) => {
+                    if (s.length < 20) return false;
+                    const sLower = s.toLowerCase();
+                    if (
+                      sLower.startsWith('http') ||
+                      sLower.startsWith('date:') ||
+                      sLower.includes('? true : false') ||
+                      sLower.includes('search...') ||
+                      /\b(deutsch|english|hausa|igbo|yoruba)\b/i.test(s)
+                    ) {
+                      return false;
+                    }
+                    return true;
+                  });
 
                 const operativeSentences = rawSentences.filter((s: string) =>
-                  /\b(shall|must|mandat|prohibit|requir|ensure|liable|submit|maintain|comply|penalty|sanction|forbidden|disclose|report)\b/i.test(s)
+                  /\b(shall|must|mandat|prohibit|requir|ensure|liable|submit|maintain|comply|penalty|sanction|forbidden|disclose|report|freeze|restrict)\b/i.test(s)
                 );
 
                 const sourceSentences = operativeSentences.length > 0 ? operativeSentences.slice(0, 3) : (rawSentences.length > 0 ? [rawSentences[0]] : []);
@@ -312,15 +327,25 @@ export async function GET(req: NextRequest) {
               }
             }
 
-            formattedClauses = clausesData.map((c) => ({
-              id: c.id,
-              sectionReference: c.section_reference,
-              sectionHeading: c.section_heading || 'Statutory Clause',
-              clauseText: c.clause_text,
-              pageNumber: c.page_number,
-              paragraphReference: c.paragraph_reference,
-              obligations: obligationsMap.get(c.id) || [],
-            }));
+            formattedClauses = clausesData.map((c) => {
+              const cleanHeading = c.section_heading &&
+                !c.section_heading.includes('? true : false') &&
+                !c.section_heading.includes('SEARCH') &&
+                !c.section_heading.includes('elementor') &&
+                !/\b(deutsch|hausa|igbo|yoruba)\b/i.test(c.section_heading)
+                  ? c.section_heading
+                  : ClauseSegmentationEngine.detectTopicHeading(c.clause_text || '', '', 1);
+
+              return {
+                id: c.id,
+                sectionReference: c.section_reference,
+                sectionHeading: cleanHeading || 'Statutory Clause',
+                clauseText: c.clause_text,
+                pageNumber: c.page_number,
+                paragraphReference: c.paragraph_reference,
+                obligations: obligationsMap.get(c.id) || [],
+              };
+            });
           } else {
             // 3. Adaptive Dynamic Clause Extraction for newly uploaded or untokenized documents
             if (!matchedCircular && targetVersionIds.length > 0) {
@@ -373,30 +398,39 @@ export async function GET(req: NextRequest) {
                 clauseText: c.clauseText,
                 pageNumber: c.pageNumber,
                 paragraphReference: c.paragraphReference,
-                obligations: c.obligations.map((obl) => {
+                obligations: c.obligations.map((obl, oblIdx) => {
+                  const cleanSummary = sanitizeRequirementText(obl.summary);
+                  const oblId = obl.id || `obl-${c.id || 'sec'}-${oblIdx + 1}`;
                   const rawCriteria = (obl as any).complianceCriteria;
                   const assessmentCriteria = Array.isArray(rawCriteria) && rawCriteria.length > 0
                     ? rawCriteria.map((crit: any, cIdx: number) => ({
-                        id: crit.id || `crit-${obl.id || cIdx}-${cIdx + 1}`,
-                        criterionText: crit.criterionText || crit.title || String(crit),
+                        id: crit.id || `crit-${oblId}-${cIdx + 1}`,
+                        criterionText: sanitizeRequirementText(crit.criterionText || crit.title || String(crit)),
                         evidenceRequired: crit.evidenceRequired || 'Statutory compliance verification record',
                         isMandatory: crit.isMandatory ?? true,
                         defaultChecked: crit.defaultChecked ?? false,
                       }))
                     : [
                         {
-                          id: `crit-${obl.summary}-1`,
-                          criterionText: `Internal operational manual contains unambiguous rules implementing ${obl.summary}`,
+                          id: `crit-${oblId}-1`,
+                          criterionText: `Internal operational manual contains unambiguous rules implementing: ${cleanSummary}`,
                           evidenceRequired: 'Approved institutional policy document or standard operating procedure',
                           isMandatory: true,
                           defaultChecked: true,
                         },
+                        {
+                          id: `crit-${oblId}-2`,
+                          criterionText: 'Audit logging and supervisory inspection controls are actively in place',
+                          evidenceRequired: 'Automated system event log or inspection readiness dossier',
+                          isMandatory: false,
+                          defaultChecked: false,
+                        },
                       ];
 
                   return {
-                    id: obl.id || crypto.randomUUID(),
+                    id: oblId,
                     obligationType: obl.obligationType,
-                    summary: obl.summary,
+                    summary: cleanSummary,
                     severityFloor: obl.severityFloor,
                     statutoryTimelineDays: obl.statutoryTimelineDays,
                     mandatoryDisclosureText: obl.obligationType === 'MANDATORY_DISCLOSURE' ? obl.summary : null,

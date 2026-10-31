@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Search,
   RefreshCw,
@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { RadarCircularPresentationCard } from '../types';
 import { RegulatorCode } from '@/shared/types';
+import { TeamMember, FunctionalRole } from '@/modules/organization/types';
 
 interface HorizonAlertFeedProps {
   circulars: RadarCircularPresentationCard[];
@@ -31,6 +32,7 @@ interface HorizonAlertFeedProps {
   onToggleRelevant?: (id: string, e: React.MouseEvent) => void;
   onToggleStar?: (id: string, e: React.MouseEvent) => void;
   lastUpdatedText?: string;
+  initialSearchQuery?: string;
 }
 
 export function HorizonAlertFeed({
@@ -44,18 +46,51 @@ export function HorizonAlertFeed({
   onToggleRelevant,
   onToggleStar,
   lastUpdatedText = 'Today, 10:45 AM',
+  initialSearchQuery = '',
 }: HorizonAlertFeedProps) {
   // Feed Tab Filter: 'pending' | 'all' | 'starred'
   const [activeTab, setActiveTab] = useState<'pending' | 'all' | 'starred'>('pending');
 
   // Search & Filter state
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
   const [selectedSource, setSelectedSource] = useState<string>('ALL');
   const [selectedAssignee, setSelectedAssignee] = useState<string>('ALL');
   const [selectedTimeRange, setSelectedTimeRange] = useState<string>('all');
   const [relevantOnly, setRelevantOnly] = useState<boolean>(false);
   const [showFilterDropdown, setShowFilterDropdown] = useState<boolean>(false);
   const [filterUrgency, setFilterUrgency] = useState<string>('ALL');
+
+  useEffect(() => {
+    if (initialSearchQuery) {
+      setSearchQuery(initialSearchQuery);
+    }
+  }, [initialSearchQuery]);
+
+  // Dynamic team members & functional roles for assignment filtering
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [functionalRoles, setFunctionalRoles] = useState<FunctionalRole[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchOrgMembers() {
+      try {
+        const res = await fetch('/api/organization/members');
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && data.success) {
+            setTeamMembers(data.members || []);
+            setFunctionalRoles(data.functionalRoles || []);
+          }
+        }
+      } catch (err) {
+        console.error('Failed fetching team members for feed filter', err);
+      }
+    }
+    fetchOrgMembers();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Multi-selection state
   const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
@@ -100,11 +135,21 @@ export function HorizonAlertFeed({
         return false;
       }
 
-      // Assignee filter
+      // Dynamic Assignee filter
       if (selectedAssignee !== 'ALL') {
-        if (selectedAssignee === 'UN' && c.assignee) return false;
-        if (selectedAssignee === 'CCO' && c.assignee?.avatar !== 'CCO' && !c.assignee?.name?.toLowerCase().includes('compliance')) return false;
-        if (selectedAssignee === 'AM' && c.assignee?.avatar !== 'AM' && !c.assignee?.name?.toLowerCase().includes('alex')) return false;
+        if (selectedAssignee === 'UN' || selectedAssignee === 'UNASSIGNED') {
+          if (c.assignee) return false;
+        } else {
+          const target = selectedAssignee.toLowerCase();
+          const assigneeName = (c.assignee?.name || '').toLowerCase();
+          const assigneeId = (c.assignee?.id || '').toLowerCase();
+          const matches =
+            assigneeId === target ||
+            assigneeName === target ||
+            assigneeName.includes(target) ||
+            target.includes(assigneeName);
+          if (!matches) return false;
+        }
       }
 
       // Time range filter
@@ -139,7 +184,7 @@ export function HorizonAlertFeed({
 
       return true;
     });
-  }, [circulars, activeTab, starredIds, relevantOnly, selectedSource, filterUrgency, searchQuery]);
+  }, [circulars, activeTab, starredIds, relevantOnly, selectedSource, selectedAssignee, selectedTimeRange, filterUrgency, searchQuery]);
 
   // Pagination calculations
   const totalItems = filteredCirculars.length;
@@ -280,7 +325,7 @@ export function HorizonAlertFeed({
             <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-2.5 pointer-events-none" />
           </div>
 
-          {/* Assignee Dropdown */}
+          {/* Dynamic Assignee Dropdown */}
           <div className="relative">
             <select
               value={selectedAssignee}
@@ -288,12 +333,28 @@ export function HorizonAlertFeed({
                 setSelectedAssignee(e.target.value);
                 setCurrentPage(1);
               }}
-              className="h-8 pl-2.5 pr-6 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md hover:border-slate-300 focus:outline-hidden appearance-none cursor-pointer"
+              className="h-8 pl-2.5 pr-6 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md hover:border-slate-300 focus:outline-hidden appearance-none cursor-pointer max-w-[180px] truncate"
             >
               <option value="ALL">All Assignees</option>
-              <option value="CCO">Chief Compliance Officer</option>
-              <option value="AM">Alex Marco</option>
-              <option value="UN">Unassigned</option>
+              <option value="UNASSIGNED">Unassigned</option>
+              {teamMembers.length > 0 && (
+                <optgroup label="Organization Members">
+                  {teamMembers.map((m) => (
+                    <option key={m.userId} value={m.userId}>
+                      {m.fullName} ({m.initials})
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {functionalRoles.length > 0 && (
+                <optgroup label="Statutory Roles">
+                  {functionalRoles.map((r) => (
+                    <option key={r.roleId} value={r.roleTitle}>
+                      {r.roleTitle}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
             <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-2.5 pointer-events-none" />
           </div>

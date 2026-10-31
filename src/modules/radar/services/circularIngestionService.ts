@@ -546,56 +546,78 @@ export class CircularIngestionService {
               );
 
               const roleSynth = new RoleSynthesisService({ dbClient: client });
-              const synthesizedImpact = roleSynth.generateDeterministicFallback({
-                circular: {
-                  id: circularId,
-                  circularNumber: metadata.circularNumber,
-                  regulatorCode: metadata.regulatorCode,
-                  subject: metadata.subject,
-                  summary: metadata.summary,
-                  statutoryDeadline: metadata.statutoryDeadline,
-                  rawText,
-                  sections,
-                },
-                tenant: {
-                  organizationId: org.id,
-                  organizationName: org.name,
-                  matchedLicenses: evalResult.matchedLicenses,
-                  matchedRails: evalResult.matchedRails,
-                  applicabilityReason: evalResult.reason,
-                },
-              });
+              const extractedAllObligations = segmentedClauses.flatMap((c) => c.obligations || []);
 
-              const impactId = crypto.randomUUID();
-              await client.from('radar_tenant_impacts').insert({
-                id: impactId,
-                organization_id: org.id,
-                circular_id: circularId,
-                is_applicable: evalResult.isApplicable,
-                applicability_reason: evalResult.reason,
-                executive_brief_cco: synthesizedImpact.executiveBriefCco,
-                action_brief_coo: synthesizedImpact.actionBriefCoo,
-                technical_brief_product_eng: synthesizedImpact.technicalBriefProductEng,
-                financial_brief_cfo: synthesizedImpact.financialBriefCfo,
-                role_briefs: synthesizedImpact,
-                brief_cco: { brief: synthesizedImpact.executiveBriefCco },
-                brief_cfo: { brief: synthesizedImpact.financialBriefCfo },
-                brief_cto: { brief: synthesizedImpact.technicalBriefCto || synthesizedImpact.technicalBriefProductEng },
-                brief_ceo_cro: { brief: synthesizedImpact.governanceBriefCeoCro || synthesizedImpact.actionBriefCoo },
-                status: 'SYNTHESIZED',
-              });
+              if (evalResult.isApplicable) {
+                try {
+                  await roleSynth.synthesizeRoleImpacts({
+                    circular: {
+                      id: circularId,
+                      circularNumber: metadata.circularNumber,
+                      regulatorCode: metadata.regulatorCode,
+                      subject: metadata.subject,
+                      summary: metadata.summary,
+                      statutoryDeadline: metadata.statutoryDeadline,
+                      rawText,
+                      sections,
+                      obligations: extractedAllObligations as any,
+                    },
+                    tenant: {
+                      organizationId: org.id,
+                      organizationName: org.name,
+                      matchedLicenses: evalResult.matchedLicenses,
+                      matchedRails: evalResult.matchedRails,
+                      applicabilityReason: evalResult.reason,
+                    },
+                  });
+                } catch (synthErr) {
+                  logger.warn(
+                    { synthErr },
+                    'AI Role synthesis threw unexpected error during ingestion; applying domain-grounded fallback'
+                  );
+                  const fallbackBriefs = roleSynth.generateDeterministicFallback({
+                    circular: {
+                      id: circularId,
+                      circularNumber: metadata.circularNumber,
+                      regulatorCode: metadata.regulatorCode,
+                      subject: metadata.subject,
+                      summary: metadata.summary,
+                      statutoryDeadline: metadata.statutoryDeadline,
+                      rawText,
+                      sections,
+                      obligations: extractedAllObligations as any,
+                    },
+                    tenant: {
+                      organizationId: org.id,
+                      organizationName: org.name,
+                      matchedLicenses: evalResult.matchedLicenses,
+                      matchedRails: evalResult.matchedRails,
+                      applicabilityReason: evalResult.reason,
+                    },
+                  });
 
-              if (evalResult.isApplicable && synthesizedImpact.actionChecklist?.length > 0) {
-                const actionRows = synthesizedImpact.actionChecklist.map((act) => ({
-                  organization_id: org.id,
-                  impact_id: impactId,
-                  target_department: act.targetDepartment,
-                  action_title: act.actionTitle,
-                  action_description: act.actionDescription,
-                  suggested_deadline: act.suggestedDeadline,
-                  is_completed: false,
-                }));
-                await client.from('radar_action_items').insert(actionRows);
+                  await roleSynth.persistImpactAndActions(
+                    org.id,
+                    circularId,
+                    crypto.randomUUID(),
+                    fallbackBriefs
+                  );
+                }
+              } else {
+                await client.from('radar_tenant_impacts').upsert(
+                  {
+                    organization_id: org.id,
+                    circular_id: circularId,
+                    is_applicable: false,
+                    applicability_reason: evalResult.reason,
+                    executive_brief_cco: 'Non-applicable to institutional license profile.',
+                    action_brief_coo: 'No operational action required.',
+                    technical_brief_product_eng: 'No technical modification required.',
+                    financial_brief_cfo: 'No capital or financial exposure.',
+                    status: 'FILTERED_OUT',
+                  },
+                  { onConflict: 'organization_id,circular_id' }
+                );
               }
             }
           }

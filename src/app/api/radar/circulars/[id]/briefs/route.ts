@@ -136,34 +136,29 @@ export async function GET(
 
     let roleBriefs: any = existingImpact?.role_briefs;
 
-    // 5. If not synthesized or missing role_briefs, generate briefs and persist
-    if (!roleBriefs || !roleBriefs.executiveBriefCco) {
-      const fallbackBriefs = roleSynthesisService.generateDeterministicFallback({
-        circular: {
-          id: circular.id,
-          circularNumber: circular.circular_number,
-          regulatorCode,
-          subject: circular.subject,
-          summary: circular.summary,
-          statutoryDeadline: circular.statutory_deadline,
-          rawText: circular.raw_text || undefined,
-          obligations: obligations.length > 0 ? obligations : undefined,
-        },
-        tenant: {
-          organizationId,
-          organizationName: profile?.organizationName || 'Licensed Financial Institution',
-          matchedLicenses: applicabilityResult.matchedLicenses,
-          matchedRails: applicabilityResult.matchedRails,
-          applicabilityReason: applicabilityResult.reason,
-        },
-      });
+    const isLegacyMadLibText = (text?: string | null): boolean => {
+      if (!text || typeof text !== 'string') return true;
+      const lower = text.toLowerCase();
+      return (
+        lower.includes('on official notice') ||
+        lower.includes('enacted circular directive') ||
+        lower.includes('the directive mandates comprehensive operational compliance regarding') ||
+        lower.includes('failure to conform to the statutory mandates set out in this circular exposes') ||
+        lower.includes('the central bank of nigeria has enacted circular') ||
+        lower.includes('has enacted circular')
+      );
+    };
 
-      roleBriefs = fallbackBriefs;
-      actionItems = fallbackBriefs.actionChecklist;
+    const hasLegacyMadLib =
+      !roleBriefs ||
+      !roleBriefs.executiveBriefCco ||
+      isLegacyMadLibText(roleBriefs.executiveBriefCco) ||
+      isLegacyMadLibText(existingImpact?.executive_brief_cco);
 
-      // Upsert into radar_tenant_impacts
+    // 5. If not synthesized or previously populated with legacy Mad-Lib text, trigger dynamic re-synthesis and persist
+    if (hasLegacyMadLib) {
       try {
-        await roleSynthesisService.synthesizeRoleImpacts({
+        const synthResult = await roleSynthesisService.synthesizeRoleImpacts({
           circular: {
             id: circular.id,
             circularNumber: circular.circular_number,
@@ -183,8 +178,43 @@ export async function GET(
           },
           userId: tenantCtx.userId,
         });
+
+        roleBriefs = synthResult.output;
+        actionItems = synthResult.output.actionChecklist;
       } catch (synthErr) {
-        logger.warn({ synthErr: String(synthErr) }, 'Automatic role synthesis persistence encountered issue; returning generated briefs');
+        logger.warn(
+          { synthErr: String(synthErr) },
+          'Automatic role synthesis encountered issue; generating and saving domain-grounded fallback'
+        );
+        const fallbackBriefs = roleSynthesisService.generateDeterministicFallback({
+          circular: {
+            id: circular.id,
+            circularNumber: circular.circular_number,
+            regulatorCode,
+            subject: circular.subject,
+            summary: circular.summary,
+            statutoryDeadline: circular.statutory_deadline,
+            rawText: circular.raw_text || undefined,
+            obligations: obligations.length > 0 ? obligations : undefined,
+          },
+          tenant: {
+            organizationId,
+            organizationName: profile?.organizationName || 'Licensed Financial Institution',
+            matchedLicenses: applicabilityResult.matchedLicenses,
+            matchedRails: applicabilityResult.matchedRails,
+            applicabilityReason: applicabilityResult.reason,
+          },
+        });
+
+        roleBriefs = fallbackBriefs;
+        actionItems = fallbackBriefs.actionChecklist;
+
+        await roleSynthesisService.persistImpactAndActions(
+          organizationId,
+          circular.id,
+          crypto.randomUUID(),
+          fallbackBriefs
+        );
       }
     }
 
@@ -205,6 +235,8 @@ export async function GET(
         roleBriefs,
         actionItems,
       },
+      roleBriefs,
+      actionItems,
     });
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error(String(error));

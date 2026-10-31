@@ -5,6 +5,7 @@ import { logger } from '@/shared/logger';
 import { ObligationType, SeverityLevel, RegulatorCode, LicenseType, PaymentRail } from '@/shared/types';
 import { ApplicabilityEngine } from './applicabilityEngine';
 import { ObligationExtractionService } from './obligationExtractionService';
+import { DomSanitizer } from './domSanitizer';
 
 export interface ParsedPenalty {
   penaltyMinNaira: number;
@@ -98,11 +99,236 @@ export class ClauseSegmentationEngine {
 
     // Strategy 2: If no structured sections, parse rawText using legal regex heuristics
     if (clauses.length === 0 && rawText.trim().length > 20) {
-      const textClauses = this.extractFromRawText(rawText, regulatorCode, circularNumber, priority, statutoryDeadline);
+      const textClauses = this.extractFromRawText(rawText, regulatorCode, circularNumber, priority, statutoryDeadline, subject);
       clauses.push(...textClauses);
     }
 
     return clauses;
+  }
+
+  /**
+   * Sanitizes raw regulatory text before parsing by stripping stray website navigation artifacts,
+   * search forms, language selectors, breadcrumb trails, and template logic.
+   */
+  public static sanitizeRawText(text: string): string {
+    if (!text) return '';
+
+    const withoutWebCode = text
+      .replace(/\d+\)\s*\?\s*true\s*:\s*false["']>[\s\S]*?(?:SEARCH|Search)?/gi, ' ')
+      .replace(/\?\s*true\s*:\s*false/gi, ' ')
+      .replace(/\{\{[^}]*\}\}/g, ' ')
+      .replace(/\[(?:wp_|elementor)[^\]]*\]/gi, ' ')
+      .replace(/<[^>]+>/g, ' ');
+
+    return DomSanitizer.filterNoiseLines(withoutWebCode);
+  }
+
+  /**
+   * Deterministically determines a clean, professional statutory section heading based on operative legal keywords
+   * Avoids exposing raw scraped web code, language switchers, or template logic to bank examiners.
+   */
+  public static detectTopicHeading(paragraph: string, fallbackSubject?: string, index: number = 1): string {
+    const lower = paragraph.toLowerCase();
+
+    // 1. Check if the paragraph begins with a clean, formal heading (e.g. "Background", "Scope", "Mandate")
+    const firstLine = paragraph.split('\n')[0].replace(/[#*]/g, '').trim();
+    const isCleanFirstLine =
+      firstLine.length >= 4 &&
+      firstLine.length <= 60 &&
+      !firstLine.endsWith('.') &&
+      !firstLine.includes('?') &&
+      !firstLine.includes(':') &&
+      !firstLine.includes('http') &&
+      !firstLine.includes('search') &&
+      !firstLine.includes('elementor') &&
+      !/\b(deutsch|english|hausa|igbo|yoruba)\b/i.test(firstLine) &&
+      !/^(securities and exchange|central bank of nigeria|federal competition|nigeria data protection|advertising regulatory)/i.test(firstLine);
+
+    if (isCleanFirstLine) {
+      return firstLine;
+    }
+
+    // 2. Keyword-driven statutory topic taxonomy
+    if (
+      lower.includes('unsc') ||
+      lower.includes('sanction') ||
+      lower.includes('asset freeze') ||
+      lower.includes('freezing') ||
+      lower.includes('designated person') ||
+      lower.includes('1267') ||
+      lower.includes('1989') ||
+      lower.includes('2253')
+    ) {
+      return 'Sanctions Compliance & Asset Freeze Protocol';
+    }
+
+    if (
+      lower.includes('unlicensed') ||
+      lower.includes('illegal operator') ||
+      lower.includes('cease and desist') ||
+      lower.includes('prohibit') ||
+      lower.includes('disconnection') ||
+      lower.includes('shall not operate')
+    ) {
+      return 'Licensing Prohibition & Operating Restriction';
+    }
+
+    if (
+      /\bstrs?\b/.test(lower) ||
+      lower.includes('suspicious transaction') ||
+      lower.includes('nfiu') ||
+      lower.includes('currency transaction') ||
+      lower.includes('aml/cft') ||
+      lower.includes('due diligence') ||
+      lower.includes('kyc')
+    ) {
+      return 'AML/CFT & Suspicious Transaction Reporting Directive';
+    }
+
+    if (
+      lower.includes('report') ||
+      lower.includes('submit') ||
+      lower.includes('furnish') ||
+      lower.includes('filing') ||
+      lower.includes('mandatory disclosure') ||
+      lower.includes('monthly return') ||
+      lower.includes('quarterly return')
+    ) {
+      return 'Statutory Reporting & Disclosure Obligation';
+    }
+
+    if (
+      lower.includes('cyber') ||
+      lower.includes('data protection') ||
+      lower.includes('privacy') ||
+      lower.includes('ndpa') ||
+      lower.includes('encryption') ||
+      lower.includes('security operations')
+    ) {
+      return 'Cybersecurity & Data Privacy Protocol';
+    }
+
+    if (
+      lower.includes('capital') ||
+      lower.includes('solvency') ||
+      lower.includes('reserve') ||
+      lower.includes('minimum paid-up') ||
+      lower.includes('liquidity')
+    ) {
+      return 'Prudential Capital & Solvency Mandate';
+    }
+
+    if (
+      lower.includes('contactless') ||
+      lower.includes('switching') ||
+      lower.includes('pos') ||
+      lower.includes('settlement rail') ||
+      lower.includes('nibss') ||
+      lower.includes('payment gateway') ||
+      lower.includes('terminal')
+    ) {
+      return 'Payment Systems Operational & Settlement Guidelines';
+    }
+
+    if (
+      lower.includes('consumer') ||
+      lower.includes('fee') ||
+      lower.includes('tariff') ||
+      lower.includes('charge') ||
+      lower.includes('dispute resolution') ||
+      lower.includes('complaint')
+    ) {
+      return 'Consumer Protection & Fair Practice Mandate';
+    }
+
+    if (
+      lower.includes('fx') ||
+      lower.includes('foreign exchange') ||
+      lower.includes('remittance') ||
+      lower.includes('imto') ||
+      lower.includes('diaspora') ||
+      lower.includes('repatriation') ||
+      lower.includes('export proceeds')
+    ) {
+      return 'Foreign Exchange & Cross-Border Remittance Protocol';
+    }
+
+    if (
+      lower.includes('internal control') ||
+      lower.includes('governance') ||
+      lower.includes('board of directors') ||
+      lower.includes('risk management') ||
+      lower.includes('compliance officer')
+    ) {
+      return 'Internal Governance & Supervisory Control Baseline';
+    }
+
+    if (
+      lower.includes('restructur') ||
+      lower.includes('workforce') ||
+      lower.includes('layoff') ||
+      lower.includes('redundanc') ||
+      lower.includes('retrenchment') ||
+      lower.includes('strip down') ||
+      lower.includes('downscale') ||
+      lower.includes('downsizing') ||
+      lower.includes('shut down') ||
+      lower.includes('closure') ||
+      lower.includes('close operations') ||
+      lower.includes('severance')
+    ) {
+      return 'Corporate Restructuring & Workforce Redundancy Protocol';
+    }
+
+    if (
+      lower.includes('merger') ||
+      lower.includes('acquisition') ||
+      lower.includes('acquire') ||
+      lower.includes('takeover') ||
+      lower.includes('equity stake') ||
+      lower.includes('divestiture') ||
+      lower.includes('consolidation')
+    ) {
+      return 'Mergers, Acquisitions & Capital Realignment';
+    }
+
+    if (
+      lower.includes('court') ||
+      lower.includes('lawsuit') ||
+      lower.includes('injunction') ||
+      lower.includes('arbitration') ||
+      lower.includes('litigation') ||
+      lower.includes('judicial')
+    ) {
+      return 'Dispute Resolution & Judicial Enforcement Notice';
+    }
+
+    if (
+      lower.includes('outage') ||
+      lower.includes('downtime') ||
+      lower.includes('switch failure') ||
+      lower.includes('service disruption') ||
+      lower.includes('incident response')
+    ) {
+      return 'Operational Resilience & System Downtime Advisory';
+    }
+
+    if (
+      lower.includes('appointed') ||
+      lower.includes('resigned') ||
+      lower.includes('executive transition') ||
+      lower.includes('new ceo') ||
+      lower.includes('managing director')
+    ) {
+      return 'Executive Leadership & Governance Transition';
+    }
+
+    if (fallbackSubject && fallbackSubject.trim().length > 5) {
+      const cleanSub = DomSanitizer.cleanTitle(fallbackSubject);
+      return cleanSub.length <= 60 ? cleanSub : `Operational Intelligence Notice ${index}`;
+    }
+
+    return `Operational Intelligence Notice ${index}`;
   }
 
   /**
@@ -113,10 +339,12 @@ export class ClauseSegmentationEngine {
     regulatorCode: string,
     circularNumber: string,
     priority: string,
-    statutoryDeadline: string | null
+    statutoryDeadline: string | null,
+    subject?: string
   ): ParsedClause[] {
+    const cleanText = this.sanitizeRawText(text);
     const clauses: ParsedClause[] = [];
-    const lines = text.split(/\r?\n/).map((l) => l.trimEnd());
+    const lines = cleanText.split(/\r?\n/).map((l) => l.trimEnd());
 
     // Legal section matchers:
     // e.g. "1.0 INTRODUCTION", "2.1 Operational Requirements", "Section 5: Mandate", "Article 38(1)"
@@ -132,24 +360,36 @@ export class ClauseSegmentationEngine {
       const match = trimmed.match(headerRegex);
 
       if (match && trimmed.length < 120 && !trimmed.endsWith('.')) {
-        if (currentRef && currentLines.join('\n').trim().length > 15) {
-          sectionCount++;
-          clauses.push(
-            this.buildClauseRecord(
-              currentRef,
-              currentHeading || `Directive Section ${sectionCount}`,
-              currentLines.join('\n').trim(),
-              sectionCount,
-              regulatorCode,
-              circularNumber,
-              priority,
-              statutoryDeadline
-            )
-          );
+        const candidateHeading = match[2].trim().replace(/^[:–-]\s*/, '');
+        const isBogusHeading =
+          candidateHeading.includes('? true : false') ||
+          candidateHeading.includes('elementor') ||
+          candidateHeading.includes('SEARCH') ||
+          candidateHeading.includes('http') ||
+          /\b(deutsch|hausa|igbo|yoruba)\b/i.test(candidateHeading);
+
+        if (!isBogusHeading) {
+          if (currentRef && currentLines.join('\n').trim().length > 15) {
+            sectionCount++;
+            clauses.push(
+              this.buildClauseRecord(
+                currentRef,
+                currentHeading || `Directive Section ${sectionCount}`,
+                currentLines.join('\n').trim(),
+                sectionCount,
+                regulatorCode,
+                circularNumber,
+                priority,
+                statutoryDeadline
+              )
+            );
+          }
+          currentRef = match[1].trim();
+          currentHeading = candidateHeading;
+          currentLines = [];
+        } else if (currentRef) {
+          currentLines.push(line);
         }
-        currentRef = match[1].trim();
-        currentHeading = match[2].trim().replace(/^[:–-]\s*/, '');
-        currentLines = [];
       } else if (currentRef) {
         currentLines.push(line);
       }
@@ -173,21 +413,48 @@ export class ClauseSegmentationEngine {
 
     // If section headers were not found, fallback to paragraph chunking
     if (clauses.length === 0) {
-      const paragraphs = text
+      const paragraphs = cleanText
         .split(/\n\s*\n/)
         .map((p) => p.trim())
         .filter((p) => {
           if (p.length < 35) return false;
           const lower = p.toLowerCase();
-          if (lower.startsWith('yours faithfully') || lower.startsWith('enquiries') || lower.startsWith('circular to:')) {
+
+          // 1. Skip boilerplate letterhead / footer / signature / transmission metadata lines
+          if (
+            lower.startsWith('yours faithfully') ||
+            lower.startsWith('enquiries') ||
+            lower.startsWith('circular to:') ||
+            lower.startsWith('official document url:') ||
+            lower.startsWith('date:') ||
+            lower.startsWith('title:') ||
+            lower.startsWith('reference:') ||
+            lower.startsWith('notice reference:') ||
+            lower.startsWith('directive reference:') ||
+            lower.includes('? true : false') ||
+            lower.includes('search...') ||
+            lower.includes('powered by gtranslate') ||
+            lower.includes('powered by weglot')
+          ) {
             return false;
           }
+
+          // 2. Do not treat pure agency letterhead alone as a regulatory mandate
+          if (/^(?:securities and exchange commission|central bank of nigeria|nigeria data protection commission|advertising regulatory council|federal competition and consumer protection|nigerian financial intelligence unit|nigeria deposit insurance)\s*(?:\([^)]+\))?\s*(?:nigeria)?$/i.test(lower)) {
+            return false;
+          }
+
+          // 3. Must contain substantive statutory directives or guidance
+          const hasOperativeKeywords = /\b(shall|must|mandat|prohibit|requir|ensure|liable|submit|maintain|comply|penalty|sanction|forbidden|disclose|report|freeze|restrict|cease|effective|guideline|rule|provision|standard|framework)\b/i.test(lower);
+          if (!hasOperativeKeywords && p.length < 80) {
+            return false;
+          }
+
           return true;
         });
 
       paragraphs.forEach((p, idx) => {
-        const firstLine = p.split('\n')[0].replace(/[#*]/g, '').trim();
-        const heading = firstLine.length < 80 ? firstLine : `Regulatory Mandate ${idx + 1}`;
+        const heading = this.detectTopicHeading(p, subject, idx + 1);
         clauses.push(
           this.buildClauseRecord(
             `Section ${idx + 1}.0`,
@@ -317,7 +584,7 @@ export class ClauseSegmentationEngine {
     }
 
     // 5. Parse Statutory Financial Penalties & Liabilities
-    const penaltyMatch = text.match(/(?:₦|Naira|fine of)\s*([\d,]+(?:\.\d+)?)\s*(?:million|billion|thousand)?/i);
+    const penaltyMatch = text.match(/(?:₦|Naira|\bN(?=\s*\d)|fine of|sanction of|penalty of)\s*([\d,]+(?:\.\d+)?)\s*(?:million|billion|thousand)?/i);
     let minPenalty = 0;
     let maxPenalty = 0;
     let dailyFine = 0;
@@ -339,7 +606,7 @@ export class ClauseSegmentationEngine {
       }
     }
 
-    const dailyMatch = text.match(/(?:daily|each continuous day|compounding).*?(?:₦|Naira)\s*([\d,]+)/i);
+    const dailyMatch = text.match(/(?:daily|each continuous day|compounding).*?(?:₦|Naira|\bN(?=\s*\d)|fine of)\s*([\d,]+)/i);
     if (dailyMatch) {
       const parsedDaily = parseFloat(dailyMatch[1].replace(/,/g, ''));
       if (!isNaN(parsedDaily)) dailyFine = parsedDaily;
@@ -378,19 +645,37 @@ export class ClauseSegmentationEngine {
     const sentences = text
       .split(/(?<=[.?!])\s+/)
       .map((s) => s.replace(/^[\d\.\-\s]+/, '').trim())
-      .filter((s) => s.length > 15);
+      .filter((s) => {
+        if (s.length < 15) return false;
+        const sLower = s.toLowerCase();
+        if (
+          sLower.includes('? true : false') ||
+          sLower.includes('search...') ||
+          sLower.includes('official document url') ||
+          sLower.includes('click here to download') ||
+          sLower.includes('elementor') ||
+          /\b(deutsch|english|hausa|igbo|yoruba)\b/i.test(s)
+        ) {
+          return false;
+        }
+        return true;
+      });
 
     // Identify sentences containing operative statutory mandates
     const operativeSentences = sentences.filter((s) =>
-      /\b(shall|must|mandat|prohibit|requir|ensure|liable|submit|maintain|comply|penalty|sanction|forbidden)\b/i.test(s)
+      /\b(shall|must|mandat|prohibit|requir|ensure|liable|submit|maintain|comply|penalty|sanction|forbidden|disclose|report|freeze|restrict)\b/i.test(s)
     );
 
     const obligations: ParsedObligation[] = [];
-    const sourceSentences = operativeSentences.length > 0 ? operativeSentences.slice(0, 5) : [sentences[0] || text.trim()];
+    const sourceSentences = operativeSentences.length > 0
+      ? operativeSentences.slice(0, 5)
+      : (sentences.length > 0 ? [sentences[0]] : [text.trim()]);
 
     for (const sent of sourceSentences) {
       const clean = sent.length > 260 ? sent.substring(0, 257) + '...' : sent;
-      const summaryText = heading ? `${heading}: ${clean}` : clean;
+      const summaryText = heading && !clean.toLowerCase().startsWith(heading.toLowerCase())
+        ? `${heading}: ${clean}`
+        : clean;
 
       // Locate exact character span
       const startChar = text.indexOf(sent);

@@ -18,6 +18,10 @@ import {
   RegulatoryInstrumentPresentation,
   StatutorySection,
 } from '../types';
+import {
+  formatStatutoryIdentifier,
+  sanitizeRequirementText,
+} from '../services/obligationMetricsService';
 
 interface SideBySideDocViewerProps {
   instrument: RegulatoryInstrumentPresentation;
@@ -193,21 +197,25 @@ export function SideBySideDocViewer({
                       <h4 className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
                         Decomposed Statutory Obligations ({activeSection.obligations?.length || 0})
                       </h4>
-                      {activeSection.obligations?.map((obl) => (
+                      {activeSection.obligations?.map((obl, idx) => (
                         <div
                           key={obl.id}
                           className="bg-white border border-slate-200 rounded-lg p-3 space-y-1.5 shadow-xs"
                         >
                           <div className="flex items-center justify-between text-[11px]">
-                            <span className="font-mono font-bold text-slate-700">
-                              {obl.id}
+                            <span className="font-mono text-xs font-semibold text-slate-700">
+                              {formatStatutoryIdentifier(
+                                instrument?.regulator || 'CBN',
+                                instrument?.year || 2024,
+                                obl.id || idx + 1
+                              )}
                             </span>
-                            <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded">
+                            <span className="font-mono text-[11px] text-slate-500">
                               {obl.ruleNature}
                             </span>
                           </div>
-                          <p className="text-xs text-slate-700">
-                            {obl.summary}
+                          <p className="text-xs text-slate-700 leading-relaxed">
+                            {sanitizeRequirementText(obl.summary)}
                           </p>
                         </div>
                       ))}
