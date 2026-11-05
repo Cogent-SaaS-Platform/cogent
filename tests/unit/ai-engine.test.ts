@@ -58,7 +58,7 @@ describe('AI Engine Prompt Injection Defense & Hardening', () => {
         },
       ],
       tenantContext: {
-        organizationName: 'QuickKash Technologies Ltd',
+        organizationName: 'InstantCredit Technologies Ltd',
         activeLicenses: ['DIGITAL_LENDER_FCCPC_REGISTERED'],
         activePaymentRails: ['NIBSS_NIP'],
       },

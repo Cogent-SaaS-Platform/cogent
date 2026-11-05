@@ -4,12 +4,12 @@ import { MarketingShieldViewModel } from '@/shared/types/presentation';
 
 describe('ArconDossierService (Epic 7 / Task 7.2 - Official ARCON Pre-Clearance Dossier)', () => {
   const mockViewModel: MarketingShieldViewModel = {
-    title: 'QuickKash SMS Flash Campaign Pre-Vetting Report',
+    title: 'CreditFlow Flash Campaign Pre-Vetting Report',
     verdict: 'BLOCKING_ISSUE',
     overallRiskScore: 94,
-    deterministicPenaltyTotalNaira: 11500000,
+    deterministicPenaltyTotalNaira: 5000000,
     executiveSummary:
-      'The submitted copy for "QuickKash SMS Flash Campaign" contains critical statutory violations under Nigerian advertising regulations. Direct prohibited promises generate an aggregate deterministic fine exposure of ₦11,500,000.',
+      'The submitted copy for "CreditFlow Flash Campaign" contains critical statutory violations under Nigerian advertising regulations. Direct prohibited promises generate an aggregate deterministic fine exposure of ₦5,000,000.',
     findings: [
       {
         id: 'fnd_1',
@@ -52,7 +52,7 @@ describe('ArconDossierService (Epic 7 / Task 7.2 - Official ARCON Pre-Clearance 
     originalCopy:
       'Urgent Cash Alert! Get ₦250,000 instant loan in 5 mins directly to your account! Zero interest, 100% guaranteed approval.',
     compliantRewrite:
-      'Need urgent funds? Apply for up to ₦250,000 with QuickKash. Subject to underwriting approval. APR 30%. Licensed by FCCPC.',
+      'Need urgent funds? Apply for up to ₦250,000 with CreditFlow. Subject to underwriting approval. APR 30%. Licensed by FCCPC.',
     arconPreclearanceRequired: true,
     activeLicenseProfiles: ['FCCPC_DIGITAL_LENDER'],
   };
@@ -62,7 +62,7 @@ describe('ArconDossierService (Epic 7 / Task 7.2 - Official ARCON Pre-Clearance 
       viewModel: mockViewModel,
       applicantCcoName: 'Olumide Adebayo, Esq.',
       applicantCcoTitle: 'Chief Compliance Officer',
-      organizationName: 'QuickKash Technologies Ltd',
+      organizationName: 'CreditFlow Technologies Ltd',
     });
 
     expect(md).toBeDefined();
@@ -72,12 +72,12 @@ describe('ArconDossierService (Epic 7 / Task 7.2 - Official ARCON Pre-Clearance 
     expect(md).toContain('FORM ARCON-PV1');
 
     // Verify organization & license details
-    expect(md).toContain('QuickKash Technologies Ltd');
+    expect(md).toContain('CreditFlow Technologies Ltd');
     expect(md).toContain('FCCPC_DIGITAL_LENDER');
 
     // Verify verdict & deterministic penalties
     expect(md).toContain('BLOCKING_ISSUE');
-    expect(md).toContain('₦11,500,000');
+    expect(md).toContain('₦5,000,000');
 
     // Verify copy comparison
     expect(md).toContain(mockViewModel.originalCopy);
@@ -103,16 +103,16 @@ describe('ArconDossierService (Epic 7 / Task 7.2 - Official ARCON Pre-Clearance 
     const html = ArconDossierService.generateHtmlDossier({
       viewModel: mockViewModel,
       applicantCcoName: 'Olumide Adebayo, Esq.',
-      organizationName: 'QuickKash Technologies Ltd',
+      organizationName: 'CreditFlow Technologies Ltd',
     });
 
     expect(html).toBeDefined();
     expect(html).toContain('<!DOCTYPE html>');
     expect(html).toContain('<title>ARCON Pre-Clearance Dossier');
     expect(html).toContain('Advertising Regulatory Council of Nigeria (ARCON)');
-    expect(html).toContain('QuickKash Technologies Ltd');
+    expect(html).toContain('CreditFlow Technologies Ltd');
     expect(html).toContain('BLOCKING_ISSUE');
-    expect(html).toContain('₦11,500,000');
+    expect(html).toContain('₦5,000,000');
     expect(html).toContain('Olumide Adebayo, Esq.');
   });
 });

@@ -111,7 +111,16 @@ export async function POST(
       }
     }
 
-    // 4. Trigger active role synthesis
+    // 4. Trigger authentic Horizon Synthesis
+    const { HorizonSynthesisEngine } = await import('@/modules/radar/services/horizonSynthesisEngine');
+    const horizonResult = await HorizonSynthesisEngine.synthesizeAlert({
+      circularId: circular.id,
+      dbClient,
+      organizationId,
+      forceResynthesize: true,
+    });
+
+    // 5. Trigger active role synthesis if actionable
     const roleSynthesisService = new RoleSynthesisService({ dbClient });
     const synthResult = await roleSynthesisService.synthesizeRoleImpacts({
       circular: {
@@ -143,6 +152,7 @@ export async function POST(
         briefs: synthResult.output,
         actionItems: synthResult.output.actionChecklist,
         telemetry: synthResult.telemetry,
+        horizon: horizonResult,
       },
     });
   } catch (error: unknown) {

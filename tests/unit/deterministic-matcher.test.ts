@@ -41,7 +41,7 @@ describe('Pillar 1 Deterministic Rule Evaluator (docs/MVP.md)', () => {
 
   it('evaluates Canonical Test Scenario A (Digital Lending SMS) in < 50ms with BLOCKING_ISSUE', () => {
     const scenarioACopy =
-      'Urgent Cash Alert! Get ₦250,000 instant loan in 5 mins directly to your account! Zero interest, 100% guaranteed approval, no collateral, no credit checks. Download QuickKash app now!';
+      'Urgent Cash Alert! Get ₦250,000 instant loan in 5 mins directly to your account! Zero interest, 100% guaranteed approval, no collateral, no credit checks. Download InstantCredit app now!';
 
     // JIT warm-up
     evaluator.evaluate('Warm up copy evaluation');
@@ -69,7 +69,7 @@ describe('Pillar 1 Deterministic Rule Evaluator (docs/MVP.md)', () => {
 
   it('evaluates Canonical Test Scenario B (High-Yield Investment Ad) with BLOCKING_ISSUE', () => {
     const scenarioBCopy =
-      'Tired of inflation? Invest your Naira in PrimeYield and earn 35% risk-free annual return guaranteed! Your capital is 100% safe and backed by the government.';
+      'Tired of inflation? Invest your Naira in AlphaWealth and earn 35% risk-free annual return guaranteed! Your capital is 100% safe and backed by the government.';
 
     const result = evaluator.evaluate(scenarioBCopy);
 
@@ -91,7 +91,7 @@ describe('Pillar 1 Deterministic Rule Evaluator (docs/MVP.md)', () => {
 
   it('returns NO_ISSUE_DETECTED for compliant copy without false positives', () => {
     const compliantCopy =
-      'Access personal loans up to ₦250,000 with transparent rates and flexible repayment schedules. Subject to credit assessment. QuickKash is registered with the FCCPC.';
+      'Access personal loans up to ₦250,000 with transparent rates and flexible repayment schedules. Subject to credit assessment. InstantCredit is registered with the FCCPC.';
 
     const result = evaluator.evaluate(compliantCopy);
 

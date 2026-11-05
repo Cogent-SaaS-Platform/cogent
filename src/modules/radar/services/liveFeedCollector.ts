@@ -166,6 +166,11 @@ export class LiveFeedCollector {
 
         for (const item of items) {
           try {
+            if (DomSanitizer.isJunkTitle(item.title) || DomSanitizer.isJunkTitle(item.referenceCode)) {
+              logger.info({ title: item.title, code: item.referenceCode }, 'Skipping junk regulatory title or nav crumb');
+              continue;
+            }
+
             const fileBuf = item.rawBytes || Buffer.from(item.content, 'utf8');
             const isPdf = item.mimeType === 'application/pdf' && item.rawBytes;
             const fileExtension = isPdf ? 'pdf' : 'txt';
@@ -404,6 +409,7 @@ ${description ? `Official Scope & Addressee:\n${description}\n\n` : ''}Regulator
 
           if (
             cleanTitle.length > 15 &&
+            !DomSanitizer.isJunkTitle(cleanTitle) &&
             href.includes('/for-investors/keep-track-of-circulars/') &&
             href !== '/for-investors/keep-track-of-circulars/' &&
             !discovered.has(href)
@@ -531,6 +537,7 @@ ${cleanedBody}`;
 
           if (
             cleanTitle.length > 20 &&
+            !DomSanitizer.isJunkTitle(cleanTitle) &&
             (cleanTitle.toLowerCase().includes('data') ||
               cleanTitle.toLowerCase().includes('compliance') ||
               cleanTitle.toLowerCase().includes('ndpa') ||
@@ -647,6 +654,7 @@ ${cleanedBody}`;
 
           if (
             cleanTitle.length > 18 &&
+            !DomSanitizer.isJunkTitle(cleanTitle) &&
             (cleanTitle.toLowerCase().includes('advertis') ||
               cleanTitle.toLowerCase().includes('vetting') ||
               cleanTitle.toLowerCase().includes('directive') ||
@@ -762,6 +770,7 @@ ${cleanedBody}`;
 
           if (
             cleanTitle.length > 18 &&
+            !DomSanitizer.isJunkTitle(cleanTitle) &&
             (cleanTitle.toLowerCase().includes('lending') ||
               cleanTitle.toLowerCase().includes('consumer') ||
               cleanTitle.toLowerCase().includes('directive') ||

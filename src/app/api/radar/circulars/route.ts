@@ -19,6 +19,12 @@ export async function GET(req: NextRequest) {
     const priority = searchParams.get('priority');
     const applicableOnly = searchParams.get('applicableOnly') === 'true';
     const licenseFilter = searchParams.get('license');
+    const relevantOnly = searchParams.get('relevantOnly') === 'true';
+    const starredOnly = searchParams.get('starredOnly') === 'true';
+    const statusFilter = searchParams.get('status');
+    const docTypeFilter = searchParams.get('docType');
+    const alertTypeFilter = searchParams.get('alertType');
+    const searchQuery = searchParams.get('search')?.toLowerCase().trim();
 
     // 1. Fetch tenant operating profile (licenses & payment rails)
     const applicabilityEngine = new ApplicabilityEngine({ dbClient: db });
@@ -156,36 +162,6 @@ export async function GET(req: NextRequest) {
       const pubDate = c.issuance_date || c.created_at?.slice(0, 10) || '2025-01-15';
       const effDate = c.effective_date || c.issuance_date || c.created_at?.slice(0, 10) || pubDate;
 
-      const synthesis = DeterministicMetadataExtractor.generateExecutiveSynthesis({
-        regulatorCode,
-        circularNumber: c.circular_number,
-        subject: c.subject,
-        publicationDate: pubDate,
-        statutoryDeadline: c.statutory_deadline,
-        targetedLicenseTypes: circularTargeting.targetedLicenses,
-        affectedPaymentRails: circularTargeting.affectedRails,
-        appliesUniversally: circularTargeting.appliesUniversally,
-      });
-
-      // Generate deep multi-paragraph executive briefings across CCO, COO, CTO, CFO, CEO/CRO
-      const richBriefs = roleSynthService.generateDeterministicFallback({
-        circular: {
-          id: c.id,
-          circularNumber: c.circular_number,
-          regulatorCode,
-          subject: c.subject,
-          summary: c.summary,
-          statutoryDeadline: c.statutory_deadline,
-          rawText: c.raw_text || undefined,
-        },
-        tenant: {
-          organizationId,
-          matchedLicenses,
-          matchedRails,
-          applicabilityReason,
-        },
-      });
-
       const isLegacyMadLibText = (text?: string | null): boolean => {
         if (!text || typeof text !== 'string') return true;
         const lower = text.toLowerCase();
@@ -195,61 +171,74 @@ export async function GET(req: NextRequest) {
           lower.includes('the directive mandates comprehensive operational compliance regarding') ||
           lower.includes('failure to conform to the statutory mandates set out in this circular exposes') ||
           lower.includes('the central bank of nigeria has enacted circular') ||
-          lower.includes('has enacted circular')
+          lower.includes('has enacted circular') ||
+          lower.includes('issued circular directive') ||
+          lower.includes('supervisory intelligence briefing establishes') ||
+          lower.includes('default statutory enforcement penalties apply') ||
+          lower.includes('statutory baseline under') ||
+          lower.includes('mandatory compliance must be validated with immediate effect')
         );
       };
 
-      const executiveBriefCco =
-        existingImpact?.executive_brief_cco &&
-        existingImpact.executive_brief_cco.length > 120 &&
-        !isLegacyMadLibText(existingImpact.executive_brief_cco)
-          ? existingImpact.executive_brief_cco
-          : richBriefs.executiveBriefCco;
+      const docType = c.doc_type || 'Circular / Directive';
+      const alertType = c.alert_type || (c.priority === 'CRITICAL_EMERGENCY' || c.priority === 'HIGH' || Boolean(c.statutory_deadline) ? 'Actionable' : 'Informative');
+      const isInformative = alertType === 'Informative';
+      const matrixBriefs = (c.severity_matrix as any)?.departmentalBriefs || {};
 
-      const actionBriefCoo =
-        existingImpact?.action_brief_coo &&
-        existingImpact.action_brief_coo.length > 120 &&
-        !isLegacyMadLibText(existingImpact.action_brief_coo)
-          ? existingImpact.action_brief_coo
-          : richBriefs.actionBriefCoo;
+      const resolveBrief = (impactBrief?: string | null, matrixKey?: string, defaultInformativeText?: string) => {
+        if (impactBrief && impactBrief.length > 30 && !isLegacyMadLibText(impactBrief)) {
+          return impactBrief;
+        }
+        if (matrixKey && matrixBriefs[matrixKey] && matrixBriefs[matrixKey].length > 20 && !isLegacyMadLibText(matrixBriefs[matrixKey])) {
+          return matrixBriefs[matrixKey];
+        }
+        if (isInformative) {
+          return defaultInformativeText || 'Informative Alert — No mandatory departmental supervisory actions triggered.';
+        }
+        return undefined;
+      };
 
-      const technicalBriefProductEng =
-        existingImpact?.technical_brief_product_eng &&
-        existingImpact.technical_brief_product_eng.length > 120 &&
-        !isLegacyMadLibText(existingImpact.technical_brief_product_eng)
-          ? existingImpact.technical_brief_product_eng
-          : richBriefs.technicalBriefCto || richBriefs.technicalBriefProductEng;
+      const executiveBriefCco = resolveBrief(
+        existingImpact?.executive_brief_cco,
+        'chiefCompliance',
+        'Informative Alert — No mandatory departmental supervisory actions triggered.'
+      );
+
+      const actionBriefCoo = resolveBrief(
+        existingImpact?.action_brief_coo,
+        'operations',
+        'Informative Alert — No mandatory operational workflow changes required.'
+      );
+
+      const technicalBriefProductEng = resolveBrief(
+        existingImpact?.technical_brief_product_eng,
+        'technicalCto',
+        'Informative Alert — No technical or payload schema modifications required.'
+      );
 
       const technicalBriefCto =
-        existingImpact?.brief_cto?.summary &&
-        existingImpact.brief_cto.summary.length > 120 &&
-        !isLegacyMadLibText(existingImpact.brief_cto.summary)
-          ? existingImpact.brief_cto.summary
-          : richBriefs.technicalBriefCto || richBriefs.technicalBriefProductEng;
+        resolveBrief((existingImpact as any)?.brief_cto?.summary, 'technicalCto') || technicalBriefProductEng;
 
-      const financialBriefCfo =
-        existingImpact?.financial_brief_cfo &&
-        existingImpact.financial_brief_cfo.length > 120 &&
-        !isLegacyMadLibText(existingImpact.financial_brief_cfo)
-          ? existingImpact.financial_brief_cfo
-          : richBriefs.financialBriefCfo;
+      const financialBriefCfo = resolveBrief(
+        existingImpact?.financial_brief_cfo,
+        'financialCfo',
+        'Informative Alert — Zero balance sheet or liquidity reserve impact.'
+      );
 
-      const governanceBriefCeoCro =
-        existingImpact?.brief_ceo_cro?.summary &&
-        existingImpact.brief_ceo_cro.summary.length > 120 &&
-        !isLegacyMadLibText(existingImpact.brief_ceo_cro.summary)
-          ? existingImpact.brief_ceo_cro.summary
-          : richBriefs.governanceBriefCeoCro;
+      const governanceBriefCeoCro = resolveBrief(
+        (existingImpact as any)?.brief_ceo_cro?.summary,
+        'governanceCeoCro',
+        'Informative Alert — Routine supervisory intelligence noted for governance files.'
+      );
 
-      const generalCounselBrief =
-        existingImpact?.brief_legal?.summary &&
-        existingImpact.brief_legal.summary.length > 120 &&
-        !isLegacyMadLibText(existingImpact.brief_legal.summary)
-          ? existingImpact.brief_legal.summary
-          : richBriefs.generalCounselBrief;
+      const generalCounselBrief = resolveBrief(
+        (existingImpact as any)?.role_briefs?.generalCounsel || (existingImpact as any)?.brief_legal?.summary,
+        'generalCounsel',
+        'Informative Alert — No formal statutory penalty or licensing risk.'
+      );
 
       const actionItems =
-        existingImpact?.radar_action_items && existingImpact.radar_action_items.length > 1
+        existingImpact?.radar_action_items && existingImpact.radar_action_items.length > 0
           ? existingImpact.radar_action_items.map((act: any) => ({
               id: act.id,
               targetDepartment: act.target_department,
@@ -258,14 +247,7 @@ export async function GET(req: NextRequest) {
               suggestedDeadline: act.suggested_deadline,
               isCompleted: act.is_completed,
             }))
-          : richBriefs.actionChecklist.map((act, idx) => ({
-              id: `act_${c.id.slice(0, 8)}_${idx}`,
-              targetDepartment: act.targetDepartment,
-              actionTitle: act.actionTitle,
-              actionDescription: act.actionDescription,
-              suggestedDeadline: act.suggestedDeadline,
-              isCompleted: false,
-            }));
+          : [];
 
       const isActionable = c.priority === 'CRITICAL_EMERGENCY' || c.priority === 'HIGH' || Boolean(c.statutory_deadline);
       const severityCode = c.priority === 'CRITICAL_EMERGENCY' ? 'P1' : c.priority === 'HIGH' ? 'P2' : c.priority === 'MEDIUM' ? 'P3' : 'P4';
@@ -276,7 +258,7 @@ export async function GET(req: NextRequest) {
         ...(c.statutory_deadline ? [{ id: `dt-dl-${c.id}`, label: 'Compliance Deadline', date: c.statutory_deadline, description: 'Statutory deadline for institutional certification & audit proof' }] : [])
       ];
 
-      const auditLogs = auditLogsMap.get(c.id) || [];
+      const initialAuditLogs = auditLogsMap.get(c.id) || [];
 
       const topics = Array.from(new Set([
         regulatorCode,
@@ -321,25 +303,49 @@ export async function GET(req: NextRequest) {
         (existingImpact?.workflow_status as any) ||
         (existingImpact?.status === 'RESOLVED' ? 'Reviewed' : 'Pending Review');
 
+      const executiveSummary =
+        c.executive_summary ||
+        (c.summary && c.summary.length > 250 ? c.summary : 'Authentic synthesis pending analysis by Horizon Engine.');
+      const keyPoints = Array.isArray(c.key_points) && c.key_points.length > 0 ? c.key_points : [];
+      const departments = Array.isArray(c.impacted_departments) && c.impacted_departments.length > 0 ? c.impacted_departments : [];
+      const severityTier = c.severity_tier || 'G1';
+      const severityScore = typeof c.severity_score === 'number' ? c.severity_score : (c.priority === 'CRITICAL_EMERGENCY' ? 88 : c.priority === 'HIGH' ? 62 : 18);
+      const severityMatrixCode = `${severityTier} | ${severityScore}%`;
+      const isStarred = Boolean(c.is_starred);
+      const isRelevant = c.is_relevant !== false;
+      const workflowStatus = c.workflow_status || resolvedWorkflowStatus;
+      const comments = Array.isArray(c.comments) ? c.comments : [];
+      const otherDates = Array.isArray(c.other_dates) ? c.other_dates : [];
+      const topicsList = Array.isArray(c.topics) && c.topics.length > 0 ? c.topics : (topics.length > 0 ? topics : [regulatorCode, 'Regulatory Directive']);
+      const impactedAreas = Array.isArray(c.impacted_areas) ? c.impacted_areas : [];
+      const importantDatesList = Array.isArray(c.important_dates) && c.important_dates.length > 0 ? c.important_dates : importantDates;
+      const auditLogs = Array.isArray(c.audit_logs) && c.audit_logs.length > 0 ? c.audit_logs : initialAuditLogs;
+
       return {
         id: c.id,
         circularNumber: c.circular_number,
         regulator: regulatorCode,
         subject: c.subject,
         summary: c.summary,
-        executiveSummary: c.summary && c.summary.length > 250 ? c.summary : synthesis.executiveSummary,
-        keyPoints: synthesis.keyPoints,
-        departments: synthesis.departments,
-        docType: (c as any).doc_type || 'Circular Directive',
-        alertType: (isActionable ? 'Actionable' : 'Informative') as 'Actionable' | 'Informative',
-        isStarred: false,
-        severityMatrixCode: severityCode,
-        importantDates,
-        comments: [],
+        executiveSummary,
+        keyPoints,
+        departments,
+        docType,
+        alertType,
+        isStarred,
+        isRelevant,
+        severityTier,
+        severityScore,
+        severityMatrixCode,
+        severityMatrix: c.severity_matrix || null,
+        importantDates: importantDatesList,
+        otherDates,
+        comments,
         auditLogs,
-        workflowStatus: resolvedWorkflowStatus,
+        workflowStatus,
         assignee: resolvedAssignee,
-        topics: topics.length > 0 ? topics : [regulatorCode, 'Regulatory Directive'],
+        topics: topicsList,
+        impactedAreas,
         publicationDate: pubDate,
         effectiveDate: effDate,
         statutoryDeadline: c.statutory_deadline,
@@ -376,8 +382,32 @@ export async function GET(req: NextRequest) {
     // 5. Apply filters
     let filteredCirculars = enrichedCirculars;
 
-    if (regulator) {
-      filteredCirculars = filteredCirculars.filter((c) => c.regulator === regulator.toUpperCase());
+    if (relevantOnly) {
+      filteredCirculars = filteredCirculars.filter((c) => c.isRelevant !== false);
+    }
+
+    if (starredOnly) {
+      filteredCirculars = filteredCirculars.filter((c) => Boolean(c.isStarred));
+    }
+
+    if (statusFilter && statusFilter !== 'ALL') {
+      filteredCirculars = filteredCirculars.filter((c) => c.workflowStatus?.toLowerCase() === statusFilter.toLowerCase());
+    }
+
+    if (docTypeFilter && docTypeFilter !== 'ALL') {
+      filteredCirculars = filteredCirculars.filter((c) => c.docType?.toLowerCase() === docTypeFilter.toLowerCase());
+    }
+
+    if (alertTypeFilter && alertTypeFilter !== 'ALL') {
+      filteredCirculars = filteredCirculars.filter((c) => c.alertType?.toLowerCase() === alertTypeFilter.toLowerCase());
+    }
+
+    const sourceParam = searchParams.get('source') || regulator;
+    if (sourceParam && sourceParam !== 'ALL') {
+      const sourceList = sourceParam.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
+      if (sourceList.length > 0) {
+        filteredCirculars = filteredCirculars.filter((c) => sourceList.includes(c.regulator.toUpperCase()));
+      }
     }
 
     if (applicableOnly) {
@@ -390,9 +420,33 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    if (searchQuery) {
+      filteredCirculars = filteredCirculars.filter(
+        (c) =>
+          c.subject.toLowerCase().includes(searchQuery) ||
+          c.circularNumber.toLowerCase().includes(searchQuery) ||
+          (c.executiveSummary && c.executiveSummary.toLowerCase().includes(searchQuery)) ||
+          c.regulator.toLowerCase().includes(searchQuery)
+      );
+    }
+
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+    const pageSizeParam = searchParams.get('pageSize');
+    const pageSize = pageSizeParam ? Math.max(1, parseInt(pageSizeParam, 10)) : 0;
+    const total = filteredCirculars.length;
+    const totalPages = pageSize > 0 ? Math.max(1, Math.ceil(total / pageSize)) : 1;
+    const paginated = pageSize > 0 ? filteredCirculars.slice((page - 1) * pageSize, page * pageSize) : filteredCirculars;
+
     return NextResponse.json({
       success: true,
-      circulars: filteredCirculars,
+      circulars: paginated,
+      alerts: paginated,
+      pagination: {
+        page,
+        pageSize: pageSize || total,
+        total,
+        totalPages,
+      },
       tenantProfile: {
         organizationId,
         organizationName: profile?.organizationName || 'Authorized Tenant',

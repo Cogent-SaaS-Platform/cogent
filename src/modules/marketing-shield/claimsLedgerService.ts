@@ -224,8 +224,8 @@ export class ClaimsLedgerService {
       logger.warn({ err, organizationId }, 'Exception querying tenant_claims_ledger');
     }
 
-    // Augment with baseline institutional defaults for categories not yet customized
     const existingApprovedTexts = new Set(claims.map((c) => c.approvedText.toLowerCase()));
+
     for (const [idx, defaultClaim] of DEFAULT_INSTITUTIONAL_CLAIMS.entries()) {
       if (
         (!productCategory || defaultClaim.productCategory === productCategory) &&

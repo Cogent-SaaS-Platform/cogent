@@ -48,6 +48,12 @@ import {
 import { UpcomingDeadlinesTimeline } from './UpcomingDeadlinesTimeline';
 import { RegulatoryPressureStrip } from './RegulatoryPressureStrip';
 
+import {
+  DashboardDeadlineItem,
+  DashboardTrendingTopicItem,
+  DashboardImpactedPolicyItem,
+} from '@/app/api/dashboard/overview/route';
+
 export interface ExecutiveDashboardProps {
   onSwitchPillar?: (pillar: PlatformPillar, context?: CrossPillarLinkContext) => void;
   organizationId?: string;
@@ -61,7 +67,28 @@ export function ExecutiveDashboard({
 }: ExecutiveDashboardProps) {
   const router = useRouter();
   const [data, setData] = useState<ExecutiveOverviewData | null>(null);
+  const [dashboardData, setDashboardData] = useState<{
+    organizationId: string;
+    organizationName: string;
+    updatedAt: string;
+    upcomingDeadlines: DashboardDeadlineItem[];
+    allUpcomingDeadlines: DashboardDeadlineItem[];
+    trendingTopics: {
+      totalAlerts90d: number;
+      trendPercentage: string;
+      topics: DashboardTrendingTopicItem[];
+    };
+    mostImpactedPolicies: {
+      totalImpactedSections: number;
+      policies: DashboardImpactedPolicyItem[];
+    };
+    liveTelemetry?: any;
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [lastSyncTime, setLastSyncTime] = useState<string>(() => {
+    const now = new Date();
+    return `Updated ${now.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} · ${now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
+  });
   const [activeTab, setActiveTab] = useState<'REGULATORS' | 'DEPARTMENTS' | 'AUDIT_FEED'>('REGULATORS');
 
   // Cascade Simulator State
@@ -98,17 +125,33 @@ export function ExecutiveDashboard({
   const fetchOverview = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(
+      // 1. Fetch live dashboard aggregation endpoint
+      const dashRes = await fetch(
+        `/api/dashboard/overview?organizationId=${organizationId}&organizationName=${encodeURIComponent(
+          organizationName
+        )}`
+      );
+      if (dashRes.ok) {
+        const json = await dashRes.json();
+        if (json.success && json.data) {
+          setDashboardData(json.data);
+          const now = new Date();
+          setLastSyncTime(`Updated ${now.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} · ${now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`);
+        }
+      }
+
+      // 2. Fetch full executive overview for telemetry & export
+      const execRes = await fetch(
         `/api/executive/overview?organizationId=${organizationId}&organizationName=${encodeURIComponent(
           organizationName
         )}`
       );
-      if (res.ok) {
-        const json = await res.json();
+      if (execRes.ok) {
+        const json = await execRes.json();
         setData(json.data);
       }
     } catch (err) {
-      console.warn('Failed loading executive overview from API; using baseline data');
+      console.warn('Failed loading overview data from API; retaining current telemetry state', err);
     } finally {
       setIsLoading(false);
     }
@@ -211,13 +254,13 @@ export function ExecutiveDashboard({
 
           {/* Dynamic Sync Timestamp */}
           <span className="text-xs text-slate-500 font-mono">
-            Updated {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} · {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+            {lastSyncTime}
           </span>
 
           <button
             onClick={fetchOverview}
             disabled={isLoading}
-            className="p-1.5 text-slate-500 hover:text-slate-900 bg-white hover:bg-slate-50 rounded-lg border border-slate-200 transition-colors shadow-2xs"
+            className="p-1.5 text-slate-500 hover:text-slate-900 bg-white hover:bg-slate-50 rounded-lg border border-slate-200 transition-colors shadow-2xs cursor-pointer"
             title="Refresh Telemetry"
             aria-label="Refresh telemetry"
           >
@@ -228,7 +271,10 @@ export function ExecutiveDashboard({
 
       {/* 2. Upcoming Deadlines Interactive Timeline (Zango Style) */}
       <UpcomingDeadlinesTimeline
+        deadlines={dashboardData?.upcomingDeadlines}
         gates={data?.urgentGates}
+        onRefresh={fetchOverview}
+        onInspectDeadline={(item) => router.push(item.targetUrl)}
         onInspectGate={(gate) =>
           handleNavigate(
             gate.sourcePillar === 'radar'
@@ -244,12 +290,21 @@ export function ExecutiveDashboard({
 
       {/* 3. Regulatory Pressure Strip (Zango Style: Trending Topics + Most Impacted Policies) */}
       <RegulatoryPressureStrip
-        telemetry={data?.liveTelemetry}
+        telemetry={dashboardData?.liveTelemetry || data?.liveTelemetry}
         regulators={data?.regulatorCoverage}
-        trendingTopics={data?.trendingTopics}
-        impactedPolicies={data?.impactedPolicies}
+        trendingTopics={dashboardData?.trendingTopics?.topics || data?.trendingTopics}
+        totalAlerts90d={dashboardData?.trendingTopics?.totalAlerts90d}
+        trendPercentage={dashboardData?.trendingTopics?.trendPercentage}
+        totalImpactedSections={dashboardData?.mostImpactedPolicies?.totalImpactedSections}
+        impactedPolicies={dashboardData?.mostImpactedPolicies?.policies || data?.impactedPolicies}
         onSelectTopic={(topic) => router.push(`/insight?topic=${encodeURIComponent(topic)}`)}
-        onSelectPolicy={(policyName) => router.push(`/gap?policy=${encodeURIComponent(policyName)}`)}
+        onSelectPolicy={(policyUrlOrName) => {
+          if (policyUrlOrName.startsWith('/')) {
+            router.push(policyUrlOrName);
+          } else {
+            router.push(`/gap?policy=${encodeURIComponent(policyUrlOrName)}`);
+          }
+        }}
       />
 
       {/* MODAL 1: Interactive Cascade Orchestration Simulator */}
@@ -296,13 +351,13 @@ export function ExecutiveDashboard({
                     CBN PSM/DIR/CON/CWS/08/014 — Operational Directive on Contactless Payments
                   </option>
                   <option value="d56e2659-4f9e-4ef8-b264-af73a0d60de5">
-                    SEC SEC/CIR/VASP/2026/009 — Directive on Virtual Assets & Investment Guarantees
+                    SEC CIR/VASP/2026/009 — Directive on Virtual Assets & Investment Guarantees
                   </option>
                   <option value="cbn-cpf-2026-consumer">
-                    CBN CBN/DIR/CON/2026/04 — Digital Lending APR Transparency & Fee Cap
+                    CBN DIR/CON/2026/04 — Digital Lending APR Transparency & Fee Cap
                   </option>
                   <option value="arcon-asp-2026-promo">
-                    ARCON ARCON/DIR/2026/01 — Advertising Vetting & Direct Identification
+                    ARCON DIR/2026/01 — Advertising Vetting & Direct Identification
                   </option>
                 </select>
               </div>

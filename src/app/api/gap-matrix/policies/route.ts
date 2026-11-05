@@ -3,6 +3,7 @@ import { PolicyIngestionService } from '@/modules/gap-matrix/services/policyInge
 import { getTenantContext } from '@/shared/auth';
 import { OrgDepartment } from '@/shared/types';
 import { logger } from '@/shared/logger';
+import { verifyEntitlement } from '@/lib/plans';
 
 /**
  * GET /api/gap-matrix/policies
@@ -90,6 +91,13 @@ export async function POST(req: NextRequest) {
   try {
     const contentType = req.headers.get('content-type') || '';
     const tenantCtx = await getTenantContext();
+
+    // Enforce quota on policy document uploads
+    const entitlement = await verifyEntitlement(tenantCtx.dbClient, tenantCtx.organizationId, 'POLICY_UPLOAD');
+    if (!entitlement.allowed) {
+      return NextResponse.json(entitlement.errorPayload, { status: entitlement.statusCode });
+    }
+
     const policyIngestionService = new PolicyIngestionService({ dbClient: tenantCtx.dbClient });
 
     const organizationId = tenantCtx.organizationId;

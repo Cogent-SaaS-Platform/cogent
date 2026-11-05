@@ -73,8 +73,9 @@ export class DomSanitizer {
       .replace(/<div\b[^>]*class=["'][^"']*\b(?:language-switcher|weglot|gtranslate|lang-switch|language-selector|country-selector)\b[^"']*["'][^>]*>[\s\S]*?<\/div>/gi, ' ')
       .replace(/<ul\b[^>]*class=["'][^"']*\b(?:language-switcher|weglot|gtranslate|lang-switch)\b[^"']*["'][^>]*>[\s\S]*?<\/ul>/gi, ' ')
       
-      // 4. Strip sidebars, widget areas, breadcrumbs, social share bars
-      .replace(/<div\b[^>]*class=["'][^"']*\b(?:sidebar|widget-area|secondary|breadcrumbs|yoast-breadcrumbs|social-share|share-buttons|cookie-banner|consent-banner)\b[^"']*["'][^>]*>[\s\S]*?<\/div>/gi, ' ')
+      // 4. Strip sidebars, widget areas, breadcrumbs, social share bars, testimonials & reviews
+      .replace(/<div\b[^>]*class=["'][^"']*\b(?:sidebar|widget-area|secondary|breadcrumbs|yoast-breadcrumbs|social-share|share-buttons|cookie-banner|consent-banner|testimonial|testimonials|customer-review|reviews|feedback|quote-box)\b[^"']*["'][^>]*>[\s\S]*?<\/div>/gi, ' ')
+      .replace(/<section\b[^>]*class=["'][^"']*\b(?:testimonial|testimonials|reviews|feedback)\b[^"']*["'][^>]*>[\s\S]*?<\/section>/gi, ' ')
       .replace(/<aside\b[^<]*(?:(?!<\/aside>)<[^<]*)*<\/aside>/gi, ' ')
 
       // 5. Strip inline conditional JavaScript & WordPress template artifacts (e.g. '40) ? true : false"> SEARCH...')
@@ -120,6 +121,91 @@ export class DomSanitizer {
     text = text.replace(/^[:\s–—\-]+/, '').trim();
 
     return text;
+  }
+
+  /**
+   * Identifies and rejects generic navigation items, category headings, and bare regulator names
+   * from becoming corrupted regulatory alert records.
+   */
+  public static isJunkTitle(rawTitle: string): boolean {
+    if (!rawTitle) return true;
+    const clean = this.cleanTitle(rawTitle).trim().toLowerCase();
+    if (clean.length < 10) return true;
+
+    const junkExact = [
+      'circular',
+      'circulars',
+      'directive',
+      'directives',
+      'notice',
+      'notices',
+      'press release',
+      'press releases',
+      'news',
+      'news and events',
+      'media',
+      'publications',
+      'regulatory framework',
+      'consumer rights',
+      'consumer responsibilities',
+      'consumer rights & responsibilities',
+      'consumer rights and responsibilities',
+      'civil society/consumer protection alliances',
+      'civil society / consumer protection alliances',
+      'data controllers/processors registration',
+      'data controllers / processors registration',
+      'registered data controllers/data processors of major importance',
+      'federal competition & consumer protection commission',
+      'federal competition and consumer protection commission',
+      'central bank of nigeria',
+      'nigeria data protection commission',
+      'securities and exchange commission',
+      'advertising regulatory council of nigeria',
+      'nigerian financial intelligence unit',
+      'nigeria deposit insurance corporation',
+      'guidelines',
+      'framework',
+      'policies',
+      'downloads',
+      'resources',
+      'blog',
+      'events',
+      'privacy policy',
+      'terms of service',
+      'terms and conditions',
+      'disclaimer',
+      'faqs',
+      'frequently asked questions',
+    ];
+
+    if (junkExact.includes(clean)) return true;
+
+    // Reject bare regulator labels
+    if (/^(cbn|sec|ndpc|fccpc|arcon|nfiu|ndic)(\s+(circular|directive|notice|guideline|portal|website|gazette))?$/i.test(clean)) {
+      return true;
+    }
+
+    // Reject study tours, delegations, courtesy visits, and PR news events
+    if (
+      clean.includes('study tour') ||
+      clean.includes('sri lankan') ||
+      clean.includes('delegation on') ||
+      clean.includes('hosts delegation') ||
+      clean.includes('courtesy visit') ||
+      clean.includes('paid a visit') ||
+      clean.includes('commemorates') ||
+      clean.includes('celebrates')
+    ) {
+      return true;
+    }
+
+    // Reject navigation crumbs e.g. "Home > Circulars", "Home / News", etc.
+    if (/^(home|about|contact|services|portal|login|register|search|menu|sitemap)\b/i.test(clean)) return true;
+
+    // Reject title if it contains only punctuation or digits
+    if (/^[^a-zA-Z]+$/.test(clean)) return true;
+
+    return false;
   }
 
   /**
@@ -289,6 +375,24 @@ export class DomSanitizer {
 
       // Check 6: Copyright / footer one-liners
       if (/^©\s*\d{4}.*?(?:all rights reserved|securities and exchange commission|central bank of nigeria)/i.test(line)) {
+        continue;
+      }
+
+      // Check 7: Customer testimonials & thank-you letters
+      if (
+        lower.includes('express my appreciation to the commission') ||
+        lower.includes('appreciation to the commission') ||
+        lower.includes('thank you for helping me recover') ||
+        lower.includes('thank you for your unending and unwavering support') ||
+        lower.includes('get my refund back') ||
+        lower.includes('recover my n200,000') ||
+        lower.includes('recover my n') ||
+        lower.includes('fake television') ||
+        lower.includes('fraudulent vendor') ||
+        lower.includes('dear fccpc') ||
+        lower.includes('keep up the good work! warm regards') ||
+        lower.includes('warm regards, oyewoji')
+      ) {
         continue;
       }
 

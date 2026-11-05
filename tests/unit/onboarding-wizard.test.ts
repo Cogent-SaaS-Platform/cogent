@@ -4,10 +4,10 @@ import { OnboardingState } from '@/modules/onboarding/types';
 describe('TASK-08: Institutional Onboarding Wizard & onb.webp Alignment', () => {
   it('validates state progression with optional RC Number and custom OTHER role', () => {
     const initialState: OnboardingState = {
-      companyName: 'KoraPay Technologies Ltd',
+      companyName: 'PayDirect Technologies Ltd',
       companySize: '51-200',
       rcNumber: '', // Explicitly optional
-      companyWebsite: 'korapay.ng',
+      companyWebsite: 'paydirect.ng',
       industryCategory: 'Payment Services',
       department: 'OTHER',
       customDepartment: 'Internal Supervisory Sandbox',
@@ -22,13 +22,13 @@ describe('TASK-08: Institutional Onboarding Wizard & onb.webp Alignment', () => 
       invitedMembers: [
         {
           id: 'mem_1',
-          email: 'cco@korapay.ng',
+          email: 'cco@paydirect.ng',
           role: 'OWNER',
           department: 'COMPLIANCE_LEGAL',
         },
         {
           id: 'mem_2',
-          email: 'audit@korapay.ng',
+          email: 'audit@paydirect.ng',
           role: 'ADMIN',
           department: 'OPERATIONS',
         },

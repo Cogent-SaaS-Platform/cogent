@@ -15,6 +15,7 @@ import {
   Layers,
   BookOpen,
   ExternalLink,
+  Trash2,
 } from 'lucide-react';
 import { GapAnalysisSummaryItem } from '@/app/api/gap-matrix/evaluations/route';
 import { RegulatorCode } from '@/shared/types';
@@ -26,6 +27,7 @@ interface GapAnalysisListViewProps {
   onOpenNewAnalysisDrawer: () => void;
   onOpenUploadDrawer: () => void;
   onOpenDossierModal: () => void;
+  onDeleteAnalysis?: (analysisId: string) => void;
 }
 
 function formatRelativeTime(dateString: string): string {
@@ -64,6 +66,7 @@ export function GapAnalysisListView({
   onOpenNewAnalysisDrawer,
   onOpenUploadDrawer,
   onOpenDossierModal,
+  onDeleteAnalysis,
 }: GapAnalysisListViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'IN_PROGRESS' | 'COMPLETED'>('ALL');
@@ -292,6 +295,23 @@ export function GapAnalysisListView({
                           <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
                           <span>Export Defense Dossier</span>
                         </button>
+                        {onDeleteAnalysis && (
+                          <div className="border-t border-slate-100 my-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveMenuId(null);
+                                if (confirm(`Are you sure you want to delete "${item.analysisName}"? This action cannot be undone.`)) {
+                                  onDeleteAnalysis(item.id);
+                                }
+                              }}
+                              className="w-full text-left px-3.5 py-2 hover:bg-rose-50 font-medium text-rose-600 flex items-center gap-2"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 text-rose-500" />
+                              <span>Delete Analysis</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -343,27 +363,33 @@ export function GapAnalysisListView({
                 </div>
 
                 {/* Hairline Divider (Zango temp (11).png) */}
-                <div className="mt-4 pt-3.5 border-t border-slate-100 flex flex-wrap items-center justify-between text-xs text-slate-500 gap-y-2">
-                  <div className="flex items-center gap-4 text-xs">
-                    <span className="inline-flex items-center gap-1.5 font-medium text-slate-600">
-                      <FileText className="w-3.5 h-3.5 text-slate-400" />
-                      1 Regulation
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 font-medium text-slate-600">
-                      <BookOpen className="w-3.5 h-3.5 text-slate-400" />
-                      1 Policies
-                    </span>
-                    <span className="font-medium text-slate-600">
-                      {item.closedCount > 0
-                        ? `${Math.round((item.closedCount / total) * 100)}% Closed`
-                        : '0% Closed'}
-                    </span>
-                  </div>
+                {(() => {
+                  const regCount = item.regulationIds && item.regulationIds.length > 0 ? item.regulationIds.length : 1;
+                  const polCount = item.policyIds && item.policyIds.length > 0 ? item.policyIds.length : 1;
+                  return (
+                    <div className="mt-4 pt-3.5 border-t border-slate-100 flex flex-wrap items-center justify-between text-xs text-slate-500 gap-y-2">
+                      <div className="flex items-center gap-4 text-xs">
+                        <span className="inline-flex items-center gap-1.5 font-medium text-slate-600">
+                          <FileText className="w-3.5 h-3.5 text-slate-400" />
+                          {regCount} {regCount === 1 ? 'Regulation' : 'Regulations'}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 font-medium text-slate-600">
+                          <BookOpen className="w-3.5 h-3.5 text-slate-400" />
+                          {polCount} {polCount === 1 ? 'Policy' : 'Policies'}
+                        </span>
+                        <span className="font-medium text-slate-600">
+                          {item.closedCount > 0
+                            ? `${Math.round((item.closedCount / total) * 100)}% Closed`
+                            : '0% Closed'}
+                        </span>
+                      </div>
 
-                  <div className="flex items-center gap-1 text-[11px] text-slate-400">
-                    <span>{formatRelativeTime(item.lastModifiedAt)}</span>
-                  </div>
-                </div>
+                      <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                        <span>{formatRelativeTime(item.lastModifiedAt)}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}

@@ -9,6 +9,7 @@ export * from './claimsLedgerService';
 export * from './driftWatcherService';
 export * from './auditDefenseExporter';
 export * from './services/marketingCascadeListener';
+export * from './services/marketingComplianceService';
 export * from './marketingShieldService';
 export * from './ui';
 

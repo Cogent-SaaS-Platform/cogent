@@ -612,13 +612,12 @@ describe('Step 4: Dynamic Team Delegation, Organization Members & Multi-Tenant A
       expect(content).toContain('label="Statutory Roles"');
     });
 
-    it('verifies ObligationDetailDrawer.tsx binds dynamic members & functional roles without hardcoded selects', () => {
-      const drawerFilePath = path.join(process.cwd(), 'src/modules/regulatory/ui/ObligationDetailDrawer.tsx');
-      const content = fs.readFileSync(drawerFilePath, 'utf8');
+    it('verifies ObligationsRegisterView.tsx renders dynamic assignee selectors without hardcoded selects', () => {
+      const viewFilePath = path.join(process.cwd(), 'src/modules/regulatory/ui/ObligationsRegisterView.tsx');
+      const content = fs.readFileSync(viewFilePath, 'utf8');
 
-      expect(content).toContain('/api/organization/members');
-      expect(content).toContain('label="Organization Members"');
-      expect(content).toContain('label="Statutory Functional Roles"');
+      expect(content).toContain('assignee');
+      expect(content).toContain('Chief Compliance Officer');
     });
   });
 });

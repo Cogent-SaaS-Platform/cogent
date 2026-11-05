@@ -31,6 +31,7 @@ import {
   Laptop,
   Zap,
   Loader2,
+  Scale,
 } from 'lucide-react';
 
 type SettingsTab =
@@ -79,6 +80,25 @@ export default function SettingsPage() {
     marketingScanQuota: number;
     policyDocumentQuota: number;
   } | null>(null);
+  const [telemetryData, setTelemetryData] = useState<{
+    effectiveTier: 'TRIAL' | 'STARTER' | 'PRO' | 'ENTERPRISE';
+    status: string;
+    isActive: boolean;
+    isTrial: boolean;
+    isReadOnly: boolean;
+    isInGracePeriod: boolean;
+    trialEndsAt: string | null;
+    daysRemaining: number;
+    usage: {
+      marketingCampaigns: { used: number; limit: number; isUnlimited: boolean };
+      gapAnalyses: { used: number; limit: number; isUnlimited: boolean };
+      regulationIngestions: { used: number; limit: number; isUnlimited: boolean };
+      policiesUploaded: { used: number; limit: number; isUnlimited: boolean };
+      teamSeats: { used: number; limit: number; isUnlimited: boolean };
+    };
+  } | null>(null);
+  const [isSwitchingTier, setIsSwitchingTier] = useState(false);
+  const [tierSwitchToast, setTierSwitchToast] = useState<string | null>(null);
   const [checkoutFeedback, setCheckoutFeedback] = useState<string | null>(null);
   const [billingHistory, setBillingHistory] = useState<
     {
@@ -103,8 +123,13 @@ export default function SettingsPage() {
 
         if (subRes.ok && subRes.headers.get('content-type')?.includes('application/json')) {
           const subJson = await subRes.json();
-          if (subJson.success && subJson.data?.subscription) {
-            setSubscriptionData(subJson.data.subscription);
+          if (subJson.success) {
+            if (subJson.data?.subscription) {
+              setSubscriptionData(subJson.data.subscription);
+            }
+            if (subJson.data?.telemetry) {
+              setTelemetryData(subJson.data.telemetry);
+            }
           }
         }
 
@@ -120,6 +145,41 @@ export default function SettingsPage() {
     }
     loadBillingData();
   }, []);
+
+  const handleDevSwitchTier = async (
+    targetTier: 'TRIAL' | 'STARTER' | 'PRO' | 'ENTERPRISE',
+    simulateExpired = false
+  ) => {
+    try {
+      setIsSwitchingTier(true);
+      const res = await fetch('/api/billing/dev-switch-tier', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tier: targetTier, simulateExpired }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setTierSwitchToast(data.message);
+        // Refresh telemetry and subscription data immediately
+        const subRes = await fetch('/api/billing/subscription');
+        if (subRes.ok) {
+          const subJson = await subRes.json();
+          if (subJson.success) {
+            if (subJson.data?.subscription) setSubscriptionData(subJson.data.subscription);
+            if (subJson.data?.telemetry) setTelemetryData(subJson.data.telemetry);
+          }
+        }
+      } else {
+        setTierSwitchToast(`Error: ${data.error || 'Failed to switch tier'}`);
+      }
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      setTierSwitchToast(`Error switching plan: ${error.message}`);
+    } finally {
+      setIsSwitchingTier(false);
+      setTimeout(() => setTierSwitchToast(null), 4000);
+    }
+  };
 
 
   const handleCheckout = async (tier: 'STARTER' | 'PRO' | 'ENTERPRISE') => {
@@ -1334,79 +1394,277 @@ export default function SettingsPage() {
         )}
 
         {/* ───────────────────────────────────────────────────────────────────
-            TAB 6: PLAN (Faithful reproduction of ui_ref/pricing.jpg + Phase 2 Message)
+            TAB 6: PLAN (Phase 6 Real-Time Telemetry & Production Entitlements)
             ─────────────────────────────────────────────────────────────────── */}
         {activeTab === 'plan' && (
           <div className="space-y-8 animate-in fade-in duration-200">
-            {/* Live Subscription Status Banner */}
-            {subscriptionData && (
-              <div
-                className={`p-5 rounded-2xl border flex items-start justify-between gap-4 shadow-xs ${
-                  subscriptionData.isReadOnly
-                    ? 'bg-[#FEF2F2] border-[#FECACA] text-[#991B1B]'
-                    : subscriptionData.isInGracePeriod
-                    ? 'bg-[#FFFBEB] border-[#FDE68A] text-[#92400E]'
-                    : 'bg-[#F0FDF4] border-[#BBF7D0] text-[#166534]'
-                }`}
-              >
-                <div className="flex items-start gap-3.5">
-                  <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-                      subscriptionData.isReadOnly
-                        ? 'bg-[#FEE2E2] text-[#DC2626]'
-                        : subscriptionData.isInGracePeriod
-                        ? 'bg-[#FEF3C7] text-[#D97706]'
-                        : 'bg-[#DCFCE7] text-[#16A34A]'
-                    }`}
-                  >
-                    {subscriptionData.isReadOnly ? (
-                      <ShieldAlert className="w-5 h-5" />
-                    ) : subscriptionData.isInGracePeriod ? (
-                      <AlertCircle className="w-5 h-5" />
-                    ) : (
-                      <CheckCircle2 className="w-5 h-5" />
-                    )}
+            {/* Developer / Founder Test Mode Switcher Bench */}
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700">
+                    Developer &amp; Founder Sandbox Bench
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Instantly switch workspace entitlement tier in 1-click to test quota gates, upgrade popovers, and read-only mode.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  disabled={isSwitchingTier}
+                  onClick={() => handleDevSwitchTier('TRIAL', false)}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
+                    telemetryData?.effectiveTier === 'TRIAL' && !telemetryData?.isReadOnly
+                      ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  Trial (Active)
+                </button>
+                <button
+                  type="button"
+                  disabled={isSwitchingTier}
+                  onClick={() => handleDevSwitchTier('TRIAL', true)}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
+                    telemetryData?.effectiveTier === 'TRIAL' && telemetryData?.isReadOnly
+                      ? 'bg-rose-900 text-white border-rose-900 shadow-xs'
+                      : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50'
+                  }`}
+                >
+                  Trial (Expired)
+                </button>
+                <button
+                  type="button"
+                  disabled={isSwitchingTier}
+                  onClick={() => handleDevSwitchTier('STARTER')}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
+                    telemetryData?.effectiveTier === 'STARTER'
+                      ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  Starter
+                </button>
+                <button
+                  type="button"
+                  disabled={isSwitchingTier}
+                  onClick={() => handleDevSwitchTier('PRO')}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
+                    telemetryData?.effectiveTier === 'PRO'
+                      ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  Pro Tier
+                </button>
+                <button
+                  type="button"
+                  disabled={isSwitchingTier}
+                  onClick={() => handleDevSwitchTier('ENTERPRISE')}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
+                    telemetryData?.effectiveTier === 'ENTERPRISE'
+                      ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  Enterprise
+                </button>
+              </div>
+            </div>
+
+            {/* Tier Switch Toast */}
+            {tierSwitchToast && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center justify-between">
+                <span>{tierSwitchToast}</span>
+                <button
+                  type="button"
+                  onClick={() => setTierSwitchToast(null)}
+                  className="font-bold underline ml-2 cursor-pointer"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+
+            {/* Real-Time Plan & Quota Telemetry Card (Replaces contradictory 10/month banner) */}
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+              <div className="p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-6 border-b border-slate-100 bg-slate-50/40">
+                <div className="space-y-1.5 max-w-xl">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        telemetryData?.isReadOnly
+                          ? 'bg-rose-500'
+                          : telemetryData?.isInGracePeriod
+                          ? 'bg-amber-500'
+                          : 'bg-emerald-500'
+                      }`}
+                    />
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-900 font-mono">
+                      {telemetryData?.isReadOnly
+                        ? 'CURRENT STATUS: WORKSPACE IN READ-ONLY ARCHIVE MODE'
+                        : telemetryData?.isTrial
+                        ? `CURRENT STATUS: 7-DAY INSTITUTIONAL EVALUATION PILOT (${telemetryData.daysRemaining} ${
+                            telemetryData.daysRemaining === 1 ? 'DAY' : 'DAYS'
+                          } REMAINING)`
+                        : telemetryData?.isInGracePeriod
+                        ? `CURRENT STATUS: ${telemetryData.effectiveTier} TIER (7-DAY GRACE PERIOD ACTIVE)`
+                        : `CURRENT STATUS: ${telemetryData?.effectiveTier || subscriptionData?.tier} TIER (ACTIVE)`}
+                    </span>
                   </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold uppercase tracking-wider">
-                        Current Status: {subscriptionData.tier} Tier ({subscriptionData.status.toUpperCase()})
-                      </span>
-                      {subscriptionData.isInGracePeriod && (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#FEF3C7] text-[#B45309] border border-[#FDE68A]">
-                          7-DAY GRACE PERIOD ACTIVE
-                        </span>
-                      )}
-                      {subscriptionData.isReadOnly && (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#FEE2E2] text-[#DC2626] border border-[#FECACA]">
-                          READ-ONLY ARCHIVE MODE
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs leading-relaxed opacity-90">
-                      {subscriptionData.isReadOnly
-                        ? 'Your active subscription or trial has concluded. Your historical marketing scans, audit trails, and policy evaluations remain preserved in read-only mode. Upgrade below to resume live statutory scanning.'
-                        : subscriptionData.isInGracePeriod
-                        ? 'Payment renewal is past due. Full scanning and AI features remain active during your 7-day grace period. Please update payment method to avoid interruption.'
-                        : subscriptionData.status === 'trialing'
-                        ? 'Your organization is currently operating on an unrestricted 7-day institutional evaluation trial.'
-                        : 'Your subscription is active with full access to institutional compliance engines.'}
-                    </p>
-                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    {telemetryData?.isReadOnly
+                      ? 'Your organization’s 7-day institutional evaluation trial has concluded. Existing marketing audits, gap analyses, and circular briefs remain preserved in read-only mode. Upgrade below to resume active compliance scans.'
+                      : telemetryData?.isTrial
+                      ? 'Operating on a 7-day institutional evaluation trial. Usage quotas are tracked live from the database below. Upgrade anytime to unlock unmetered volume, multimodal flyer audits, and criteria editing.'
+                      : telemetryData?.isInGracePeriod
+                      ? 'Payment renewal is past due. Full scanning and compliance features remain active during your 7-day grace period. Please update your payment method.'
+                      : 'Your institutional subscription is active with full access to sovereign Nigerian compliance engines and autonomous cascade governance.'}
+                  </p>
                 </div>
 
-                <div className="hidden sm:flex flex-col items-end shrink-0 text-right">
-                  <span className="text-[10px] uppercase font-bold tracking-wider opacity-75">
-                    Scan Allowance
-                  </span>
-                  <span className="text-sm font-black font-mono">
-                    {subscriptionData.marketingScanQuota === -1
-                      ? 'UNLIMITED'
-                      : `${subscriptionData.marketingScanQuota} / month`}
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="text-xs font-mono text-slate-500">
+                    Cycle renewal: {subscriptionData?.trialEndsAt ? new Date(subscriptionData.trialEndsAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Monthly'}
                   </span>
                 </div>
               </div>
-            )}
+
+              {/* 4 Live Usage Telemetry Counters with Hairline Dividers per AGENTS.md */}
+              <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-slate-200 bg-white">
+                {/* Metric 1: Marketing Campaigns */}
+                <div className="p-5 space-y-2">
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                    Marketing Campaigns
+                  </span>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-slate-900 font-mono text-xl md:text-2xl font-bold tracking-tight">
+                      {telemetryData?.usage.marketingCampaigns.used ?? 0}
+                    </span>
+                    <span className="text-xs font-mono text-slate-500">
+                      / {telemetryData?.usage.marketingCampaigns.isUnlimited ? 'Unlimited' : telemetryData?.usage.marketingCampaigns.limit ?? 3}
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className="bg-slate-900 h-1.5 rounded-full transition-all duration-300"
+                      style={{
+                        width: telemetryData?.usage.marketingCampaigns.isUnlimited
+                          ? '100%'
+                          : `${Math.min(
+                              100,
+                              Math.round(
+                                ((telemetryData?.usage.marketingCampaigns.used ?? 0) /
+                                  (telemetryData?.usage.marketingCampaigns.limit || 1)) *
+                                  100
+                              )
+                            )}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Metric 2: Policy Gap Analyses */}
+                <div className="p-5 space-y-2">
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                    Policy Gap Analyses
+                  </span>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-slate-900 font-mono text-xl md:text-2xl font-bold tracking-tight">
+                      {telemetryData?.usage.gapAnalyses.used ?? 0}
+                    </span>
+                    <span className="text-xs font-mono text-slate-500">
+                      / {telemetryData?.usage.gapAnalyses.isUnlimited ? 'Unlimited' : telemetryData?.usage.gapAnalyses.limit ?? 1}
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className="bg-slate-900 h-1.5 rounded-full transition-all duration-300"
+                      style={{
+                        width: telemetryData?.usage.gapAnalyses.isUnlimited
+                          ? '100%'
+                          : `${Math.min(
+                              100,
+                              Math.round(
+                                ((telemetryData?.usage.gapAnalyses.used ?? 0) /
+                                  (telemetryData?.usage.gapAnalyses.limit || 1)) *
+                                  100
+                              )
+                            )}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Metric 3: Regulation Ingestions */}
+                <div className="p-5 space-y-2">
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                    Regulation Ingestions
+                  </span>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-slate-900 font-mono text-xl md:text-2xl font-bold tracking-tight">
+                      {telemetryData?.usage.regulationIngestions.used ?? 0}
+                    </span>
+                    <span className="text-xs font-mono text-slate-500">
+                      / {telemetryData?.usage.regulationIngestions.isUnlimited ? 'Unlimited' : telemetryData?.usage.regulationIngestions.limit ?? 1}
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className="bg-slate-900 h-1.5 rounded-full transition-all duration-300"
+                      style={{
+                        width: telemetryData?.usage.regulationIngestions.isUnlimited
+                          ? '100%'
+                          : `${Math.min(
+                              100,
+                              Math.round(
+                                ((telemetryData?.usage.regulationIngestions.used ?? 0) /
+                                  (telemetryData?.usage.regulationIngestions.limit || 1)) *
+                                  100
+                              )
+                            )}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Metric 4: Team Seats */}
+                <div className="p-5 space-y-2">
+                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                    Team Seats
+                  </span>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-slate-900 font-mono text-xl md:text-2xl font-bold tracking-tight">
+                      {telemetryData?.usage.teamSeats.used ?? 1}
+                    </span>
+                    <span className="text-xs font-mono text-slate-500">
+                      / {telemetryData?.usage.teamSeats.isUnlimited ? 'Unlimited' : telemetryData?.usage.teamSeats.limit ?? 2}
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className="bg-slate-900 h-1.5 rounded-full transition-all duration-300"
+                      style={{
+                        width: telemetryData?.usage.teamSeats.isUnlimited
+                          ? '100%'
+                          : `${Math.min(
+                              100,
+                              Math.round(
+                                ((telemetryData?.usage.teamSeats.used ?? 1) /
+                                  (telemetryData?.usage.teamSeats.limit || 1)) *
+                                  100
+                              )
+                            )}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
 
             {/* Error or feedback message */}
             {checkoutFeedback && (
@@ -1425,8 +1683,8 @@ export default function SettingsPage() {
             {/* Pricing Section Header */}
             <div className="text-center max-w-2xl mx-auto space-y-3 pt-2">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-[#DDE3EE] shadow-2xs text-xs font-semibold text-[#0B0F1A]">
-                <Zap className="w-3.5 h-3.5 text-[#0066FF]" />
-                <span>Nigerian Regulatory Intelligence & FinTech Compliance Tiers</span>
+                <Scale className="w-3.5 h-3.5 text-[#0066FF]" />
+                <span>Nigerian Regulatory Intelligence &amp; FinTech Compliance Tiers</span>
               </div>
               <h2 className="text-3xl font-extrabold text-[#0B0F1A] tracking-tight">
                 Predictable, Institutional SaaS Pricing
@@ -1442,7 +1700,7 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => setBillingInterval('monthly')}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                       billingInterval === 'monthly'
                         ? 'bg-white text-[#0B0F1A] shadow-xs'
                         : 'text-[#64748B] hover:text-[#0B0F1A]'
@@ -1453,7 +1711,7 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => setBillingInterval('annual')}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                       billingInterval === 'annual'
                         ? 'bg-white text-[#0B0F1A] shadow-xs'
                         : 'text-[#64748B] hover:text-[#0B0F1A]'
@@ -1471,7 +1729,7 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => setCurrencyDisplay('USD')}
-                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                       currencyDisplay === 'USD'
                         ? 'bg-white text-[#0B0F1A] shadow-xs'
                         : 'text-[#64748B] hover:text-[#0B0F1A]'
@@ -1482,7 +1740,7 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     onClick={() => setCurrencyDisplay('NGN')}
-                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                       currencyDisplay === 'NGN'
                         ? 'bg-white text-[#0B0F1A] shadow-xs'
                         : 'text-[#64748B] hover:text-[#0B0F1A]'
@@ -1503,7 +1761,7 @@ export default function SettingsPage() {
                     <div className="flex items-center justify-between">
                       <h3 className="text-xl font-bold text-[#0B0F1A]">Starter</h3>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#ECEFF3] text-[#4B5565]">
-                        Seed FinTechs
+                        Seed FinTechs &amp; MFBs
                       </span>
                     </div>
                     <p className="text-xs text-[#4B5565] mt-1.5 leading-relaxed">
@@ -1522,7 +1780,11 @@ export default function SettingsPage() {
                     </div>
                     <p className="text-[11px] text-[#64748B] mt-1 font-mono">
                       {currencyDisplay === 'USD'
-                        ? `Billed in NGN via Paystack (~₦300k/mo)`
+                        ? billingInterval === 'monthly'
+                          ? `Billed in NGN via Paystack (~₦300k/mo)`
+                          : `Billed annually at $1,990/yr`
+                        : billingInterval === 'monthly'
+                        ? `Billed monthly at ₦300,000/mo`
                         : `Billed annually at ₦3,000,000/yr`}
                     </p>
                   </div>
@@ -1555,43 +1817,43 @@ export default function SettingsPage() {
                         <div className="w-4 h-4 rounded-full bg-[#0B0F1A] text-white flex items-center justify-center shrink-0">
                           <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
-                        <span>50 marketing scans / month</span>
+                        <span>25 Marketing Studio campaigns / month</span>
                       </li>
                       <li className="flex items-center gap-2.5">
                         <div className="w-4 h-4 rounded-full bg-[#0B0F1A] text-white flex items-center justify-center shrink-0">
                           <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
-                        <span>25 AI compliant rewrites</span>
+                        <span>100 Inline Canvas compliant rewrites / month</span>
                       </li>
                       <li className="flex items-center gap-2.5">
                         <div className="w-4 h-4 rounded-full bg-[#0B0F1A] text-white flex items-center justify-center shrink-0">
                           <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
-                        <span>ARCON Standard PDF Dossier</span>
+                        <span>Standard Pre-Clearance PDF Dossier export</span>
                       </li>
                       <li className="flex items-center gap-2.5">
                         <div className="w-4 h-4 rounded-full bg-[#0B0F1A] text-white flex items-center justify-center shrink-0">
                           <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
-                        <span>1 Core license profile monitoring</span>
+                        <span>2 Core regulator feeds in Horizon Scanning</span>
                       </li>
                       <li className="flex items-center gap-2.5">
                         <div className="w-4 h-4 rounded-full bg-[#0B0F1A] text-white flex items-center justify-center shrink-0">
                           <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
-                        <span>Up to 3 corporate policies analyzed</span>
+                        <span>5 Custom PDF/URL regulation ingestions / month</span>
                       </li>
                       <li className="flex items-center gap-2.5">
                         <div className="w-4 h-4 rounded-full bg-[#0B0F1A] text-white flex items-center justify-center shrink-0">
                           <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
-                        <span>Up to 3 team members with RBAC</span>
+                        <span>Up to 3 internal policies &amp; 5 Gap Analyses / month</span>
                       </li>
                       <li className="flex items-center gap-2.5">
                         <div className="w-4 h-4 rounded-full bg-[#0B0F1A] text-white flex items-center justify-center shrink-0">
                           <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
-                        <span>90-day cryptographic audit logs</span>
+                        <span>Up to 3 team seats with RBAC &amp; 90-day audit logs</span>
                       </li>
                     </ul>
                   </div>
@@ -1605,7 +1867,7 @@ export default function SettingsPage() {
                     <div>
                       <h3 className="text-xl font-bold text-[#0B0F1A]">Pro Tier</h3>
                       <span className="text-[10px] font-bold text-[#0066FF] uppercase tracking-wider block mt-0.5">
-                        Most Popular for FinTechs
+                        Most Popular for FinTechs &amp; MMOs
                       </span>
                     </div>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#EFF6FF] text-[#0066FF] border border-[#BFDBFE]">
@@ -1614,7 +1876,7 @@ export default function SettingsPage() {
                   </div>
 
                   <p className="text-xs text-[#4B5565] mt-1.5 leading-relaxed">
-                    Unlimited pre-vetting scans, real-time circular cascade alerts, and cryptographic ARCON bundles.
+                    Unlimited marketing campaigns, multimodal flyer vision audits, criteria editing, and multi-reg gap analysis.
                   </p>
 
                   <div className="pt-2">
@@ -1628,7 +1890,11 @@ export default function SettingsPage() {
                     </div>
                     <p className="text-[11px] text-[#64748B] mt-1 font-mono">
                       {currencyDisplay === 'USD'
-                        ? `Billed in NGN via Paystack (~₦850k/mo)`
+                        ? billingInterval === 'monthly'
+                          ? `Billed in NGN via Paystack (~₦850k/mo)`
+                          : `Billed annually at $5,490/yr`
+                        : billingInterval === 'monthly'
+                        ? `Billed monthly at ₦850,000/mo`
                         : `Billed annually at ₦8,500,000/yr`}
                     </p>
                   </div>
@@ -1661,55 +1927,49 @@ export default function SettingsPage() {
                         <div className="w-4 h-4 rounded-full bg-[#0066FF] text-white flex items-center justify-center shrink-0">
                           <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
-                        <span><strong>Unlimited</strong> marketing scans</span>
+                        <span><strong>Unlimited</strong> Marketing Studio campaigns &amp; inline rewrites</span>
                       </li>
                       <li className="flex items-center gap-2.5">
                         <div className="w-4 h-4 rounded-full bg-[#0066FF] text-white flex items-center justify-center shrink-0">
                           <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
-                        <span><strong>Unlimited</strong> AI statutory rewrites</span>
+                        <span>Multimodal Ad Flyer &amp; Image compliance auditing</span>
                       </li>
                       <li className="flex items-center gap-2.5">
                         <div className="w-4 h-4 rounded-full bg-[#0066FF] text-white flex items-center justify-center shrink-0">
                           <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
-                        <span>Cryptographic ARCON ZIP bundles</span>
+                        <span>Custom Marketing Knowledge Base rules (+ Add Rule)</span>
                       </li>
                       <li className="flex items-center gap-2.5">
                         <div className="w-4 h-4 rounded-full bg-[#0066FF] text-white flex items-center justify-center shrink-0">
                           <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
-                        <span>All Nigerian regulators (CBN, SEC, NDPC, ARCON)</span>
+                        <span>All 7 Nigerian regulators + 6-Role Departmental Briefs</span>
                       </li>
                       <li className="flex items-center gap-2.5">
                         <div className="w-4 h-4 rounded-full bg-[#0066FF] text-white flex items-center justify-center shrink-0">
                           <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
-                        <span>Executive briefs (CCO, COO, CFO, Eng)</span>
+                        <span>Unlimited PDF/URL regulation ingestions &amp; Criteria editing (✎)</span>
                       </li>
                       <li className="flex items-center gap-2.5">
                         <div className="w-4 h-4 rounded-full bg-[#0066FF] text-white flex items-center justify-center shrink-0">
                           <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
-                        <span>Real-time automatic compliance cascades</span>
+                        <span>Multi-Regulation vs. Multi-Policy Gap Analysis (15 policies)</span>
                       </li>
                       <li className="flex items-center gap-2.5">
                         <div className="w-4 h-4 rounded-full bg-[#0066FF] text-white flex items-center justify-center shrink-0">
                           <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
-                        <span>Up to 15 corporate policies in Gap Matrix</span>
+                        <span>Pre-cleared policy remediation drafting &amp; Action Plans</span>
                       </li>
                       <li className="flex items-center gap-2.5">
                         <div className="w-4 h-4 rounded-full bg-[#0066FF] text-white flex items-center justify-center shrink-0">
                           <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
-                        <span>Up to 10 team seats with RBAC</span>
-                      </li>
-                      <li className="flex items-center gap-2.5">
-                        <div className="w-4 h-4 rounded-full bg-[#0066FF] text-white flex items-center justify-center shrink-0">
-                          <Check className="w-2.5 h-2.5 stroke-[3]" />
-                        </div>
-                        <span>1-Year audit log retention</span>
+                        <span>Up to 10 team seats &amp; 1-Year immutable audit retention</span>
                       </li>
                     </ul>
                   </div>
@@ -1723,11 +1983,11 @@ export default function SettingsPage() {
                     <div className="flex items-center justify-between">
                       <h3 className="text-xl font-bold text-[#0B0F1A]">Enterprise</h3>
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-[#ECEFF3] text-[#4B5565]">
-                        Commercial Banks
+                        Commercial Banks &amp; HoldCos
                       </span>
                     </div>
                     <p className="text-xs text-[#4B5565] mt-1.5 leading-relaxed">
-                      Custom statutory baselines, multi-entity holding governance, and 7-year BOFIA defense packs.
+                      Unlimited institutional defense, multi-entity holding architecture, bespoke baselines, and 7-year audit retention.
                     </p>
                   </div>
 
@@ -1742,7 +2002,11 @@ export default function SettingsPage() {
                     </div>
                     <p className="text-[11px] text-[#64748B] mt-1 font-mono">
                       {currencyDisplay === 'USD'
-                        ? `Billed in NGN via Paystack (~₦3M/mo)`
+                        ? billingInterval === 'monthly'
+                          ? `Billed in NGN via Paystack (~₦3M/mo)`
+                          : `Billed annually at $19,990/yr`
+                        : billingInterval === 'monthly'
+                        ? `Billed monthly at ₦3,000,000/mo`
                         : `Billed annually at ₦30,000,000/yr`}
                     </p>
                   </div>
@@ -1775,43 +2039,37 @@ export default function SettingsPage() {
                         <div className="w-4 h-4 rounded-full bg-[#0B0F1A] text-white flex items-center justify-center shrink-0">
                           <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
-                        <span><strong>Unlimited</strong> everything across all 3 pillars</span>
+                        <span><strong>Unlimited</strong> capacity across Horizon, Library, Gap &amp; Marketing</span>
                       </li>
                       <li className="flex items-center gap-2.5">
                         <div className="w-4 h-4 rounded-full bg-[#0B0F1A] text-white flex items-center justify-center shrink-0">
                           <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
-                        <span>Bank Examiner Defense Packs</span>
+                        <span>Multi-entity holding group &amp; subsidiary license architecture</span>
                       </li>
                       <li className="flex items-center gap-2.5">
                         <div className="w-4 h-4 rounded-full bg-[#0B0F1A] text-white flex items-center justify-center shrink-0">
                           <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
-                        <span>Multi-entity license architecture</span>
+                        <span>Bank Examiner Audit Defense Dossier exports</span>
                       </li>
                       <li className="flex items-center gap-2.5">
                         <div className="w-4 h-4 rounded-full bg-[#0B0F1A] text-white flex items-center justify-center shrink-0">
                           <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
-                        <span>Custom statutory baseline ingestion</span>
+                        <span>Custom statutory baseline feeds &amp; webhook integrations</span>
                       </li>
                       <li className="flex items-center gap-2.5">
                         <div className="w-4 h-4 rounded-full bg-[#0B0F1A] text-white flex items-center justify-center shrink-0">
                           <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
-                        <span>7-Year BOFIA 2020 audit retention</span>
+                        <span>7-Year BOFIA 2020 statutory audit trail retention</span>
                       </li>
                       <li className="flex items-center gap-2.5">
                         <div className="w-4 h-4 rounded-full bg-[#0B0F1A] text-white flex items-center justify-center shrink-0">
                           <Check className="w-2.5 h-2.5 stroke-[3]" />
                         </div>
-                        <span>Unlimited user seats & SAML/SSO</span>
-                      </li>
-                      <li className="flex items-center gap-2.5">
-                        <div className="w-4 h-4 rounded-full bg-[#0B0F1A] text-white flex items-center justify-center shrink-0">
-                          <Check className="w-2.5 h-2.5 stroke-[3]" />
-                        </div>
-                        <span>Dedicated Compliance Concierge (&lt;2h SLA)</span>
+                        <span>Unlimited seats, SAML/SSO &amp; Dedicated Concierge (&lt;2h SLA)</span>
                       </li>
                     </ul>
                   </div>

@@ -5,13 +5,13 @@
 
 export const AI_MODELS = {
   // High-throughput, sub-second latency for classification & candidate triage
-  FAST_MODEL: process.env.AI_FAST_MODEL || 'gemini-3.8-flash',
+  FAST_MODEL: process.env.AI_FAST_MODEL || 'gemini-3-flash-preview',
 
   // High-reasoning engine for clause tension analysis, 5-W synthesis & rewrites
-  REASONING_MODEL: process.env.AI_REASONING_MODEL || 'gemini-3.1-pro-preview',
+  REASONING_MODEL: process.env.AI_REASONING_MODEL || 'gemini-3-flash-preview',
 
   // Fallback model for resilience against regional 503 high-demand spikes and 429 quota limits
-  FALLBACK_MODEL: process.env.AI_FALLBACK_MODEL || 'gemini-3.8-flash',
+  FALLBACK_MODEL: process.env.AI_FALLBACK_MODEL || 'gemini-3-flash-preview',
 
   // 768-dimensional multimodal vector embeddings (gemini-embedding-2)
   EMBEDDING_MODEL: process.env.AI_EMBEDDING_MODEL || 'gemini-embedding-2',
@@ -20,9 +20,9 @@ export const AI_MODELS = {
 export const AI_RESILIENCE_CONFIG = {
   // Hard timeouts per model tier (docs/ENGINEERING.md Section 6)
   TIMEOUTS: {
-    FAST_MODEL_MS: 8000,
-    REASONING_MODEL_MS: 15000,
-    EMBEDDING_MODEL_MS: 8000,
+    FAST_MODEL_MS: 25000,
+    REASONING_MODEL_MS: 35000,
+    EMBEDDING_MODEL_MS: 15000,
   },
 
   // Exponential backoff configuration for HTTP 429 / 503

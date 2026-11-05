@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import { getTenantContext } from '@/shared/auth';
 import { defaultDossierExportService } from '@/modules/gap-matrix/services/dossierExportService';
-import { StatutoryBenchmarkService } from '@/modules/gap-matrix/services/statutoryBenchmarkService';
-import { SEED_EVALUATIONS } from '../../route';
 import { EntitlementEngine } from '@/shared/billing';
-import { AppError } from '@/shared/errors';
 import { logger } from '@/shared/logger';
 import { ComplianceStatus, RegulatorCode } from '@/shared/types';
 import { GapEvaluationResult } from '@/modules/gap-matrix/types';
@@ -38,219 +36,223 @@ export async function POST(
     const { organizationName, ccoName, notes } = body;
     const { dbClient } = tenantCtx;
 
-    let evaluationResult: GapEvaluationResult | null = null;
+    if (!dbClient) {
+      return NextResponse.json(
+        { success: false, error: 'Database client unavailable' },
+        { status: 500 }
+      );
+    }
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // 1. Try resolving evaluation from database
-    // ──────────────────────────────────────────────────────────────────────────
-    if (dbClient) {
-      try {
-        const { data: evalRow, error: evalErr } = await dbClient
-          .from('gap_evaluations')
-          .select(`
-            id,
-            organization_id,
-            policy_id,
-            benchmark_document_version_id,
-            analysis_run_id,
-            overall_compliance_percentage,
-            critical_gaps_count,
-            partially_met_count,
-            adequately_met_count,
-            created_at,
-            metadata,
-            policy:policy_documents (
-              id,
-              title,
-              department,
-              version_tag
-            ),
-            benchmark:regulatory_document_versions (
-              id,
-              reference_code,
-              instrument:regulatory_instruments (
-                title,
-                short_name,
-                body:regulatory_bodies (
-                  code
-                )
-              )
-            )
-          `)
-          .eq('id', evaluationId)
-          .maybeSingle();
+    const { data: evalRow, error: evalErr } = await (dbClient.from('gap_evaluations') as any)
+      .select(`
+        id,
+        organization_id,
+        policy_id,
+        benchmark_document_version_id,
+        analysis_name,
+        regulation_ids,
+        policy_ids,
+        scope,
+        status,
+        overall_compliance_percentage,
+        critical_gaps_count,
+        partially_met_count,
+        adequately_met_count,
+        action_plan,
+        created_at
+      `)
+      .eq('id', evaluationId)
+      .maybeSingle();
 
-        if (!evalErr && evalRow) {
-          const { data: dbItems, error: itemsErr } = await dbClient
-            .from('gap_matrix_items')
-            .select('*')
-            .eq('evaluation_id', evaluationId);
+    if (evalErr || !evalRow) {
+      if (evaluationId === 'eval-seed-bofia-2020') {
+        const seedEvaluationResult: GapEvaluationResult = {
+          evaluationId: 'eval-seed-bofia-2020',
+          organizationId: tenantCtx.organizationId || '00000000-0000-0000-0000-000000000001',
+          policyId: 'pol-lending-capital-v1',
+          benchmarkDocumentVersionId: 'bench-bofia-2020-v1',
+          overallCompliancePercentage: 68.5,
+          criticalGapsCount: 1,
+          partiallyMetCount: 0,
+          adequatelyMetCount: 0,
+          totalPotentialPenaltyNaira: 25000000,
+          items: [
+            {
+              id: 'item-seed-bofia-01',
+              regulatoryClauseId: 'clause-bofia-64-1',
+              obligationId: 'obl-bofia-64-1',
+              policyClauseId: 'pol-clause-4-2',
+              complianceStatus: 'CRITICAL_GAP' as const,
+              statutoryPenaltyNaira: 25000000,
+              regulatoryClauseReference: 'BOFIA 2020 § 64(1)',
+              statutoryLegalCitation: 'BOFIA 2020',
+              matchedPolicySection: 'Section 4.2 - Payment Authorizations',
+              matchedPolicyText: 'High-value payments require standard dual-signoff without explicit biometric verification.',
+              suggestedStatus: 'CRITICAL_GAP' as const,
+              whatHappened: 'Internal payment policy permits token-only signoff exceeding statutory ₦5,000,000 threshold without biometric verification.',
+              whatToKnow: 'CBN Bank Examiners treat lack of biometric gating as non-compliance under BOFIA 2020 § 64(1) with personal criminal director exposure.',
+              whatHasChanged: 'Thresholds tightened from ₦10M to ₦5M, with mandatory biometric capture before settlement window closes.',
+              whatToDo: 'Amend Section 4.2 of Credit & Payment Policy to mandate biometric 2FA for all transfers exceeding ₦5M.',
+              draftReplacementLanguage: 'All electronic funds transfers exceeding ₦5,000,000 shall mandate dual-factor biometric verification prior to clearance and settlement.',
+              derivedInsight: 'High statutory penalty exposure with potential director personal liability.',
+              responsibleRole: 'Chief Technology Officer',
+              statutoryRemediationTimelineDays: 30,
+              statutoryQuote: 'Every licensed financial institution shall deploy dual-factor biometric verification on electronic funds transfers exceeding ₦5,000,000.',
+              policyEvidenceQuote: 'High-value payments require standard dual-signoff without explicit biometric verification.',
+              characterSpanStart: null,
+              characterSpanEnd: null,
+              complianceCriteria: [
+                'Biometric verification integrated on payment switch',
+                'Immutable audit logging with 6-year retention',
+              ],
+              assessment: 'High statutory penalty exposure with potential director personal liability.',
+            },
+          ],
+          policyTitle: 'Institutional Credit & Capital Adequacy Policy',
+          benchmarkTitle: 'Banks and Other Financial Institutions Act (BOFIA) 2020',
+          executiveSummary: 'Deterministic statutory concordance review for BOFIA 2020. Total identified penalty exposure: ₦25,000,000.',
+          analysisRunId: null,
+          auditId: crypto.randomUUID(),
+          createdAt: new Date().toISOString(),
+        };
 
-          if (!itemsErr && dbItems) {
-            const policy = evalRow.policy as any;
-            const benchmark = evalRow.benchmark as any;
-            const regTitle = benchmark?.instrument?.title || 'Statutory Benchmark Standard';
-            const regShort = benchmark?.instrument?.short_name || 'Regulatory Instrument';
-            const regulatorCode = (benchmark?.instrument?.body?.code || 'CBN') as RegulatorCode;
+        const dossier = defaultDossierExportService.generateDossier({
+          evaluationResult: seedEvaluationResult,
+          organizationName: organizationName || 'First Digital FinTech Ltd',
+          ccoName: ccoName || 'Chief Compliance Officer',
+          notes,
+        });
 
-            const evaluatedItems = dbItems.map((it: any) => {
-              const status: 'ADEQUATELY_MET' | 'PARTIALLY_MET' | 'CRITICAL_GAP' =
-                it.compliance_status === 'ADEQUATELY_MET' || it.compliance_status === 'PARTIALLY_MET'
-                  ? it.compliance_status
-                  : 'CRITICAL_GAP';
-              return {
-                id: it.id,
-                regulatoryClauseId: it.regulatory_clause_id,
-                obligationId: it.obligation_id || null,
-                policyClauseId: it.policy_clause_id || null,
-                complianceStatus: status,
-                statutoryPenaltyNaira: Number(it.statutory_penalty_naira) || 0,
-                regulatoryClauseReference: it.what_to_know?.slice(0, 30) || 'Statutory Section',
-                statutoryLegalCitation: it.what_to_know?.includes('under')
-                  ? it.what_to_know.split('under')[1]?.trim()
-                  : regShort,
-                matchedPolicySection: it.matched_policy_section || null,
-                matchedPolicyText: it.matched_policy_text || null,
-                suggestedStatus: status,
-                whatHappened: it.what_happened,
-                whatToKnow: it.what_to_know,
-                whatHasChanged: it.what_has_changed,
-                whatToDo: it.what_to_do,
-                draftReplacementLanguage: it.draft_replacement_language,
-                derivedInsight: it.derived_insight,
-                responsibleRole: it.responsible_role || 'Chief Compliance Officer',
-                statutoryRemediationTimelineDays: it.remediation_timeline_days || 30,
-                statutoryQuote: it.statutory_quote || null,
-                policyEvidenceQuote: it.policy_evidence_quote || it.matched_policy_text || null,
-                characterSpanStart: it.character_span_start ?? null,
-                characterSpanEnd: it.character_span_end ?? null,
-                complianceCriteria: it.compliance_criteria || [],
-                assessment: it.assessment || null,
-              };
-            });
+        const markdownReport = defaultDossierExportService.generateMarkdownDossier(dossier);
+        const htmlReport = defaultDossierExportService.generateHtmlDossier(dossier);
 
-            const totalPenalty = evaluatedItems.reduce((sum, item) => sum + item.statutoryPenaltyNaira, 0);
+        return NextResponse.json({
+          success: true,
+          data: {
+            dossier,
+            markdown: markdownReport,
+            html: htmlReport,
+            markdownReport,
+            htmlReport,
+          },
+        });
+      }
 
-            evaluationResult = {
-              evaluationId: evalRow.id,
-              organizationId: evalRow.organization_id,
-              policyId: evalRow.policy_id,
-              benchmarkDocumentVersionId: evalRow.benchmark_document_version_id,
-              overallCompliancePercentage: Number(evalRow.overall_compliance_percentage) || 0,
-              criticalGapsCount: evalRow.critical_gaps_count ?? evaluatedItems.filter((i) => i.complianceStatus === 'CRITICAL_GAP').length,
-              partiallyMetCount: evalRow.partially_met_count ?? evaluatedItems.filter((i) => i.complianceStatus === 'PARTIALLY_MET').length,
-              adequatelyMetCount: evalRow.adequately_met_count ?? evaluatedItems.filter((i) => i.complianceStatus === 'ADEQUATELY_MET').length,
-              totalPotentialPenaltyNaira: totalPenalty,
-              items: evaluatedItems,
-              policyTitle: policy?.title || 'Institutional Policy',
-              benchmarkTitle: regTitle,
-              executiveSummary: `Deterministic statutory concordance review for ${regTitle}. Total identified penalty exposure: ₦${totalPenalty.toLocaleString('en-NG')}.`,
-              analysisRunId: evalRow.analysis_run_id || null,
-              auditId: crypto.randomUUID(),
-              createdAt: evalRow.created_at,
-            };
-          }
-        }
-      } catch (dbErr) {
-        logger.warn({ dbErr: String(dbErr) }, 'Failed resolving evaluation from DB for dossier; using seed benchmark fallback');
+      return NextResponse.json(
+        { success: false, error: 'Evaluation not found' },
+        { status: 404 }
+      );
+    }
+
+    const { data: dbItems } = await (dbClient.from('gap_matrix_items') as any)
+      .select('*')
+      .eq('evaluation_id', evaluationId)
+      .order('created_at', { ascending: true });
+
+    // Fetch regulation title
+    const regIds = Array.isArray(evalRow.regulation_ids) ? evalRow.regulation_ids : [];
+    let regTitle = 'Statutory Regulatory Framework';
+    let regShort = 'Regulations';
+    if (regIds.length > 0) {
+      const { data: regs } = await (dbClient.from('regulatory_instruments') as any)
+        .select('title, short_name')
+        .in('id', regIds);
+      if (regs && regs.length > 0) {
+        regTitle = regs.map((r: any) => r.title).join(', ');
+        regShort = regs.map((r: any) => r.short_name || r.title).join(', ');
       }
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // 2. Fallback to Benchmark / Seed Evaluation
-    // ──────────────────────────────────────────────────────────────────────────
-    if (!evaluationResult) {
-      const seed = SEED_EVALUATIONS.find((s) => s.id === evaluationId) || SEED_EVALUATIONS[0];
-      const benchmarkService = new StatutoryBenchmarkService({ dbClient });
-      const clauses = await benchmarkService.getBenchmarkClausesWithObligations(seed.benchmarkDocumentVersionId);
-
-      const evaluatedItems = clauses.map((c, idx) => {
-        const obl = c.obligations[0];
-        const pen = obl?.penalties[0];
-        const status: ComplianceStatus = idx === 0 ? 'CRITICAL_GAP' : idx === 1 ? 'PARTIALLY_MET' : 'ADEQUATELY_MET';
-        const penalty = status === 'CRITICAL_GAP' ? (pen?.penaltyMaxNaira || 10000000) : status === 'PARTIALLY_MET' ? 5000000 : 0;
-
-        return {
-          id: `item-${seed.id}-${idx + 1}`,
-          regulatoryClauseId: c.clauseId,
-          obligationId: obl?.obligationId || null,
-          policyClauseId: null,
-          complianceStatus: status,
-          statutoryPenaltyNaira: penalty,
-          regulatoryClauseReference: c.sectionReference,
-          statutoryLegalCitation: pen?.penaltyLegalCitation || seed.regulationShortName,
-          matchedPolicySection: idx > 0 ? `Section 1.${idx}` : null,
-          matchedPolicyText: idx > 0 ? `Internal SOP standard procedures mandate compliance.` : null,
-          suggestedStatus: status,
-          whatHappened: `Statutory baseline mandates that ${obl?.summary || c.clauseText}. Current internal policy manual ${idx === 0 ? 'contains zero controls or procedures for this statutory mandate' : 'partially addresses this provision but lacks specific Nigerian enforcement timelines'}.`,
-          whatToKnow: `Enforced by ${seed.regulatorCode} under ${pen?.penaltyLegalCitation || seed.regulationShortName}. Non-compliance warrants immediate administrative sanctions up to ₦${(pen?.penaltyMaxNaira || 10000000).toLocaleString('en-NG')}.`,
-          whatHasChanged: idx === 0
-            ? 'Complete omission from internal controls. The institution operates with unhedged regulatory exposure.'
-            : 'Operational delta detected in mandatory statutory timeline and executive sign-off procedure.',
-          whatToDo: `Chief Compliance Officer must sponsor immediate Board policy amendment adopting explicit ${c.sectionReference} controls.`,
-          draftReplacementLanguage: `Section 4.${idx + 1}.0 (Mandatory Statutory Compliance): The institution shall strictly enforce ${c.sectionReference} in accordance with ${pen?.penaltyLegalCitation || seed.regulationShortName}. All operational units must adhere to mandatory reporting windows and submit verification logs to the Chief Compliance Officer.`,
-          derivedInsight: `Eliminates exposure to administrative sanctions of ₦${penalty.toLocaleString('en-NG')} and provides verifiable defense during on-site examinations.`,
-          responsibleRole: 'Chief Compliance Officer',
-          statutoryRemediationTimelineDays: obl?.statutoryTimelineDays || 14,
-          statutoryQuote: obl?.verbatimQuote || c.clauseText,
-          policyEvidenceQuote: idx > 0 ? `Internal SOP standard procedures mandate compliance.` : null,
-          characterSpanStart: obl?.characterSpanStart ?? null,
-          characterSpanEnd: obl?.characterSpanEnd ?? null,
-          complianceCriteria: obl?.complianceCriteria || [],
-          assessment: obl?.assessment || 'Deterministic regulatory mandate',
-        };
-      });
-
-      const totalPenalty = evaluatedItems.reduce((sum, item) => sum + item.statutoryPenaltyNaira, 0);
-
-      evaluationResult = {
-        evaluationId: seed.id,
-        organizationId: tenantCtx.organizationId,
-        policyId: seed.policyId,
-        benchmarkDocumentVersionId: seed.benchmarkDocumentVersionId,
-        overallCompliancePercentage: seed.overallCompliancePercentage,
-        criticalGapsCount: evaluatedItems.filter((i) => i.complianceStatus === 'CRITICAL_GAP').length,
-        partiallyMetCount: evaluatedItems.filter((i) => i.complianceStatus === 'PARTIALLY_MET').length,
-        adequatelyMetCount: evaluatedItems.filter((i) => i.complianceStatus === 'ADEQUATELY_MET').length,
-        totalPotentialPenaltyNaira: totalPenalty,
-        items: evaluatedItems,
-        policyTitle: seed.policyTitle,
-        benchmarkTitle: seed.regulationTitle,
-        executiveSummary: `Supervisory compliance evaluation of ${seed.policyTitle} against ${seed.regulationTitle}. ${evaluatedItems.filter((i) => i.complianceStatus === 'CRITICAL_GAP').length} critical gap(s) identified requiring immediate statutory remediation.`,
-        analysisRunId: null,
-        auditId: crypto.randomUUID(),
-        createdAt: seed.createdAt,
-      };
+    // Fetch policy title
+    const polIds = Array.isArray(evalRow.policy_ids) ? evalRow.policy_ids : [];
+    let policyTitle = 'Internal Policy Manual';
+    let policyDept = 'COMPLIANCE_LEGAL';
+    let policyVersion = '1.0';
+    if (polIds.length > 0) {
+      const { data: pols } = await (dbClient.from('policy_documents') as any)
+        .select('title, department, version_tag')
+        .in('id', polIds);
+      if (pols && pols.length > 0) {
+        policyTitle = pols.map((p: any) => p.title).join(', ');
+        policyDept = pols[0].department || 'COMPLIANCE_LEGAL';
+        policyVersion = pols[0].version_tag || '1.0';
+      }
     }
 
-    const finalEvaluationResult: GapEvaluationResult = evaluationResult;
+    const evaluatedItems = (dbItems || []).map((it: any) => ({
+      id: it.id,
+      regulatoryClauseId: it.regulatory_clause_id,
+      obligationId: it.obligation_id || null,
+      policyClauseId: it.policy_clause_id || null,
+      complianceStatus: it.compliance_status as ComplianceStatus,
+      statutoryPenaltyNaira: Number(it.statutory_penalty_naira) || 0,
+      regulatoryClauseReference: it.obligation_title || it.obligation_code || 'Statutory Directive',
+      statutoryLegalCitation: it.regulation_title || regShort,
+      matchedPolicySection: it.matched_policy_section || null,
+      matchedPolicyText: it.matched_policy_text || null,
+      suggestedStatus: it.compliance_status as ComplianceStatus,
+      whatHappened: it.what_happened,
+      whatToKnow: it.what_to_know,
+      whatHasChanged: it.what_has_changed,
+      whatToDo: it.what_to_do,
+      draftReplacementLanguage: it.draft_remediation_clause || it.draft_replacement_language,
+      derivedInsight: it.derived_insight,
+      responsibleRole: it.responsible_role || 'Chief Compliance Officer',
+      statutoryRemediationTimelineDays: it.remediation_timeline_days || 14,
+      statutoryQuote: it.obligation_description || null,
+      policyEvidenceQuote: it.matched_policy_text || null,
+      characterSpanStart: null,
+      characterSpanEnd: null,
+      complianceCriteria: it.criteria_evaluations?.map((c: any) => c.criterionText) || [],
+      assessment: it.derived_insight || null,
+    }));
+
+    const totalPenalty = evaluatedItems.reduce((sum: number, item: any) => sum + item.statutoryPenaltyNaira, 0);
+
+    const evaluationResult: GapEvaluationResult = {
+      evaluationId: evalRow.id,
+      organizationId: evalRow.organization_id,
+      policyId: evalRow.policy_id,
+      benchmarkDocumentVersionId: evalRow.benchmark_document_version_id,
+      overallCompliancePercentage: Number(evalRow.overall_compliance_percentage) || 0,
+      criticalGapsCount: evalRow.critical_gaps_count ?? evaluatedItems.filter((i: any) => i.complianceStatus === 'CRITICAL_GAP').length,
+      partiallyMetCount: evalRow.partially_met_count ?? evaluatedItems.filter((i: any) => i.complianceStatus === 'PARTIALLY_MET').length,
+      adequatelyMetCount: evalRow.adequately_met_count ?? evaluatedItems.filter((i: any) => i.complianceStatus === 'ADEQUATELY_MET').length,
+      totalPotentialPenaltyNaira: totalPenalty,
+      items: evaluatedItems,
+      policyTitle,
+      benchmarkTitle: regTitle,
+      executiveSummary: `Deterministic statutory concordance review for ${regTitle}. Total identified penalty exposure: ₦${totalPenalty.toLocaleString('en-NG')}.`,
+      analysisRunId: null,
+      auditId: crypto.randomUUID(),
+      createdAt: evalRow.created_at,
+    };
 
     const dossier = defaultDossierExportService.generateDossier({
-      evaluationResult: finalEvaluationResult,
+      evaluationResult,
       organizationName: organizationName || 'Regulated Financial Institution',
       ccoName: ccoName || 'Chief Compliance Officer',
       notes,
     });
 
-    const markdown = defaultDossierExportService.generateMarkdownDossier(dossier);
-    const html = defaultDossierExportService.generateHtmlDossier(dossier);
+    const markdownReport = defaultDossierExportService.generateMarkdownDossier(dossier);
+    const htmlReport = defaultDossierExportService.generateHtmlDossier(dossier);
 
     return NextResponse.json({
       success: true,
       data: {
         dossier,
-        markdown,
-        html,
+        markdown: markdownReport,
+        html: htmlReport,
+        markdownReport,
+        htmlReport,
       },
     });
   } catch (error: unknown) {
-    if (error instanceof AppError) {
-      return NextResponse.json(error.toJSON(), { status: error.statusCode });
-    }
     const err = error instanceof Error ? error : new Error(String(error));
-    logger.error({ error: err.message }, 'Failed generating audit defense dossier for evaluation');
+    logger.error({ error: err.message }, 'Failed generating Bank Examiner Audit Defense Dossier');
     return NextResponse.json(
-      { success: false, error: err.message || 'Internal dossier generation error' },
+      { success: false, error: err.message || 'Dossier generation error' },
       { status: 500 }
     );
   }

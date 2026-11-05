@@ -128,9 +128,6 @@ export class ClauseSegmentationEngine {
    * Avoids exposing raw scraped web code, language switchers, or template logic to bank examiners.
    */
   public static detectTopicHeading(paragraph: string, fallbackSubject?: string, index: number = 1): string {
-    const lower = paragraph.toLowerCase();
-
-    // 1. Check if the paragraph begins with a clean, formal heading (e.g. "Background", "Scope", "Mandate")
     const firstLine = paragraph.split('\n')[0].replace(/[#*]/g, '').trim();
     const isCleanFirstLine =
       firstLine.length >= 4 &&
@@ -148,187 +145,28 @@ export class ClauseSegmentationEngine {
       return firstLine;
     }
 
-    // 2. Keyword-driven statutory topic taxonomy
-    if (
-      lower.includes('unsc') ||
-      lower.includes('sanction') ||
-      lower.includes('asset freeze') ||
-      lower.includes('freezing') ||
-      lower.includes('designated person') ||
-      lower.includes('1267') ||
-      lower.includes('1989') ||
-      lower.includes('2253')
-    ) {
-      return 'Sanctions Compliance & Asset Freeze Protocol';
+    // Extract first operative sentence if sufficiently concise
+    const firstSentence = paragraph
+      .split(/(?<=[.?!])\s+/)[0]
+      .replace(/^[#\d\.\-\s]+/, '')
+      .trim();
+
+    if (firstSentence.length >= 8 && firstSentence.length <= 75) {
+      return firstSentence;
     }
 
-    if (
-      lower.includes('unlicensed') ||
-      lower.includes('illegal operator') ||
-      lower.includes('cease and desist') ||
-      lower.includes('prohibit') ||
-      lower.includes('disconnection') ||
-      lower.includes('shall not operate')
-    ) {
-      return 'Licensing Prohibition & Operating Restriction';
-    }
-
-    if (
-      /\bstrs?\b/.test(lower) ||
-      lower.includes('suspicious transaction') ||
-      lower.includes('nfiu') ||
-      lower.includes('currency transaction') ||
-      lower.includes('aml/cft') ||
-      lower.includes('due diligence') ||
-      lower.includes('kyc')
-    ) {
-      return 'AML/CFT & Suspicious Transaction Reporting Directive';
-    }
-
-    if (
-      lower.includes('report') ||
-      lower.includes('submit') ||
-      lower.includes('furnish') ||
-      lower.includes('filing') ||
-      lower.includes('mandatory disclosure') ||
-      lower.includes('monthly return') ||
-      lower.includes('quarterly return')
-    ) {
-      return 'Statutory Reporting & Disclosure Obligation';
-    }
-
-    if (
-      lower.includes('cyber') ||
-      lower.includes('data protection') ||
-      lower.includes('privacy') ||
-      lower.includes('ndpa') ||
-      lower.includes('encryption') ||
-      lower.includes('security operations')
-    ) {
-      return 'Cybersecurity & Data Privacy Protocol';
-    }
-
-    if (
-      lower.includes('capital') ||
-      lower.includes('solvency') ||
-      lower.includes('reserve') ||
-      lower.includes('minimum paid-up') ||
-      lower.includes('liquidity')
-    ) {
-      return 'Prudential Capital & Solvency Mandate';
-    }
-
-    if (
-      lower.includes('contactless') ||
-      lower.includes('switching') ||
-      lower.includes('pos') ||
-      lower.includes('settlement rail') ||
-      lower.includes('nibss') ||
-      lower.includes('payment gateway') ||
-      lower.includes('terminal')
-    ) {
-      return 'Payment Systems Operational & Settlement Guidelines';
-    }
-
-    if (
-      lower.includes('consumer') ||
-      lower.includes('fee') ||
-      lower.includes('tariff') ||
-      lower.includes('charge') ||
-      lower.includes('dispute resolution') ||
-      lower.includes('complaint')
-    ) {
-      return 'Consumer Protection & Fair Practice Mandate';
-    }
-
-    if (
-      lower.includes('fx') ||
-      lower.includes('foreign exchange') ||
-      lower.includes('remittance') ||
-      lower.includes('imto') ||
-      lower.includes('diaspora') ||
-      lower.includes('repatriation') ||
-      lower.includes('export proceeds')
-    ) {
-      return 'Foreign Exchange & Cross-Border Remittance Protocol';
-    }
-
-    if (
-      lower.includes('internal control') ||
-      lower.includes('governance') ||
-      lower.includes('board of directors') ||
-      lower.includes('risk management') ||
-      lower.includes('compliance officer')
-    ) {
-      return 'Internal Governance & Supervisory Control Baseline';
-    }
-
-    if (
-      lower.includes('restructur') ||
-      lower.includes('workforce') ||
-      lower.includes('layoff') ||
-      lower.includes('redundanc') ||
-      lower.includes('retrenchment') ||
-      lower.includes('strip down') ||
-      lower.includes('downscale') ||
-      lower.includes('downsizing') ||
-      lower.includes('shut down') ||
-      lower.includes('closure') ||
-      lower.includes('close operations') ||
-      lower.includes('severance')
-    ) {
+    // Domain topic keyword recognition
+    const fullText = (paragraph + ' ' + (fallbackSubject || '')).toLowerCase();
+    if (fullText.includes('workforce restructuring') || fullText.includes('redundancy')) {
       return 'Corporate Restructuring & Workforce Redundancy Protocol';
-    }
-
-    if (
-      lower.includes('merger') ||
-      lower.includes('acquisition') ||
-      lower.includes('acquire') ||
-      lower.includes('takeover') ||
-      lower.includes('equity stake') ||
-      lower.includes('divestiture') ||
-      lower.includes('consolidation')
-    ) {
-      return 'Mergers, Acquisitions & Capital Realignment';
-    }
-
-    if (
-      lower.includes('court') ||
-      lower.includes('lawsuit') ||
-      lower.includes('injunction') ||
-      lower.includes('arbitration') ||
-      lower.includes('litigation') ||
-      lower.includes('judicial')
-    ) {
-      return 'Dispute Resolution & Judicial Enforcement Notice';
-    }
-
-    if (
-      lower.includes('outage') ||
-      lower.includes('downtime') ||
-      lower.includes('switch failure') ||
-      lower.includes('service disruption') ||
-      lower.includes('incident response')
-    ) {
-      return 'Operational Resilience & System Downtime Advisory';
-    }
-
-    if (
-      lower.includes('appointed') ||
-      lower.includes('resigned') ||
-      lower.includes('executive transition') ||
-      lower.includes('new ceo') ||
-      lower.includes('managing director')
-    ) {
-      return 'Executive Leadership & Governance Transition';
     }
 
     if (fallbackSubject && fallbackSubject.trim().length > 5) {
       const cleanSub = DomSanitizer.cleanTitle(fallbackSubject);
-      return cleanSub.length <= 60 ? cleanSub : `Operational Intelligence Notice ${index}`;
+      return cleanSub.length <= 60 ? cleanSub : `Statutory Directive ${index}`;
     }
 
-    return `Operational Intelligence Notice ${index}`;
+    return `Statutory Directive ${index}`;
   }
 
   /**
@@ -453,21 +291,44 @@ export class ClauseSegmentationEngine {
           return true;
         });
 
-      paragraphs.forEach((p, idx) => {
-        const heading = this.detectTopicHeading(p, subject, idx + 1);
-        clauses.push(
-          this.buildClauseRecord(
-            `Section ${idx + 1}.0`,
-            heading,
-            p,
-            idx + 1,
-            regulatorCode,
-            circularNumber,
-            priority,
-            statutoryDeadline
-          )
-        );
-      });
+      if (paragraphs.length <= 3) {
+        paragraphs.forEach((p, idx) => {
+          const heading = this.detectTopicHeading(p, subject, idx + 1);
+          clauses.push(
+            this.buildClauseRecord(
+              `Directive Clause ${idx + 1}`,
+              heading,
+              p,
+              idx + 1,
+              regulatorCode,
+              circularNumber,
+              priority,
+              statutoryDeadline
+            )
+          );
+        });
+      } else {
+        const groupSize = Math.ceil(paragraphs.length / 3);
+        let partIdx = 1;
+        for (let i = 0; i < paragraphs.length; i += groupSize) {
+          const chunk = paragraphs.slice(i, i + groupSize);
+          const combined = chunk.join('\n\n');
+          const heading = this.detectTopicHeading(chunk[0], subject, partIdx);
+          clauses.push(
+            this.buildClauseRecord(
+              `Statutory Directive Part ${partIdx}`,
+              heading,
+              combined,
+              partIdx,
+              regulatorCode,
+              circularNumber,
+              priority,
+              statutoryDeadline
+            )
+          );
+          partIdx++;
+        }
+      }
     }
 
     return clauses;

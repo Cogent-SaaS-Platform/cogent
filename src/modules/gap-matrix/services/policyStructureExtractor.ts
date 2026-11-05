@@ -5,6 +5,9 @@ import {
 import { OrgDepartment } from '@/shared/types';
 import { logger } from '@/shared/logger';
 
+import { GoogleGenAI } from '@google/genai';
+import { AI_MODELS } from '@/shared/ai-engine';
+
 export interface PolicyExtractionInput {
   fileBuffer?: Buffer | Uint8Array;
   rawText?: string;
@@ -25,12 +28,32 @@ export class PolicyStructureExtractor {
   private sectionNumberRegex = /^(?:Section|Clause|Article|Policy|Part|Schedule)?\s*(\d+(?:\.\d+)*)\.?\s*[:\-–]?\s*(.*)$/i;
   private headingNumberRegex = /^([0-9]+\.[0-9]+(?:\.[0-9]+)*)\s+([A-Z0-9].*)$/;
   private majorHeadingRegex = /^(?:[A-Z0-9\s]{3,}:|[0-9]+\.\s+[A-Z0-9\s]{3,})/i;
+  private genAi: GoogleGenAI | null = null;
+
+  constructor() {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (apiKey) {
+      try {
+        this.genAi = new GoogleGenAI({ apiKey });
+      } catch (err) {
+        logger.warn({ err }, 'Failed to initialize GoogleGenAI in PolicyStructureExtractor');
+      }
+    }
+  }
 
   /**
    * Extracts structured policy clauses from text, PDF, or document buffer
    */
   public async extractStructure(input: PolicyExtractionInput): Promise<ExtractedPolicyStructure> {
-    const rawText = this.resolveRawText(input);
+    const rawText = await this.resolveRawText(input);
+
+    // Validation Gate: Ensure extracted text is readable and not raw metadata or corrupted buffer
+    if (!rawText || rawText.trim().length < 50 || rawText.trim().startsWith('%PDF')) {
+      throw new Error(
+        'The uploaded policy document could not be parsed into readable text. Please ensure the PDF or DOCX file contains searchable text rather than scanned raster images without OCR.'
+      );
+    }
+
     const title = input.title || this.inferTitle(input.fileName, rawText);
     const department: OrgDepartment = input.department || 'COMPLIANCE_LEGAL';
     const versionTag = input.versionTag || '1.0';
@@ -48,35 +71,104 @@ export class PolicyStructureExtractor {
     };
   }
 
-  private resolveRawText(input: PolicyExtractionInput): string {
+  private async resolveRawText(input: PolicyExtractionInput): Promise<string> {
     if (input.rawText && input.rawText.trim().length > 0) {
       return input.rawText.trim();
     }
 
     if (input.fileBuffer) {
-      // Decode Buffer to UTF-8 text (works for text/md/docx text streams and ASCII/UTF8 in PDFs)
-      const text = Buffer.from(input.fileBuffer).toString('utf-8');
-      // If it looks like plain text or markdown
-      if (!text.includes('\x00')) {
-        return text.trim();
+      const buf = Buffer.isBuffer(input.fileBuffer) ? input.fileBuffer : Buffer.from(input.fileBuffer);
+
+      // 1. PDF Detection (%PDF header or mimeType or filename)
+      const isPdf =
+        input.mimeType === 'application/pdf' ||
+        input.fileName?.toLowerCase().endsWith('.pdf') ||
+        (buf.length >= 4 && buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46);
+
+      if (isPdf) {
+        // A. Fast local layout-preserved text extraction via unpdf
+        try {
+          const { extractText } = await import('unpdf');
+          const uint8 = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+          const { text } = await extractText(uint8);
+          const localText = Array.isArray(text) ? text.join('\n\n') : (text || '');
+          if (localText && localText.trim().length >= 80 && !localText.trim().startsWith('%PDF')) {
+            logger.info({ charCount: localText.length }, 'Extracted authentic policy PDF text via unpdf');
+            return localText.trim();
+          }
+        } catch (unpdfErr) {
+          logger.warn({ err: String(unpdfErr) }, 'Local unpdf text extraction failed, attempting multimodal OCR');
+        }
+
+        // B. Gemini Multimodal Document Understanding Fallback (for scanned / raster PDFs)
+        if (this.genAi) {
+          try {
+            logger.info('Running Gemini multimodal OCR for policy PDF document');
+            const base64Data = buf.toString('base64');
+            const response = await this.genAi.models.generateContent({
+              model: AI_MODELS.FAST_MODEL,
+              contents: [
+                {
+                  role: 'user',
+                  parts: [
+                    {
+                      inlineData: {
+                        mimeType: 'application/pdf',
+                        data: base64Data,
+                      },
+                    },
+                    {
+                      text: 'Transcribe the complete plain text from this internal corporate policy document. Preserve all section numbers, headings, and clause paragraphs accurately. Return ONLY the plain text document transcript with zero conversational preamble.',
+                    },
+                  ],
+                },
+              ],
+            });
+            const ocrText = response.text?.trim() || '';
+            if (ocrText.length >= 50) {
+              logger.info({ charCount: ocrText.length }, 'Successfully extracted policy text via Gemini Multimodal OCR');
+              return ocrText;
+            }
+          } catch (geminiErr) {
+            logger.warn({ err: String(geminiErr) }, 'Gemini multimodal PDF OCR failed');
+          }
+        }
       }
-      // For binary PDF/DOCX streams, extract printable text tokens
-      return this.extractAsciiFromBinary(input.fileBuffer);
+
+      // 2. DOCX Detection (PK\x03\x04 zip header or mimeType or filename)
+      const isDocx =
+        input.fileName?.toLowerCase().endsWith('.docx') ||
+        input.mimeType?.includes('wordprocessingml') ||
+        (buf.length >= 4 && buf[0] === 0x50 && buf[1] === 0x4B && buf[2] === 0x03 && buf[3] === 0x04);
+
+      if (isDocx) {
+        try {
+          // Extract plain text from DOCX XML stream
+          const text = buf.toString('latin1');
+          const textMatches = text.match(/<w:t[^>]*>(.*?)<\/w:t>/g);
+          if (textMatches && textMatches.length > 0) {
+            const docxContent = textMatches
+              .map((t) => t.replace(/<[^>]+>/g, ''))
+              .join(' ')
+              .replace(/\s+/g, ' ')
+              .trim();
+            if (docxContent.length >= 50) {
+              return docxContent;
+            }
+          }
+        } catch (docxErr) {
+          logger.warn({ err: String(docxErr) }, 'DOCX text extraction fallback failed');
+        }
+      }
+
+      // 3. UTF-8 Plain text fallback (only if not a binary PDF header)
+      const utf8Text = buf.toString('utf-8');
+      if (!utf8Text.includes('\x00') && !utf8Text.startsWith('%PDF')) {
+        return utf8Text.trim();
+      }
     }
 
     return '';
-  }
-
-  private extractAsciiFromBinary(buffer: Buffer | Uint8Array): string {
-    const raw = Buffer.from(buffer).toString('latin1');
-    // Extract readable paragraphs and lines
-    const lines = raw
-      .replace(/[^\x20-\x7E\n\r\t]/g, ' ')
-      .split(/\r?\n/)
-      .map((l) => l.trim())
-      .filter((l) => l.length > 5);
-
-    return lines.join('\n');
   }
 
   private inferTitle(fileName?: string, text?: string): string {

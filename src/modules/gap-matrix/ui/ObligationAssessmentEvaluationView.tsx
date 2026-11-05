@@ -1,135 +1,374 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   ArrowLeft,
-  Copy,
-  Check,
-  ExternalLink,
-  Scale,
-  Layers,
-  Clock,
-  User,
-  CheckCircle2,
   ChevronDown,
   ChevronUp,
-  Download,
-  Share2,
-  CheckCircle,
-  XCircle,
   FileText,
-  Star,
+  BookOpen,
+  Copy,
+  Check,
+  CheckCircle,
+  AlertCircle,
   Plus,
-  AlertTriangle,
-  ShieldAlert,
-  Building,
-  SlidersHorizontal,
+  Scale,
+  ShieldCheck,
+  Star,
+  ExternalLink,
+  MoreVertical,
+  Layers,
+  Send,
+  User,
+  Clock,
+  Trash2,
+  Edit2,
+  X,
 } from 'lucide-react';
 import { ComplianceStatus } from '@/shared/types';
-import { GapObligationItemViewModel } from './GapObligationsListView';
+import { CriterionEvaluationResult } from '../services/multiConcordanceService';
+
+export interface ObligationGapInspectorItem {
+  id: string;
+  evaluationId: string;
+  obligationTitle?: string;
+  obligationCode?: string;
+  obligationDescription?: string;
+  regulatoryClauseReference: string;
+  statutoryLegalCitation?: string;
+  ruleType?: string;
+  policyApplicability?: string;
+  complianceStatus: ComplianceStatus;
+  statutoryPenaltyNaira: number;
+  whatHappened: string;
+  whatToKnow: string;
+  whatHasChanged: string;
+  whatToDo: string;
+  draftReplacementLanguage?: string;
+  draftReplacementPolicyLanguage?: string;
+  criteriaEvaluations?: CriterionEvaluationResult[];
+  actionItems?: Array<{ id: string; title: string; completed: boolean; policyTitle?: string; assigneeName?: string }>;
+  suggestedActionItem?: string;
+  regulationTitle?: string;
+  sourceSectionRef?: string;
+  matchedPolicySection?: string | null;
+  matchedPolicyText?: string | null;
+  derivedInsight?: string;
+  responsibleRole?: string;
+  statutoryRemediationTimelineDays?: number;
+  isStarred?: boolean;
+}
 
 interface ObligationAssessmentEvaluationViewProps {
-  obligation: GapObligationItemViewModel;
   analysisName: string;
+  obligation: ObligationGapInspectorItem;
   policyTitle?: string;
   onBack: () => void;
-  onNavigateToDetail?: () => void;
   onNavigateToAnalysisList?: () => void;
-  onOpenDossierModal: () => void;
+  onNavigateToDetail?: () => void;
   onStatusChange?: (itemId: string, newStatus: ComplianceStatus) => void;
+  onOpenDossierModal?: () => void;
 }
 
 export function ObligationAssessmentEvaluationView({
-  obligation,
   analysisName,
-  policyTitle = 'Internal Compliance & Governance Policy',
+  obligation,
+  policyTitle = 'Internal Compliance Manual',
   onBack,
-  onNavigateToDetail,
   onNavigateToAnalysisList,
-  onOpenDossierModal,
+  onNavigateToDetail,
   onStatusChange,
+  onOpenDossierModal,
 }: ObligationAssessmentEvaluationViewProps) {
   const [currentStatus, setCurrentStatus] = useState<ComplianceStatus>(obligation.complianceStatus);
-  const [workflowStatus, setWorkflowStatus] = useState<string>(
-    obligation.complianceStatus === 'ADEQUATELY_MET' ? 'Completed' : 'Review Pending'
-  );
-  const [assignee, setAssignee] = useState<string>(
-    obligation.responsibleRole || 'Authorized Compliance Officer'
-  );
-  const [isStarred, setIsStarred] = useState(false);
-  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
-  const [statusUpdateMessage, setStatusUpdateMessage] = useState<string | null>(null);
   const [copiedClause, setCopiedClause] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [isStarred, setIsStarred] = useState(Boolean(obligation.isStarred));
+  const [statusUpdateMessage, setStatusUpdateMessage] = useState<string | null>(null);
 
-  // Expanded cards state (matching asse.png and fina.png)
-  const [expandedCriteria, setExpandedCriteria] = useState<{ [key: number]: boolean }>({
-    0: true, // first criterion expanded by default
-    1: false,
-    2: false,
-  });
+  // Criteria state
+  const defaultCriteria: CriterionEvaluationResult[] = useMemo(() => {
+    if (obligation.criteriaEvaluations && obligation.criteriaEvaluations.length > 0) {
+      return obligation.criteriaEvaluations;
+    }
+    const oblTitle = obligation.obligationTitle || obligation.regulatoryClauseReference || 'Statutory Obligation';
+    return [
+      {
+        id: `crit-${obligation.id}-1`,
+        criterionText: `Internal operating manual explicitly mandates compliance with ${oblTitle}.`,
+        criterionType: 'Core Criteria',
+        status: obligation.complianceStatus === 'ADEQUATELY_MET' ? 'MET' : 'NOT_MET',
+        aiReason: obligation.complianceStatus === 'ADEQUATELY_MET'
+          ? 'Internal policies establish clear operational controls matching this requirement.'
+          : 'Internal policy manual contains no explicit operational guidelines for this requirement.',
+        matchedPolicySections: obligation.matchedPolicySection ? [
+          {
+            policyId: '',
+            policyTitle,
+            sectionNumber: obligation.matchedPolicySection,
+            sectionTitle: obligation.matchedPolicySection,
+            verbatimPolicyExcerpt: obligation.matchedPolicyText || 'Procedural alignment established in internal policy manual.',
+          }
+        ] : [],
+      },
+      {
+        id: `crit-${obligation.id}-2`,
+        criterionText: `Operational review thresholds and supervisory escalation mechanisms are established.`,
+        criterionType: 'Core Criteria',
+        status: obligation.complianceStatus !== 'CRITICAL_GAP' ? 'MET' : 'NOT_MET',
+        aiReason: obligation.complianceStatus !== 'CRITICAL_GAP'
+          ? 'Supervisory escalation thresholds are documented in internal compliance directives.'
+          : 'Missing concrete supervisory escalation mechanisms or designated operational officers.',
+        matchedPolicySections: [],
+      },
+      {
+        id: `crit-${obligation.id}-3`,
+        criterionText: `Inspection-ready audit trails and immutable logs are archived for supervisory verification.`,
+        criterionType: 'Best Practice',
+        status: obligation.complianceStatus === 'ADEQUATELY_MET' ? 'MET' : 'NOT_MET',
+        aiReason: 'Retention and audit logging procedures are maintained across operational ledgers.',
+        matchedPolicySections: [],
+      },
+    ];
+  }, [obligation, policyTitle]);
 
-  // Criteria status state
-  const [criteriaStatus, setCriteriaStatus] = useState<{ [key: number]: 'MET' | 'NOT_MET' }>({
-    0: currentStatus === 'ADEQUATELY_MET' ? 'MET' : 'NOT_MET',
-    1: currentStatus !== 'CRITICAL_GAP' ? 'MET' : 'NOT_MET',
-    2: currentStatus === 'ADEQUATELY_MET' ? 'MET' : 'NOT_MET',
-  });
+  const [criteria, setCriteria] = useState<CriterionEvaluationResult[]>(defaultCriteria);
+  const [expandedCriteria, setExpandedCriteria] = useState<{ [key: number]: boolean }>({ 0: true, 1: true });
+  const [activeOverrideDropdownIdx, setActiveOverrideDropdownIdx] = useState<number | null>(null);
 
-  // Active policy evidence per criterion
-  const [linkedEvidence, setLinkedEvidence] = useState<{
-    [key: number]: {
-      section: string;
-      snippets: string[];
-      notes?: string;
-    };
-  }>({
-    0: {
-      section: obligation.matchedPolicySection || 'Section 4.1 Enterprise Risk Governance',
-      snippets: [
-        'Special situations of simplified identification and diligence duty',
-        'Special Risk Situations and Applicable Reinforcement Measures',
-      ],
-      notes: obligation.matchedPolicyText || 'Factual policy alignment evaluated via deterministic pgvector embeddings.',
-    },
-    1: {
-      section: obligation.matchedPolicySection || 'Section 4.2 Customer Due Diligence Scaling',
-      snippets: [
-        'Mandatory escalation to Managing Director for PEP and high-risk classifications',
-      ],
-      notes: 'Operational threshold definition matches statutory baseline.',
-    },
-    2: {
-      section: 'Section 4.3 Supervisory Reporting Window',
-      snippets: [
-        `Statutory timeline compliance: ${obligation.statutoryRemediationTimelineDays || 14} days turnaround mandate`,
-      ],
-      notes: 'Audit logs verification maintained in immutable compliance register.',
-    },
-  });
-
-  // Inline "Add Policy Evidence" form state
+  // Evidence Modal / Drawer state
   const [addingEvidenceIdx, setAddingEvidenceIdx] = useState<number | null>(null);
   const [newSectionInput, setNewSectionInput] = useState('');
   const [newNotesInput, setNewNotesInput] = useState('');
 
-  // Action Items Checklist state (matching obliga.png & fina.png)
-  const [actionItems, setActionItems] = useState<Array<{ id: number; title: string; completed: boolean }>>([
-    {
-      id: 1,
-      title: `Incorporate statutory mandate ${obligation.regulatoryClauseReference} into manual`,
-      completed: currentStatus === 'ADEQUATELY_MET',
-    },
-    {
-      id: 2,
-      title: 'Circulate draft wording for Executive Risk Committee approval',
-      completed: false,
-    },
-  ]);
+  // Action Items state
+  const [actionItems, setActionItems] = useState<Array<{ id: string; title: string; completed: boolean }>>(
+    (obligation.actionItems && obligation.actionItems.length > 0)
+      ? obligation.actionItems.map((a, idx) => ({ id: a.id || String(idx), title: a.title, completed: Boolean(a.completed) }))
+      : [
+          {
+            id: 'act-1',
+            title: `Incorporate statutory mandate ${obligation.obligationCode || 'OBL'} into manual`,
+            completed: obligation.complianceStatus === 'ADEQUATELY_MET',
+          },
+        ]
+  );
   const [isAddingActionItem, setIsAddingActionItem] = useState(false);
   const [newActionItemTitle, setNewActionItemTitle] = useState('');
 
-  // 1. Copy Replacement Clause
+  // Comments state
+  const [comments, setComments] = useState<Array<{ id: string; author: string; role: string; time: string; text: string }>>([
+    {
+      id: 'c1',
+      author: 'Compliance Officer',
+      role: 'Reviewer',
+      time: 'Recently',
+      text: `Autonomous concordance evaluation completed for ${obligation.obligationCode || 'obligation'}. Reviewer verification in progress.`,
+    },
+  ]);
+  const [newCommentText, setNewCommentText] = useState('');
+  const [activeTab, setActiveTab] = useState<'COMMENTS' | 'AUDIT_LOGS'>('COMMENTS');
+
+  // Preview Modal for Verbatim Policy Excerpt
+  const [previewExcerpt, setPreviewExcerpt] = useState<{ title: string; excerpt: string } | null>(null);
+
+  // Reset criteria when obligation changes
+  useEffect(() => {
+    setCurrentStatus(obligation.complianceStatus);
+    setCriteria(defaultCriteria);
+  }, [obligation, defaultCriteria]);
+
+  // Compute Core criteria fulfillment count
+  const coreCriteria = criteria.filter((c) => c.criterionType === 'Core Criteria');
+  const totalCoreCount = coreCriteria.length || 1;
+  const metCoreCount = coreCriteria.filter((c) => c.status === 'MET').length;
+  const corePct = Math.round((metCoreCount / totalCoreCount) * 100);
+
+  // 1. Toggle / Override Criterion Verdict (Ref Video 03:30 & 03:44)
+  const handleToggleCriterionStatus = async (idx: number, targetStatus?: 'MET' | 'NOT_MET') => {
+    const currentVal = criteria[idx].status;
+    const nextVal = targetStatus || (currentVal === 'MET' ? 'NOT_MET' : 'MET');
+
+    const updatedList = criteria.map((c, i) =>
+      i === idx ? { ...c, status: nextVal, humanOverride: true } : c
+    );
+    setCriteria(updatedList);
+    setActiveOverrideDropdownIdx(null);
+
+    // Deterministic Roll-Up Math
+    const updatedCore = updatedList.filter((c) => c.criterionType === 'Core Criteria');
+    const updatedTotalCore = updatedCore.length || 1;
+    const updatedMetCore = updatedCore.filter((c) => c.status === 'MET').length;
+
+    let derivedStatus: ComplianceStatus = 'CRITICAL_GAP';
+    if (updatedMetCore === updatedTotalCore) {
+      derivedStatus = 'ADEQUATELY_MET';
+    } else if (updatedMetCore > 0) {
+      derivedStatus = 'PARTIALLY_MET';
+    } else {
+      derivedStatus = 'CRITICAL_GAP';
+    }
+
+    setCurrentStatus(derivedStatus);
+    if (onStatusChange) {
+      onStatusChange(obligation.id, derivedStatus);
+    }
+
+    setStatusUpdateMessage(`Criterion marked as ${nextVal === 'MET' ? 'Met ✓' : 'Not Met ✕'}. Obligation recalculated to ${derivedStatus}.`);
+    setTimeout(() => setStatusUpdateMessage(null), 3000);
+
+    // Persist to backend API
+    try {
+      await fetch('/api/gap-matrix/evaluations', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          evaluationId: obligation.evaluationId,
+          itemId: obligation.id,
+          criterionIndex: idx,
+          criterionStatus: nextVal,
+          complianceStatus: derivedStatus,
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to persist criterion override:', err);
+    }
+  };
+
+  // 2. Link Policy Evidence Section
+  const handleSaveEvidence = async (idx: number) => {
+    if (!newSectionInput.trim()) return;
+
+    const sectionTitle = newSectionInput.trim();
+    const sectionExcerpt = newNotesInput.trim() || 'Internal policy clause evidence linked by compliance reviewer.';
+
+    const updatedList = criteria.map((c, i) => {
+      if (i === idx) {
+        const sections = c.matchedPolicySections ? [...c.matchedPolicySections] : [];
+        sections.push({
+          policyId: '',
+          policyTitle,
+          sectionNumber: sectionTitle,
+          sectionTitle,
+          verbatimPolicyExcerpt: sectionExcerpt,
+        });
+        return {
+          ...c,
+          status: 'MET' as const,
+          matchedPolicySections: sections,
+          humanOverride: true,
+        };
+      }
+      return c;
+    });
+
+    setCriteria(updatedList);
+    setAddingEvidenceIdx(null);
+    setNewSectionInput('');
+    setNewNotesInput('');
+
+    // Recompute roll-up
+    const updatedCore = updatedList.filter((c) => c.criterionType === 'Core Criteria');
+    const updatedTotalCore = updatedCore.length || 1;
+    const updatedMetCore = updatedCore.filter((c) => c.status === 'MET').length;
+
+    let derivedStatus: ComplianceStatus = 'CRITICAL_GAP';
+    if (updatedMetCore === updatedTotalCore) derivedStatus = 'ADEQUATELY_MET';
+    else if (updatedMetCore > 0) derivedStatus = 'PARTIALLY_MET';
+
+    setCurrentStatus(derivedStatus);
+    if (onStatusChange) onStatusChange(obligation.id, derivedStatus);
+
+    setStatusUpdateMessage(`Evidence linked: ${sectionTitle}`);
+    setTimeout(() => setStatusUpdateMessage(null), 3000);
+
+    try {
+      await fetch('/api/gap-matrix/evaluations', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          evaluationId: obligation.evaluationId,
+          itemId: obligation.id,
+          criterionIndex: idx,
+          matchedPolicySection: sectionTitle,
+          matchedPolicyText: sectionExcerpt,
+          criterionStatus: 'MET',
+          complianceStatus: derivedStatus,
+        }),
+      });
+    } catch (err) {
+      console.error('Failed saving policy evidence:', err);
+    }
+  };
+
+  // 3. Remove Mapped Section
+  const handleRemoveSection = (cIdx: number, sIdx: number) => {
+    const updatedList = criteria.map((c, i) => {
+      if (i === cIdx) {
+        const nextSections = c.matchedPolicySections.filter((_, idx) => idx !== sIdx);
+        return {
+          ...c,
+          matchedPolicySections: nextSections,
+        };
+      }
+      return c;
+    });
+    setCriteria(updatedList);
+  };
+
+  // 4. Action Items Checklist
+  const handleAddActionItem = async () => {
+    if (!newActionItemTitle.trim()) return;
+    const title = newActionItemTitle.trim();
+    const newItem = {
+      id: crypto.randomUUID(),
+      title,
+      completed: false,
+    };
+    setActionItems((prev) => [...prev, newItem]);
+    setNewActionItemTitle('');
+    setIsAddingActionItem(false);
+
+    try {
+      await fetch('/api/gap-matrix/evaluations', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          evaluationId: obligation.evaluationId,
+          itemId: obligation.id,
+          newActionItem: {
+            title,
+            policyTitle,
+          },
+        }),
+      });
+    } catch (err) {
+      console.error('Failed saving action item:', err);
+    }
+  };
+
+  const handleToggleActionItem = (id: string) => {
+    setActionItems((prev) =>
+      prev.map((it) => (it.id === id ? { ...it, completed: !it.completed } : it))
+    );
+  };
+
+  // 5. Add Comment
+  const handlePostComment = () => {
+    if (!newCommentText.trim()) return;
+    setComments((prev) => [
+      ...prev,
+      {
+        id: crypto.randomUUID(),
+        author: 'Authorized Compliance Officer',
+        role: 'Reviewer',
+        time: 'Just now',
+        text: newCommentText.trim(),
+      },
+    ]);
+    setNewCommentText('');
+  };
+
   const handleCopyClause = () => {
     const textToCopy = obligation.draftReplacementLanguage || obligation.whatToDo;
     if (typeof window !== 'undefined') {
@@ -139,7 +378,6 @@ export function ObligationAssessmentEvaluationView({
     }
   };
 
-  // 2. Copy Link
   const handleCopyLink = () => {
     if (typeof window !== 'undefined') {
       navigator.clipboard.writeText(window.location.href);
@@ -148,152 +386,13 @@ export function ObligationAssessmentEvaluationView({
     }
   };
 
-  // 3. Status Override
-  const handleStatusOverride = async (newStatus: ComplianceStatus, criterionIdx?: number) => {
-    setCurrentStatus(newStatus);
-    setIsUpdatingStatus(true);
-    setStatusUpdateMessage(null);
-
-    try {
-      let response = await fetch(`/api/gap-matrix/items/${obligation.id}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: newStatus,
-          overrideReason: `Compliance officer manual criteria override to ${newStatus}`,
-          notes: criterionIdx !== undefined ? `Updated criterion index ${criterionIdx}` : undefined,
-        }),
-      });
-
-      if (!response.ok) {
-        response = await fetch('/api/gap-matrix/evaluations', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            evaluationId: obligation.evaluationId,
-            itemId: obligation.id,
-            complianceStatus: newStatus,
-            criterionIndex: criterionIdx,
-            reviewerNotes: `Compliance officer manual criteria override to ${newStatus}`,
-          }),
-        });
-      }
-
-      if (response.ok) {
-        setStatusUpdateMessage('Finding override cryptographically sealed in immutable audit trail');
-        setTimeout(() => setStatusUpdateMessage(null), 3500);
-        if (onStatusChange) {
-          onStatusChange(obligation.id, newStatus);
-        }
-      }
-    } catch (err) {
-      console.error('Failed updating status override:', err);
-    } finally {
-      setIsUpdatingStatus(false);
-    }
-  };
-
-  // 4. Toggle specific criterion (Met <-> Not Met)
-  const handleToggleCriterionStatus = (idx: number, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const nextVal: 'MET' | 'NOT_MET' = criteriaStatus[idx] === 'MET' ? 'NOT_MET' : 'MET';
-    const updated: { [key: number]: 'MET' | 'NOT_MET' } = {
-      ...criteriaStatus,
-      [idx]: nextVal,
-    };
-    setCriteriaStatus(updated);
-
-    const metCount = Object.values(updated).filter((s) => s === 'MET').length;
-    let derivedStatus: ComplianceStatus = 'CRITICAL_GAP';
-    if (metCount === 3) derivedStatus = 'ADEQUATELY_MET';
-    else if (metCount >= 1) derivedStatus = 'PARTIALLY_MET';
-
-    handleStatusOverride(derivedStatus, idx);
-  };
-
-  // 5. Toggle Expand/Collapse of criterion card
-  const handleToggleExpandCriterion = (idx: number) => {
-    setExpandedCriteria((prev) => ({
-      ...prev,
-      [idx]: !prev[idx],
-    }));
-  };
-
-  // 6. Save new policy evidence
-  const handleSavePolicyEvidence = async (idx: number) => {
-    if (!newSectionInput.trim()) return;
-
-    const updatedSection = newSectionInput.trim();
-    const updatedNotes = newNotesInput.trim();
-
-    setLinkedEvidence((prev) => ({
-      ...prev,
-      [idx]: {
-        section: updatedSection,
-        snippets: [updatedSection],
-        notes: updatedNotes || 'Internal policy clause evidence linked by compliance reviewer.',
-      },
-    }));
-
-    setAddingEvidenceIdx(null);
-    setNewSectionInput('');
-    setNewNotesInput('');
-
-    try {
-      await fetch('/api/gap-matrix/evaluations', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          evaluationId: obligation.evaluationId,
-          itemId: obligation.id,
-          complianceStatus: currentStatus,
-          matchedPolicySection: updatedSection,
-          matchedPolicyText: updatedNotes,
-          reviewerNotes: `Policy evidence linked: ${updatedSection}`,
-        }),
-      });
-      setStatusUpdateMessage(`Policy evidence linked: ${updatedSection}`);
-      setTimeout(() => setStatusUpdateMessage(null), 3000);
-    } catch (err) {
-      console.error('Failed saving policy evidence:', err);
-    }
-  };
-
-  // 7. Add new Action Item
-  const handleAddActionItem = () => {
-    if (!newActionItemTitle.trim()) return;
-    setActionItems((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        title: newActionItemTitle.trim(),
-        completed: false,
-      },
-    ]);
-    setNewActionItemTitle('');
-    setIsAddingActionItem(false);
-  };
-
-  const toggleActionItem = (id: number) => {
-    setActionItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, completed: !item.completed } : item))
-    );
-  };
-
-  // Calculations
-  const criteriaMetCount = Object.values(criteriaStatus).filter((s) => s === 'MET').length;
-  const criteriaTotalCount = 3;
-  const criteriaPct = Math.round((criteriaMetCount / criteriaTotalCount) * 100);
-
-  const formattedPenalty = new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    maximumFractionDigits: 0,
-  }).format(currentStatus === 'ADEQUATELY_MET' ? 0 : obligation.statutoryPenaltyNaira);
+  const fullTitle = obligation.obligationTitle || obligation.regulatoryClauseReference || 'Statutory Compliance Obligation';
+  const fullCode = obligation.obligationCode || 'OBL-CBN-001';
+  const fullDescription = obligation.obligationDescription || obligation.whatHappened;
 
   return (
     <div className="space-y-6">
-      {/* 1. Top Breadcrumb Trail (Matching fina.png & temp (14).png) */}
+      {/* 1. Top Breadcrumb Trail (Ref Video 03:21) */}
       <div className="flex items-center justify-between pb-3 border-b border-slate-200">
         <div className="flex items-center gap-2 min-w-0">
           <button
@@ -330,7 +429,7 @@ export function ObligationAssessmentEvaluationView({
             </button>
             <span>&gt;</span>
             <span className="font-semibold text-slate-900 truncate">
-              {obligation.statutoryLegalCitation || obligation.regulatoryClauseReference}
+              {fullTitle}
             </span>
           </div>
         </div>
@@ -340,7 +439,7 @@ export function ObligationAssessmentEvaluationView({
             type="button"
             onClick={() => setIsStarred(!isStarred)}
             className="p-1.5 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-slate-100 transition-colors"
-            title={isStarred ? 'Unstar obligation' : 'Star obligation'}
+            title={isStarred ? 'Unstar' : 'Star'}
           >
             <Star
               className={`w-4 h-4 ${isStarred ? 'fill-amber-400 text-amber-500' : 'text-slate-400'}`}
@@ -366,54 +465,53 @@ export function ObligationAssessmentEvaluationView({
         </div>
       )}
 
-      {/* 2. Main Two-Column Layout (70% Main, 30% Right Sidebar per fina.png) */}
+      {/* 2. Main Two-Column Layout (70% Left, 30% Right Sidebar) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column (8 cols) */}
+        {/* Left Column (8 cols / ~70%) */}
         <div className="lg:col-span-8 space-y-6">
-          {/* Statutory Obligation Header Card (Matching obliga.png) */}
-          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-2xs space-y-4">
+          {/* Statutory Obligation Header Block (Untruncated) */}
+          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-2xs space-y-3.5">
             {/* Top Subtitle Metadata */}
-            <div className="flex items-center gap-2 text-xs text-slate-500 font-mono">
-              <span className="font-semibold text-slate-700">
-                {obligation.regulatoryClauseReference}
-              </span>
+            <div className="flex items-center gap-2 text-xs font-mono text-slate-500">
+              <span className="font-bold text-slate-800">{fullCode}</span>
               <span>•</span>
-              <span className="text-slate-600">Risk Based</span>
+              <span>{obligation.ruleType || 'Prescriptive'}</span>
               <span>•</span>
-              <span className="text-slate-600">Policy Applicable</span>
+              <span>{obligation.policyApplicability || 'Policy Applicable'}</span>
             </div>
 
-            {/* Main Title */}
+            {/* Untruncated Obligation Title */}
             <h1 className="text-xl font-bold text-slate-900 tracking-tight leading-snug">
-              {obligation.statutoryLegalCitation || 'Risk-Based Determination of Due Diligence Extent'}
+              {fullTitle}
             </h1>
 
-            {/* Verbatim Statutory Mandate Paragraph */}
+            {/* Complete Plain-English / Verbatim Paragraph */}
             <p className="text-xs text-slate-700 leading-relaxed font-sans">
-              {obligation.whatToKnow || obligation.whatHappened}
+              {fullDescription}
             </p>
 
-            {/* Document Source Badge with Link */}
-            <div className="pt-2 flex flex-wrap items-center gap-2">
+            {/* Document Source Regulation Pill */}
+            <div className="pt-1 flex flex-wrap items-center gap-2">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700">
-                <FileText className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                <BookOpen className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                 <span className="font-medium truncate max-w-sm">
-                  {analysisName.split(' vs ')[0] || 'Authoritative Regulatory Framework'}
+                  {obligation.regulationTitle || analysisName.split(' vs ')[0] || 'Statutory Regulation'}
                 </span>
               </div>
 
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-xs font-mono font-medium hover:bg-slate-200 transition-colors">
-                <span className="text-slate-400">↗</span>
-                <span>{obligation.regulatoryClauseReference}</span>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-xs font-mono font-medium">
+                <span className="text-slate-400">Section:</span>
+                <span>{obligation.sourceSectionRef || 'Section 1.0'}</span>
               </div>
             </div>
           </div>
 
-          {/* Assessment Coverage Pulse Strip (Matching obliga.png & fina.png) */}
+          {/* Assessment Coverage Summary Bar (Ref Video 03:23) */}
           <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <span className="text-xs font-semibold text-slate-700">Assessment coverage</span>
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-800">
+              {/* 6px Status Dot per AGENTS.md */}
+              <span className="inline-flex items-center gap-1.5 text-xs text-slate-800 font-medium px-2 py-0.5 rounded bg-slate-100">
                 <span
                   className={`w-2 h-2 rounded-full ${
                     currentStatus === 'ADEQUATELY_MET'
@@ -430,770 +528,519 @@ export function ObligationAssessmentEvaluationView({
                     ? 'Partial'
                     : 'Critical Gap'}
                 </span>
-              </div>
+              </span>
               <Scale className="w-3.5 h-3.5 text-slate-400" />
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden flex">
-                  <div
-                    className="h-full bg-emerald-500 transition-all duration-300"
-                    style={{ width: `${criteriaPct}%` }}
-                  />
-                  <div
-                    className="h-full bg-slate-200 transition-all duration-300"
-                    style={{ width: `${100 - criteriaPct}%` }}
-                  />
-                </div>
-                <span className="text-xs font-mono font-medium text-slate-700">
-                  {criteriaMetCount}/{criteriaTotalCount} Core criteria fulfilled
-                </span>
+            {/* Dynamic Core Criteria Math (e.g. 2/3 Core criteria fulfilled) */}
+            <div className="flex items-center gap-3">
+              <div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden flex">
+                <div
+                  className="h-full bg-emerald-500 transition-all duration-300"
+                  style={{ width: `${corePct}%` }}
+                />
+                <div
+                  className="h-full bg-slate-200 transition-all duration-300"
+                  style={{ width: `${100 - corePct}%` }}
+                />
               </div>
-
-              <div className="flex items-center gap-1 border-l border-slate-200 pl-3">
-                <button
-                  type="button"
-                  className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-                  title="Filter options"
-                >
-                  <SlidersHorizontal className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Assessment Criteria Cards List (Matching asse.png & fina.png) */}
-          <div className="space-y-4">
-            {/* Criterion 1 */}
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs transition-all">
-              <div
-                onClick={() => handleToggleExpandCriterion(0)}
-                className="p-4 flex items-start justify-between gap-4 cursor-pointer hover:bg-slate-50/70 transition-colors"
-              >
-                <div className="flex items-start gap-3">
-                  <FileText className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-                  <div>
-                    <h2 className="text-xs font-semibold text-slate-900 leading-relaxed">
-                      The individual risk analysis incorporates the business-wide risk assessment, money laundering variables, and specified risk factors.
-                    </h2>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2.5 shrink-0">
-                  {/* Status Toggle Dropdown (asse.png & fina.png) */}
-                  <button
-                    type="button"
-                    onClick={(e) => handleToggleCriterionStatus(0, e)}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium border transition-colors ${
-                      criteriaStatus[0] === 'MET'
-                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
-                        : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
-                    }`}
-                  >
-                    <span>{criteriaStatus[0] === 'MET' ? '✓ Met' : '✕ Not Met'}</span>
-                    <ChevronDown className="w-3 h-3 opacity-60" />
-                  </button>
-
-                  <button
-                    type="button"
-                    className="p-1 text-slate-400 hover:text-slate-700 transition-colors"
-                  >
-                    {expandedCriteria[0] ? (
-                      <ChevronUp className="w-4 h-4" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Expanded Card Details (asse.png & fina.png) */}
-              {expandedCriteria[0] && (
-                <div className="px-5 pb-5 pt-2 border-t border-slate-100 bg-slate-50/40 space-y-4">
-                  {/* Statutory Concordance Rationale */}
-                  <div className="flex items-start gap-2.5 text-xs text-slate-700 leading-relaxed">
-                    <Scale className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-semibold text-slate-900">
-                        Statutory Concordance Rationale:{' '}
-                      </span>
-                      <span>
-                        {criteriaStatus[0] === 'MET'
-                          ? 'The criterion is met as internal policies establish that customer due diligence measures are scaled based on an individual risk assessment.'
-                          : 'The criterion is not met because there is no explicit mention of integrating the business-wide risk assessment into the individual risk analysis in current policy documentation.'}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Linked Policy Evidence Tree */}
-                  <div className="p-3.5 bg-white border border-slate-200 rounded-lg space-y-2">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-900">
-                      <span className="w-4 h-4 rounded bg-rose-600 text-white flex items-center justify-center font-bold text-[9px]">
-                        PDF
-                      </span>
-                      <span>{policyTitle}</span>
-                    </div>
-
-                    <div className="pl-6 space-y-1.5 text-xs text-slate-600 font-mono">
-                      {linkedEvidence[0]?.snippets.map((snippet, sIdx) => (
-                        <div key={sIdx} className="flex items-center gap-2">
-                          <span className="text-slate-400">└──</span>
-                          <span className="text-slate-800">{snippet}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {linkedEvidence[0]?.notes && (
-                      <p className="pl-6 text-[11px] text-slate-500 italic">
-                        {linkedEvidence[0].notes}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* + Add Policy / Evidence Action */}
-                  {addingEvidenceIdx === 0 ? (
-                    <div className="p-3.5 bg-white border border-slate-300 rounded-lg space-y-3 animate-in fade-in duration-150">
-                      <span className="text-xs font-semibold text-slate-900 block">
-                        Link Internal Policy Evidence Section
-                      </span>
-                      <input
-                        type="text"
-                        value={newSectionInput}
-                        onChange={(e) => setNewSectionInput(e.target.value)}
-                        placeholder="e.g. Section 4.2.1 Risk-Based Customer Categorization"
-                        className="w-full text-xs p-2 border border-slate-300 rounded-md focus:ring-1 focus:ring-slate-900 outline-none"
-                      />
-                      <textarea
-                        value={newNotesInput}
-                        onChange={(e) => setNewNotesInput(e.target.value)}
-                        placeholder="Enter auditor verification notes or paste policy excerpt..."
-                        rows={2}
-                        className="w-full text-xs p-2 border border-slate-300 rounded-md focus:ring-1 focus:ring-slate-900 outline-none resize-none"
-                      />
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleSavePolicyEvidence(0)}
-                          className="px-3 py-1.5 bg-slate-900 text-white rounded text-xs font-medium hover:bg-slate-800 transition-colors"
-                        >
-                          Save Evidence &amp; Link to Ledger
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setAddingEvidenceIdx(null)}
-                          className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded text-xs hover:bg-slate-50 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAddingEvidenceIdx(0);
-                        setNewSectionInput('');
-                        setNewNotesInput('');
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg text-xs font-medium text-slate-700 transition-colors shadow-2xs"
-                    >
-                      <Plus className="w-3.5 h-3.5 text-slate-500" />
-                      <span>+ Add Policy Evidence</span>
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Criterion 2 */}
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs transition-all">
-              <div
-                onClick={() => handleToggleExpandCriterion(1)}
-                className="p-4 flex items-start justify-between gap-4 cursor-pointer hover:bg-slate-50/70 transition-colors"
-              >
-                <div className="flex items-start gap-3">
-                  <FileText className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-                  <div>
-                    <h2 className="text-xs font-semibold text-slate-900 leading-relaxed">
-                      Due diligence measures are scaled based on an individual money laundering and terrorist financing risk analysis.
-                    </h2>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={(e) => handleToggleCriterionStatus(1, e)}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium border transition-colors ${
-                      criteriaStatus[1] === 'MET'
-                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
-                        : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
-                    }`}
-                  >
-                    <span>{criteriaStatus[1] === 'MET' ? '✓ Met' : '✕ Not Met'}</span>
-                    <ChevronDown className="w-3 h-3 opacity-60" />
-                  </button>
-
-                  <button
-                    type="button"
-                    className="p-1 text-slate-400 hover:text-slate-700 transition-colors"
-                  >
-                    {expandedCriteria[1] ? (
-                      <ChevronUp className="w-4 h-4" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {expandedCriteria[1] && (
-                <div className="px-5 pb-5 pt-2 border-t border-slate-100 bg-slate-50/40 space-y-4">
-                  <div className="flex items-start gap-2.5 text-xs text-slate-700 leading-relaxed">
-                    <Scale className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-semibold text-slate-900">
-                        Statutory Concordance Rationale:{' '}
-                      </span>
-                      <span>
-                        {criteriaStatus[1] === 'MET'
-                          ? 'The criterion is met as the policies establish that due diligence measures are scaled (simplified vs. enhanced) based on an individual ML/TF risk analysis.'
-                          : 'Deficiency identified: Policy fails to outline operational criteria for simplified due diligence escalation thresholds.'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="p-3.5 bg-white border border-slate-200 rounded-lg space-y-2">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-900">
-                      <span className="w-4 h-4 rounded bg-rose-600 text-white flex items-center justify-center font-bold text-[9px]">
-                        PDF
-                      </span>
-                      <span>{policyTitle}</span>
-                    </div>
-                    <div className="pl-6 space-y-1.5 text-xs text-slate-600 font-mono">
-                      {linkedEvidence[1]?.snippets.map((snippet, sIdx) => (
-                        <div key={sIdx} className="flex items-center gap-2">
-                          <span className="text-slate-400">└──</span>
-                          <span className="text-slate-800">{snippet}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {addingEvidenceIdx === 1 ? (
-                    <div className="p-3.5 bg-white border border-slate-300 rounded-lg space-y-3 animate-in fade-in duration-150">
-                      <span className="text-xs font-semibold text-slate-900 block">
-                        Link Internal Policy Evidence Section
-                      </span>
-                      <input
-                        type="text"
-                        value={newSectionInput}
-                        onChange={(e) => setNewSectionInput(e.target.value)}
-                        placeholder="e.g. Section 3.4 Scaled Diligence Matrices"
-                        className="w-full text-xs p-2 border border-slate-300 rounded-md focus:ring-1 focus:ring-slate-900 outline-none"
-                      />
-                      <textarea
-                        value={newNotesInput}
-                        onChange={(e) => setNewNotesInput(e.target.value)}
-                        placeholder="Enter auditor verification notes..."
-                        rows={2}
-                        className="w-full text-xs p-2 border border-slate-300 rounded-md focus:ring-1 focus:ring-slate-900 outline-none resize-none"
-                      />
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleSavePolicyEvidence(1)}
-                          className="px-3 py-1.5 bg-slate-900 text-white rounded text-xs font-medium hover:bg-slate-800 transition-colors"
-                        >
-                          Save Evidence &amp; Link to Ledger
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setAddingEvidenceIdx(null)}
-                          className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded text-xs hover:bg-slate-50 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAddingEvidenceIdx(1);
-                        setNewSectionInput('');
-                        setNewNotesInput('');
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg text-xs font-medium text-slate-700 transition-colors shadow-2xs"
-                    >
-                      <Plus className="w-3.5 h-3.5 text-slate-500" />
-                      <span>+ Add Policy Evidence</span>
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Criterion 3 */}
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs transition-all">
-              <div
-                onClick={() => handleToggleExpandCriterion(2)}
-                className="p-4 flex items-start justify-between gap-4 cursor-pointer hover:bg-slate-50/70 transition-colors"
-              >
-                <div className="flex items-start gap-3">
-                  <FileText className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-                  <div>
-                    <h2 className="text-xs font-semibold text-slate-900 leading-relaxed">
-                      Client risk assessments incorporate specific characteristics of the client, business relationship, or occasional transaction.
-                    </h2>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={(e) => handleToggleCriterionStatus(2, e)}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium border transition-colors ${
-                      criteriaStatus[2] === 'MET'
-                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
-                        : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
-                    }`}
-                  >
-                    <span>{criteriaStatus[2] === 'MET' ? '✓ Met' : '✕ Not Met'}</span>
-                    <ChevronDown className="w-3 h-3 opacity-60" />
-                  </button>
-
-                  <button
-                    type="button"
-                    className="p-1 text-slate-400 hover:text-slate-700 transition-colors"
-                  >
-                    {expandedCriteria[2] ? (
-                      <ChevronUp className="w-4 h-4" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {expandedCriteria[2] && (
-                <div className="px-5 pb-5 pt-2 border-t border-slate-100 bg-slate-50/40 space-y-4">
-                  <div className="flex items-start gap-2.5 text-xs text-slate-700 leading-relaxed">
-                    <Scale className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-semibold text-slate-900">
-                        Statutory Concordance Rationale:{' '}
-                      </span>
-                      <span>
-                        {criteriaStatus[2] === 'MET'
-                          ? 'The criterion is met as customer risk rating methodologies incorporate transactional velocity, geographic exposure, and PEP status.'
-                          : 'Material deficiency: Institutional policy omits geographic high-risk zone screening criteria required under BOFIA 2020.'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="p-3.5 bg-white border border-slate-200 rounded-lg space-y-2">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-900">
-                      <span className="w-4 h-4 rounded bg-rose-600 text-white flex items-center justify-center font-bold text-[9px]">
-                        PDF
-                      </span>
-                      <span>{policyTitle}</span>
-                    </div>
-                    <div className="pl-6 space-y-1.5 text-xs text-slate-600 font-mono">
-                      {linkedEvidence[2]?.snippets.map((snippet, sIdx) => (
-                        <div key={sIdx} className="flex items-center gap-2">
-                          <span className="text-slate-400">└──</span>
-                          <span className="text-slate-800">{snippet}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {addingEvidenceIdx === 2 ? (
-                    <div className="p-3.5 bg-white border border-slate-300 rounded-lg space-y-3 animate-in fade-in duration-150">
-                      <span className="text-xs font-semibold text-slate-900 block">
-                        Link Internal Policy Evidence Section
-                      </span>
-                      <input
-                        type="text"
-                        value={newSectionInput}
-                        onChange={(e) => setNewSectionInput(e.target.value)}
-                        placeholder="e.g. Section 2.1 Geographic Risk Factors"
-                        className="w-full text-xs p-2 border border-slate-300 rounded-md focus:ring-1 focus:ring-slate-900 outline-none"
-                      />
-                      <textarea
-                        value={newNotesInput}
-                        onChange={(e) => setNewNotesInput(e.target.value)}
-                        placeholder="Enter auditor verification notes..."
-                        rows={2}
-                        className="w-full text-xs p-2 border border-slate-300 rounded-md focus:ring-1 focus:ring-slate-900 outline-none resize-none"
-                      />
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleSavePolicyEvidence(2)}
-                          className="px-3 py-1.5 bg-slate-900 text-white rounded text-xs font-medium hover:bg-slate-800 transition-colors"
-                        >
-                          Save Evidence &amp; Link to Ledger
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setAddingEvidenceIdx(null)}
-                          className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded text-xs hover:bg-slate-50 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAddingEvidenceIdx(2);
-                        setNewSectionInput('');
-                        setNewNotesInput('');
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg text-xs font-medium text-slate-700 transition-colors shadow-2xs"
-                    >
-                      <Plus className="w-3.5 h-3.5 text-slate-500" />
-                      <span>+ Add Policy Evidence</span>
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* 5-W Operational Decision Matrix (Cogent Differentiator) */}
-          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-2xs space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-slate-700" />
-                <h2 className="text-sm font-bold text-slate-900 tracking-tight">
-                  5-W Operational Decision Matrix
-                </h2>
-              </div>
-              <span className="text-xs text-slate-400 font-mono">
-                STATUTORY SYNTHESIS
+              <span className="text-xs font-mono font-bold text-slate-800">
+                {metCoreCount}/{totalCoreCount} Core criteria fulfilled
               </span>
             </div>
+          </div>
 
-            <div className="border border-slate-200 rounded-lg divide-y divide-slate-200 overflow-hidden bg-white">
-              {/* 1. What Happened */}
-              <div className="p-4 space-y-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 block">
-                  1. What Happened (Statutory Finding)
-                </span>
-                <p className="text-xs text-slate-700 leading-relaxed font-sans">
-                  {obligation.whatHappened}
-                </p>
-              </div>
+          {/* Assessment Criteria Header */}
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              Assessment Criteria ({criteria.length})
+            </h2>
+            <span className="text-[11px] text-slate-400">
+              Hover verdict badge to manually override
+            </span>
+          </div>
 
-              {/* 2. What to Know */}
-              <div className="p-4 space-y-1.5 bg-slate-50/50">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 block">
-                  2. What to Know (Statutory Exposure &amp; Precedent)
-                </span>
-                <p className="text-xs text-slate-700 leading-relaxed font-mono">
-                  {obligation.whatToKnow}
-                </p>
-              </div>
+          {/* Criterion-by-Criterion Evaluation Cards (The Core Engine — Ref Video 03:24 – 03:45) */}
+          <div className="space-y-4">
+            {criteria.map((crit, idx) => {
+              const isMet = crit.status === 'MET';
+              const isExpanded = expandedCriteria[idx] ?? true;
+              const isOverrideOpen = activeOverrideDropdownIdx === idx;
 
-              {/* 3. What Has Changed */}
-              <div className="p-4 space-y-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 block">
-                  3. What Has Changed (Regulatory Standard Shift)
-                </span>
-                <p className="text-xs text-slate-700 leading-relaxed font-sans">
-                  {obligation.whatHasChanged}
-                </p>
-              </div>
+              return (
+                <div
+                  key={crit.id || idx}
+                  className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs transition-all"
+                >
+                  {/* Collapsed / Header Row */}
+                  <div className="p-4 flex items-start justify-between gap-4 bg-white hover:bg-slate-50/60 transition-colors">
+                    <div
+                      onClick={() => setExpandedCriteria((prev) => ({ ...prev, [idx]: !isExpanded }))}
+                      className="flex items-start gap-3 cursor-pointer min-w-0 flex-1"
+                    >
+                      <FileText className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">
+                          {crit.criterionType}
+                        </span>
+                        <h3 className="text-xs font-semibold text-slate-900 leading-relaxed">
+                          {crit.criterionText}
+                        </h3>
+                      </div>
+                    </div>
 
-              {/* 4. What to Do with Draft Replacement Language */}
-              <div className="p-4 space-y-3 bg-slate-50/50">
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 block mb-1">
-                    4. What to Do (Operational Remediation Plan)
-                  </span>
-                  <p className="text-xs text-slate-700 leading-relaxed font-sans">
-                    {obligation.whatToDo}
-                  </p>
+                    {/* Interactive Verdict Badge with Human Override Dropdown */}
+                    <div className="flex items-center gap-2 shrink-0 relative">
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setActiveOverrideDropdownIdx(isOverrideOpen ? null : idx)}
+                          className={`group inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold border transition-all ${
+                            isMet
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                              : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                          }`}
+                          title="Click to override verdict"
+                        >
+                          <span>{isMet ? '✓ Met' : '✕ Not Met'}</span>
+                          <Edit2 className="w-3 h-3 opacity-40 group-hover:opacity-100 transition-opacity" />
+                          <ChevronDown className="w-3 h-3 opacity-50" />
+                        </button>
+
+                        {/* Override Dropdown (Ref Video 03:30 & 03:44) */}
+                        {isOverrideOpen && (
+                          <div className="absolute right-0 top-8 z-30 w-36 bg-white border border-slate-200 rounded-xl shadow-lg py-1 text-xs animate-in fade-in duration-150">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleCriterionStatus(idx, 'MET')}
+                              className="w-full text-left px-3 py-1.5 hover:bg-emerald-50 text-emerald-800 font-medium flex items-center justify-between"
+                            >
+                              <span>✓ Met</span>
+                              {isMet && <Check className="w-3.5 h-3.5" />}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleToggleCriterionStatus(idx, 'NOT_MET')}
+                              className="w-full text-left px-3 py-1.5 hover:bg-rose-50 text-rose-700 font-medium flex items-center justify-between"
+                            >
+                              <span>✕ Not Met</span>
+                              {!isMet && <Check className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setExpandedCriteria((prev) => ({ ...prev, [idx]: !isExpanded }))}
+                        className="p-1 text-slate-400 hover:text-slate-700 rounded"
+                      >
+                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Expanded Body (Ref Video 03:26 - 03:45) */}
+                  {isExpanded && (
+                    <div className="px-5 pb-5 pt-2 border-t border-slate-100 bg-slate-50/40 space-y-4">
+                      {/* 1. AI Reason Box */}
+                      <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-1">
+                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                          <Scale className="w-3.5 h-3.5 text-slate-500" />
+                          <span>Statutory Concordance Rationale</span>
+                        </div>
+                        <p className="text-xs text-slate-700 leading-relaxed font-sans pl-5">
+                          {crit.aiReason}
+                        </p>
+                      </div>
+
+                      {/* 2. Mapped Policy Sections Evidence Box */}
+                      <div className="p-3.5 bg-white border border-slate-200 rounded-lg space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-xs font-semibold text-slate-900">
+                            <span className="w-4 h-4 rounded bg-rose-600 text-white flex items-center justify-center font-bold text-[9px]">
+                              PDF
+                            </span>
+                            <span className="truncate max-w-sm">{policyTitle}</span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAddingEvidenceIdx(idx);
+                              setNewSectionInput('');
+                              setNewNotesInput('');
+                            }}
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-700 hover:text-slate-950 px-2 py-0.5 rounded hover:bg-slate-100 transition-colors"
+                          >
+                            <Plus className="w-3 h-3 text-slate-500" />
+                            <span>+ ADD SECTION</span>
+                          </button>
+                        </div>
+
+                        {/* List of matched sections from the user's actual policy */}
+                        {crit.matchedPolicySections && crit.matchedPolicySections.length > 0 ? (
+                          <div className="pl-6 space-y-2 text-xs">
+                            {crit.matchedPolicySections.map((sec, sIdx) => (
+                              <div
+                                key={sIdx}
+                                className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-200 hover:border-slate-300 transition-all"
+                              >
+                                <div className="flex items-center gap-2 min-w-0 pr-2">
+                                  <span className="text-slate-400">└──</span>
+                                  <span className="font-mono text-slate-800 truncate font-medium">
+                                    {sec.sectionTitle || sec.sectionNumber}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPreviewExcerpt({
+                                        title: sec.sectionTitle || sec.sectionNumber,
+                                        excerpt: sec.verbatimPolicyExcerpt,
+                                      })
+                                    }
+                                    className="p-1 text-slate-400 hover:text-slate-900 transition-colors"
+                                    title="Preview excerpt"
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveSection(idx, sIdx)}
+                                    className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
+                                    title="Remove mapping"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="pl-6 text-[11px] text-slate-400 italic">
+                            No internal policy clauses currently satisfy this criterion. Click &quot;+ ADD SECTION&quot; to link evidence manually.
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Inline + Add Section Form */}
+                      {addingEvidenceIdx === idx && (
+                        <div className="p-3.5 bg-white border border-slate-300 rounded-lg space-y-3 animate-in fade-in duration-150">
+                          <span className="text-xs font-semibold text-slate-900 block">
+                            Link Internal Policy Section Evidence
+                          </span>
+                          <input
+                            type="text"
+                            value={newSectionInput}
+                            onChange={(e) => setNewSectionInput(e.target.value)}
+                            placeholder="e.g. Section 2.1 Customer Due Diligence"
+                            className="w-full text-xs p-2 border border-slate-300 rounded-md focus:ring-1 focus:ring-slate-900 outline-none"
+                          />
+                          <textarea
+                            value={newNotesInput}
+                            onChange={(e) => setNewNotesInput(e.target.value)}
+                            placeholder="Enter policy excerpt or auditor verification notes..."
+                            rows={2}
+                            className="w-full text-xs p-2 border border-slate-300 rounded-md focus:ring-1 focus:ring-slate-900 outline-none resize-none"
+                          />
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleSaveEvidence(idx)}
+                              className="px-3 py-1.5 bg-slate-900 text-white rounded text-xs font-medium hover:bg-slate-800 transition-colors"
+                            >
+                              Save Evidence &amp; Mark Met
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setAddingEvidenceIdx(null)}
+                              className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded text-xs hover:bg-slate-50 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
+              );
+            })}
+          </div>
 
-                {/* Pre-cleared Draft Replacement Policy Language */}
-                <div className="border border-slate-300 rounded-lg bg-white p-3.5 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-900">
-                      Pre-Cleared Draft Replacement Policy Language
-                    </span>
+          {/* Cogent Remediation Booster: Draft Policy Remediation Language */}
+          {currentStatus !== 'ADEQUATELY_MET' && (
+            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-slate-700" />
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                    Draft Policy Remediation Language
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCopyClause}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-900 text-white rounded-md text-xs font-medium hover:bg-slate-800 transition-colors"
+                >
+                  {copiedClause ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedClause ? 'Copied!' : 'Copy Clause'}</span>
+                </button>
+              </div>
+
+              <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 font-mono text-xs text-slate-800 leading-relaxed whitespace-pre-wrap">
+                {obligation.draftReplacementLanguage || obligation.whatToDo}
+              </div>
+            </div>
+          )}
+
+          {/* Collaboration Card: Comments & Audit Logs */}
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+            <div className="flex items-center border-b border-slate-200 px-4">
+              <button
+                type="button"
+                onClick={() => setActiveTab('COMMENTS')}
+                className={`py-3 px-3 text-xs font-semibold border-b-2 transition-colors ${
+                  activeTab === 'COMMENTS'
+                    ? 'border-slate-900 text-slate-900'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                Comments ({comments.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('AUDIT_LOGS')}
+                className={`py-3 px-3 text-xs font-semibold border-b-2 transition-colors ${
+                  activeTab === 'AUDIT_LOGS'
+                    ? 'border-slate-900 text-slate-900'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                Audit Logs (1)
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              {activeTab === 'COMMENTS' ? (
+                <>
+                  <div className="space-y-3">
+                    {comments.map((c) => (
+                      <div key={c.id} className="p-3 bg-slate-50 rounded-lg text-xs space-y-1">
+                        <div className="flex items-center justify-between text-slate-500">
+                          <span className="font-bold text-slate-800">{c.author}</span>
+                          <span className="font-mono text-[11px]">{c.time}</span>
+                        </div>
+                        <p className="text-slate-700 leading-relaxed">{c.text}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2">
+                    <input
+                      type="text"
+                      value={newCommentText}
+                      onChange={(e) => setNewCommentText(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handlePostComment()}
+                      placeholder="Add compliance note or audit rationale..."
+                      className="flex-1 text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-1 focus:ring-slate-900"
+                    />
                     <button
                       type="button"
-                      onClick={handleCopyClause}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-900 text-white hover:bg-slate-800 rounded text-xs font-medium transition-colors shadow-2xs"
+                      onClick={handlePostComment}
+                      className="px-3 py-2 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-800 transition-colors"
                     >
-                      {copiedClause ? (
-                        <>
-                          <Check className="w-3 h-3 text-emerald-400" />
-                          <span>Copied</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3 h-3 text-slate-300" />
-                          <span>Copy Clause</span>
-                        </>
-                      )}
+                      Post
                     </button>
                   </div>
-                  <div className="p-3 bg-slate-50 rounded border border-slate-200 font-mono text-xs text-slate-800 leading-relaxed">
-                    {obligation.draftReplacementLanguage ||
-                      `"The institution shall enforce strict compliance with ${obligation.regulatoryClauseReference}, establishing continuous supervisory surveillance and annual executive audit reporting in accordance with the regulatory standard."`}
+                </>
+              ) : (
+                <div className="space-y-2 text-xs font-mono text-slate-600">
+                  <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
+                    <div className="flex items-center justify-between text-[11px] text-slate-400">
+                      <span>AUTOMATED_CONCORDANCE_RUN</span>
+                      <span>{new Date().toISOString().slice(0, 10)}</span>
+                    </div>
+                    <p className="text-slate-800 font-sans">
+                      Obligation {fullCode} evaluated against {policyTitle}. Met criteria: {metCoreCount}/{totalCoreCount}.
+                    </p>
                   </div>
-                  <span className="text-[10px] text-slate-400 block">
-                    Copy and insert directly into your internal policy manual to achieve adequate concordance.
-                  </span>
                 </div>
-              </div>
-
-              {/* 5. Derived Insight */}
-              <div className="p-4 space-y-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 block">
-                  5. Derived Insight &amp; Balance Sheet Protection
-                </span>
-                <p className="text-xs text-slate-700 leading-relaxed font-sans">
-                  {obligation.derivedInsight ||
-                    `Remediating this obligation insulates the enterprise against statutory sanction exposure up to ${formattedPenalty} and prevents supervisory enforcement downgrade during statutory bank examinations.`}
-                </p>
-              </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Right Sidebar Column (4 cols) (Matching obliga.png, fina.png & temp (13).png) */}
+        {/* Right Action & Context Rail (4 cols / ~30% — Ref Video 03:22 - 03:54) */}
         <div className="lg:col-span-4 space-y-6">
           {/* Actions Card */}
           <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                Actions
-              </span>
-              <ChevronUp className="w-4 h-4 text-slate-400" />
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
+              Actions
+            </span>
+
+            {/* Review Status Selector */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] text-slate-500 block">Review status</label>
+              <select
+                value={currentStatus}
+                onChange={(e) => {
+                  const s = e.target.value as ComplianceStatus;
+                  setCurrentStatus(s);
+                  if (onStatusChange) onStatusChange(obligation.id, s);
+                }}
+                className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none cursor-pointer font-medium"
+              >
+                <option value="CRITICAL_GAP">Critical Gap</option>
+                <option value="PARTIALLY_MET">Partial Review</option>
+                <option value="ADEQUATELY_MET">Adequately Met</option>
+              </select>
             </div>
 
-            {/* Workflow Status Dropdown */}
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-                Workflow Status
-              </label>
-              <div className="relative">
-                <select
-                  value={workflowStatus}
-                  onChange={(e) => setWorkflowStatus(e.target.value)}
-                  className="w-full text-xs font-medium text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none cursor-pointer hover:bg-slate-100"
-                >
-                  <option value="Review Pending">Review Pending</option>
-                  <option value="Completed">Completed / Closed</option>
-                  <option value="In Legal Review">In Legal Review</option>
-                </select>
+            {/* Assignee Selector */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] text-slate-500 block">Assignee</label>
+              <div className="flex items-center gap-2 p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700">
+                <User className="w-3.5 h-3.5 text-slate-400" />
+                <span>{obligation.responsibleRole || 'Chief Compliance Officer'}</span>
               </div>
             </div>
 
-            {/* Assignee Dropdown */}
-            <div className="space-y-1">
-              <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-                Assignee
-              </label>
-              <div className="relative">
-                <select
-                  value={assignee}
-                  onChange={(e) => setAssignee(e.target.value)}
-                  className="w-full text-xs font-medium text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 outline-none cursor-pointer hover:bg-slate-100"
-                >
-                  <option value="Authorized Compliance Officer">
-                    Authorized Compliance Officer
-                  </option>
-                  <option value="Chief Compliance Officer">Chief Compliance Officer</option>
-                  <option value="Head of Legal &amp; Regulatory">Head of Legal &amp; Regulatory</option>
-                  <option value="Internal Audit Lead">Internal Audit Lead</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Share With Team Buttons */}
-            <div className="pt-2 border-t border-slate-100 space-y-2">
-              <span className="text-[11px] text-slate-500 font-medium block">
-                Share with team
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={onOpenDossierModal}
-                  className="inline-flex items-center justify-center gap-1.5 py-2 px-3 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg text-xs font-medium transition-colors"
-                >
-                  <Download className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Export</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleCopyLink}
-                  className="inline-flex items-center justify-center gap-1.5 py-2 px-3 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-lg text-xs font-medium transition-colors"
-                >
-                  {copiedLink ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Copied!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Share2 className="w-3.5 h-3.5 text-slate-500" />
-                      <span>Copy Link</span>
-                    </>
-                  )}
-                </button>
-              </div>
+            {/* Share & Export Buttons */}
+            <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onOpenDossierModal}
+                className="flex-1 py-1.5 px-3 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-medium text-slate-700 transition-colors shadow-2xs"
+              >
+                Export
+              </button>
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                className="flex-1 py-1.5 px-3 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg text-xs font-medium text-slate-700 transition-colors shadow-2xs"
+              >
+                {copiedLink ? 'Copied!' : 'Copy link'}
+              </button>
             </div>
           </div>
 
-          {/* Mapped Policies Card (Matching obliga.png & fina.png) */}
+          {/* Mapped Policies Card */}
           <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                Mapped Policies
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
+              Mapped Policies
+            </span>
+            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center gap-2.5 text-xs text-slate-800">
+              <span className="w-4 h-4 rounded bg-rose-600 text-white flex items-center justify-center font-bold text-[9px] shrink-0">
+                PDF
               </span>
-              <ChevronUp className="w-4 h-4 text-slate-400" />
-            </div>
-
-            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-medium text-slate-800">
-                <span className="w-5 h-5 rounded bg-rose-600 text-white flex items-center justify-center font-bold text-[10px]">
-                  PDF
-                </span>
-                <span className="truncate max-w-[180px]">{policyTitle}</span>
-              </div>
-              <span className="text-[10px] text-slate-400 font-mono">v1.0</span>
+              <span className="font-medium truncate">{policyTitle}</span>
             </div>
           </div>
 
-          {/* Action Items Card (Matching obliga.png & fina.png) */}
-          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs space-y-3">
+          {/* Action Items Card (Ref Video 03:23) */}
+          <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs space-y-3.5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                Action Items
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
+                Action Items ({actionItems.length})
               </span>
-              <ChevronUp className="w-4 h-4 text-slate-400" />
+              <button
+                type="button"
+                onClick={() => setIsAddingActionItem(true)}
+                className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-700 hover:text-slate-900"
+              >
+                <Plus className="w-3 h-3 text-slate-500" />
+                <span>Add</span>
+              </button>
             </div>
 
             <div className="space-y-2">
               {actionItems.map((item) => (
                 <label
                   key={item.id}
-                  className="flex items-start gap-2.5 text-xs text-slate-700 cursor-pointer select-none group"
+                  className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-slate-50 cursor-pointer text-xs"
                 >
                   <input
                     type="checkbox"
                     checked={item.completed}
-                    onChange={() => toggleActionItem(item.id)}
-                    className="mt-0.5 rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                    onChange={() => handleToggleActionItem(item.id)}
+                    className="mt-0.5 rounded border-slate-300 text-slate-900 focus:ring-0 cursor-pointer"
                   />
                   <span
-                    className={`leading-relaxed group-hover:text-slate-950 transition-colors ${
-                      item.completed ? 'line-through text-slate-400' : 'text-slate-700'
+                    className={`leading-relaxed ${
+                      item.completed ? 'line-through text-slate-400' : 'text-slate-800 font-medium'
                     }`}
                   >
                     {item.title}
                   </span>
                 </label>
               ))}
-            </div>
 
-            {isAddingActionItem ? (
-              <div className="pt-2 space-y-2 animate-in fade-in duration-150">
-                <input
-                  type="text"
-                  value={newActionItemTitle}
-                  onChange={(e) => setNewActionItemTitle(e.target.value)}
-                  placeholder="Enter remediation action..."
-                  className="w-full text-xs p-2 border border-slate-300 rounded-md focus:ring-1 focus:ring-slate-900 outline-none"
-                  autoFocus
-                />
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleAddActionItem}
-                    className="px-2.5 py-1 bg-slate-900 text-white rounded text-xs font-medium hover:bg-slate-800 transition-colors"
-                  >
-                    Add
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingActionItem(false)}
-                    className="px-2.5 py-1 bg-white border border-slate-300 text-slate-700 rounded text-xs hover:bg-slate-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
+              {isAddingActionItem && (
+                <div className="p-2.5 border border-slate-200 rounded-lg space-y-2 bg-slate-50">
+                  <input
+                    type="text"
+                    value={newActionItemTitle}
+                    onChange={(e) => setNewActionItemTitle(e.target.value)}
+                    placeholder="Enter remediation action task..."
+                    className="w-full text-xs p-1.5 border border-slate-300 rounded bg-white outline-none"
+                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleAddActionItem}
+                      className="px-2.5 py-1 bg-slate-900 text-white rounded text-xs font-medium"
+                    >
+                      Save Task
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingActionItem(false)}
+                      className="px-2 py-1 bg-white border border-slate-300 text-slate-600 rounded text-xs"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setIsAddingActionItem(true)}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-950 transition-colors pt-1"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>+ Add</span>
-              </button>
-            )}
-          </div>
-
-          {/* Statutory Sanctions, Fines & Exposure Card (Cogent RegTech Rules) */}
-          <div className="bg-white border border-slate-200 rounded-xl divide-y divide-slate-200 shadow-2xs overflow-hidden">
-            {/* Fine Exposure */}
-            <div className="p-4">
-              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">
-                Statutory Fine Exposure
-              </span>
-              <div className="text-slate-900 font-mono text-2xl font-bold tracking-tight">
-                {formattedPenalty}
-              </div>
-              <span className="text-[10px] text-slate-400 font-mono block mt-1">
-                {obligation.statutoryLegalCitation || 'BOFIA 2020 S.64 / CBN Penalty Grid'}
-              </span>
-            </div>
-
-            {/* Remediation Timeline */}
-            <div className="p-4">
-              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1">
-                Remediation Cure Window
-              </span>
-              <div className="text-slate-900 font-mono text-2xl font-bold tracking-tight">
-                {obligation.statutoryRemediationTimelineDays || 30} Days
-              </div>
-              <span className="text-[10px] text-slate-400 block mt-1">
-                Mandated regulatory turnaround period
-              </span>
-            </div>
-
-            {/* Impacted Departments */}
-            <div className="p-4 space-y-2">
-              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-                Impacted Business Units
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
-                  COMPLIANCE
-                </span>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
-                  LEGAL
-                </span>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
-                  OPERATIONS
-                </span>
-              </div>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Verbatim Excerpt Preview Modal */}
+      {previewExcerpt && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-semibold text-slate-900">
+                Policy Excerpt: {previewExcerpt.title}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setPreviewExcerpt(null)}
+                className="p-1 rounded text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 font-mono text-xs text-slate-700 leading-relaxed whitespace-pre-wrap max-h-80 overflow-y-auto">
+              {previewExcerpt.excerpt}
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setPreviewExcerpt(null)}
+                className="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-medium"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

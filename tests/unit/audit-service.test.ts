@@ -13,7 +13,7 @@ describe('AuditService (Epic 7 / Task 7.1 - Immutable Audit Ledger)', () => {
     expect(hash1).toHaveLength(64);
     expect(/^[a-f0-9]{64}$/.test(hash1)).toBe(true);
 
-    const objectPayload = { campaign: 'QuickKash', channel: 'SMS_BLAST', risk: 94 };
+    const objectPayload = { campaign: 'InstantCredit', channel: 'SMS_BLAST' };
     const objHash = AuditService.computeSha256(objectPayload);
     expect(objHash).toHaveLength(64);
   });
@@ -41,9 +41,8 @@ describe('AuditService (Epic 7 / Task 7.1 - Immutable Audit Ledger)', () => {
       sha256InputHash: inputHash,
       sha256OutputHash: outputHash,
       metadata: {
-        campaignName: 'QuickKash SMS Flash',
+        campaignName: 'InstantCredit Seasonal Promo',
         verdict: 'BLOCKING_ISSUE',
-        deterministicPenaltyNaira: 11500000,
         model: 'gemini-2.5-flash',
       },
     };
@@ -58,7 +57,7 @@ describe('AuditService (Epic 7 / Task 7.1 - Immutable Audit Ledger)', () => {
     expect(entry.entityId).toBe(entityId);
     expect(entry.sha256InputHash).toBe(inputHash);
     expect(entry.sha256OutputHash).toBe(outputHash);
-    expect(entry.metadata.campaignName).toBe('QuickKash SMS Flash');
+    expect(entry.metadata.campaignName).toBe('InstantCredit Seasonal Promo');
     expect(entry.createdAt).toBeDefined();
   });
 });

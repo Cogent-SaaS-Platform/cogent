@@ -142,6 +142,117 @@ export class EntitlementEngine {
   }
 
   /**
+   * Evaluates whether the tenant can ingest a custom regulation into the Regulation Library.
+   */
+  public static assertCanIngestRegulation(
+    subscription: TenantSubscriptionSummary,
+    currentIngestionCount = 0
+  ): void {
+    this.assertEngineActive(subscription, 'Custom regulation ingestion');
+
+    const isTrial = subscription.status === 'trialing';
+    const maxAllowed = isTrial ? 1 : subscription.tier === 'STARTER' ? 5 : -1;
+
+    if (maxAllowed !== -1 && currentIngestionCount >= maxAllowed) {
+      const label = isTrial ? '7-day evaluation trial' : `${subscription.tier} tier`;
+      throw new SubscriptionRequiredError(
+        `QUOTA_EXCEEDED: You have reached your limit of ${maxAllowed} custom regulation ingestion(s) on the ${label}. Upgrade to Pro for unlimited custom PDF & URL regulation ingestions.`,
+        {
+          tier: subscription.tier,
+          status: subscription.status,
+          quota: maxAllowed,
+          currentUsage: currentIngestionCount,
+          requiredTier: 'PRO',
+          actionUrl: '/settings?tab=plan',
+        }
+      );
+    }
+  }
+
+  /**
+   * Evaluates whether the tenant can edit obligation definitions or assessment criteria.
+   */
+  public static assertCanEditCriteria(
+    subscription: TenantSubscriptionSummary
+  ): void {
+    this.assertEngineActive(subscription, 'Obligation and criteria inline editing');
+
+    if (subscription.status === 'trialing' || subscription.tier === 'STARTER') {
+      throw new SubscriptionRequiredError(
+        'PLAN_UPGRADE_REQUIRED: Inline editing (✎) of regulatory obligations and testable assessment criteria requires the Cogent Pro Tier.',
+        {
+          currentTier: subscription.tier,
+          status: subscription.status,
+          requiredTier: 'PRO',
+          actionUrl: '/settings?tab=plan',
+        }
+      );
+    }
+  }
+
+  /**
+   * Evaluates whether the tenant can execute a Gap Analysis run.
+   */
+  public static assertCanRunGapAnalysis(
+    subscription: TenantSubscriptionSummary,
+    currentUsageCount = 0,
+    isMulti = false
+  ): void {
+    this.assertEngineActive(subscription, 'Statutory Gap Analysis run');
+
+    if (isMulti && (subscription.status === 'trialing' || subscription.tier === 'STARTER')) {
+      throw new SubscriptionRequiredError(
+        'PLAN_UPGRADE_REQUIRED: Multi-Regulation vs. Multi-Policy Gap Analysis is a Pro Tier capability. Evaluation and Starter tiers support Single Regulation vs. Single Policy analysis.',
+        {
+          currentTier: subscription.tier,
+          status: subscription.status,
+          requiredTier: 'PRO',
+          actionUrl: '/settings?tab=plan',
+        }
+      );
+    }
+
+    const isTrial = subscription.status === 'trialing';
+    const maxRuns = isTrial ? 1 : subscription.tier === 'STARTER' ? 5 : -1;
+
+    if (maxRuns !== -1 && currentUsageCount >= maxRuns) {
+      const label = isTrial ? '7-day evaluation trial' : `${subscription.tier} tier`;
+      throw new SubscriptionRequiredError(
+        `QUOTA_EXCEEDED: You have reached your limit of ${maxRuns} Gap Analysis run(s) on the ${label}. Upgrade to Pro for unlimited Gap Analyses.`,
+        {
+          tier: subscription.tier,
+          status: subscription.status,
+          quota: maxRuns,
+          currentUsage: currentUsageCount,
+          requiredTier: 'PRO',
+          actionUrl: '/settings?tab=plan',
+        }
+      );
+    }
+  }
+
+  /**
+   * Evaluates whether the tenant can add a custom marketing rule in the Knowledge Base.
+   */
+  public static assertCanAddMarketingRule(
+    subscription: TenantSubscriptionSummary
+  ): void {
+    this.assertEngineActive(subscription, 'Custom marketing knowledge rule');
+
+    if (subscription.status === 'trialing' || subscription.tier === 'STARTER') {
+      throw new SubscriptionRequiredError(
+        'PLAN_UPGRADE_REQUIRED: Adding custom Marketing Knowledge Base rules (+ Add Rule) requires the Cogent Pro Tier.',
+        {
+          currentTier: subscription.tier,
+          status: subscription.status,
+          requiredTier: 'PRO',
+          actionUrl: '/settings?tab=plan',
+        }
+      );
+    }
+  }
+
+  /**
    * Core assertion verifying that the tenant is NOT in read-only archive mode.
    * If the account is past due (beyond 7-day grace), trialing expired, or canceled,
    * heavy computation is halted while allowing historic data access.

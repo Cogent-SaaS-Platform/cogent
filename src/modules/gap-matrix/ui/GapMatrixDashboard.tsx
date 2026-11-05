@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useUser, useOrganization } from '@clerk/nextjs';
 import { PlatformPillar, CrossPillarLinkContext, ComplianceStatus } from '@/shared/types';
 import { GapAnalysisSummaryItem } from '@/app/api/gap-matrix/evaluations/route';
@@ -171,11 +172,31 @@ export function GapMatrixDashboard({
 
     async function loadPresets() {
       try {
-        const bRes = await fetch('/api/gap-matrix/benchmarks');
-        if (bRes.ok) {
-          const bJson = await bRes.json();
-          if (bJson.data && bJson.data.length > 0) {
-            setAvailableBenchmarks(bJson.data);
+        // Query Regulation Library for all verified regulatory instruments
+        const libRes = await fetch('/api/library');
+        if (libRes.ok) {
+          const libJson = await libRes.json();
+          if (libJson.instruments && libJson.instruments.length > 0) {
+            const mapped: StatutoryBenchmarkFramework[] = libJson.instruments.map((inst: any) => ({
+              documentVersionId: inst.id,
+              instrumentTitle: inst.fullTitle || inst.shortTitle,
+              shortName: inst.shortTitle || inst.fullTitle,
+              referenceCode: inst.officialCitation || inst.shortTitle,
+              regulatorCode: inst.regulator || 'CBN',
+              publicationDate: inst.publicationDate || '',
+              effectiveDate: inst.effectiveDate || '',
+              suggestedDepartments: ['COMPLIANCE_LEGAL', 'OPERATIONS'],
+              clausesCount: inst.totalObligationsCount || inst.sectionsCount || 5,
+            }));
+            setAvailableBenchmarks(mapped);
+          }
+        } else {
+          const bRes = await fetch('/api/gap-matrix/benchmarks');
+          if (bRes.ok) {
+            const bJson = await bRes.json();
+            if (bJson.data && bJson.data.length > 0) {
+              setAvailableBenchmarks(bJson.data);
+            }
           }
         }
 
@@ -193,6 +214,23 @@ export function GapMatrixDashboard({
 
     loadPresets();
   }, [fetchAnalyses]);
+
+  const handleDeleteAnalysis = async (analysisId: string) => {
+    try {
+      const res = await fetch(`/api/gap-matrix/evaluations?id=${analysisId}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setAnalyses((prev) => prev.filter((a) => a.id !== analysisId));
+        if (selectedAnalysisId === analysisId) {
+          setViewMode('LIST');
+          setSelectedAnalysisId(null);
+        }
+      }
+    } catch (err) {
+      console.error('Failed deleting analysis:', err);
+    }
+  };
 
   // 2. Fetch Single Analysis Detail & Items
   const loadAnalysisDetail = useCallback(async (analysisId: string) => {
@@ -213,21 +251,52 @@ export function GapMatrixDashboard({
     }
   }, []);
 
-  // Handle deep link via initialContext
+  const searchParams = useSearchParams();
+  const urlAnalysisId = searchParams?.get('analysisId') || searchParams?.get('gate') || '';
+  const urlPolicy = searchParams?.get('policy') || '';
+
+  // Handle deep link via initialContext or URL searchParams
   useEffect(() => {
-    if (initialContext && analyses.length > 0) {
-      const rawContext = initialContext as unknown as Record<string, unknown>;
-      const targetVer = (rawContext.benchmarkDocumentVersionId || rawContext.documentVersionId) as string | undefined;
-      if (targetVer) {
-        const matched = analyses.find((a) => a.benchmarkDocumentVersionId === targetVer);
-        if (matched) {
-          setSelectedAnalysisId(matched.id);
-          loadAnalysisDetail(matched.id);
+    if (analyses.length > 0) {
+      if (urlAnalysisId) {
+        const found = analyses.find((a) => a.id === urlAnalysisId);
+        if (found) {
+          setSelectedAnalysisId(found.id);
+          loadAnalysisDetail(found.id);
           setViewMode('DETAIL');
+          return;
+        }
+      }
+
+      if (urlPolicy) {
+        const pLower = urlPolicy.toLowerCase();
+        const found = analyses.find(
+          (a) =>
+            a.analysisName.toLowerCase().includes(pLower) ||
+            (a.policyTitle && a.policyTitle.toLowerCase().includes(pLower))
+        );
+        if (found) {
+          setSelectedAnalysisId(found.id);
+          loadAnalysisDetail(found.id);
+          setViewMode('DETAIL');
+          return;
+        }
+      }
+
+      if (initialContext) {
+        const rawContext = initialContext as unknown as Record<string, unknown>;
+        const targetVer = (rawContext.benchmarkDocumentVersionId || rawContext.documentVersionId) as string | undefined;
+        if (targetVer) {
+          const matched = analyses.find((a) => a.benchmarkDocumentVersionId === targetVer);
+          if (matched) {
+            setSelectedAnalysisId(matched.id);
+            loadAnalysisDetail(matched.id);
+            setViewMode('DETAIL');
+          }
         }
       }
     }
-  }, [initialContext, analyses, loadAnalysisDetail]);
+  }, [initialContext, analyses, loadAnalysisDetail, urlAnalysisId, urlPolicy]);
 
   // View Navigation Handlers
   const handleSelectAnalysis = (analysisId: string) => {
@@ -406,6 +475,7 @@ export function GapMatrixDashboard({
             onOpenNewAnalysisDrawer={() => setIsNewAnalysisOpen(true)}
             onOpenUploadDrawer={() => setIsUploadDrawerOpen(true)}
             onOpenDossierModal={() => setIsDossierModalOpen(true)}
+            onDeleteAnalysis={handleDeleteAnalysis}
           />
         )}
 

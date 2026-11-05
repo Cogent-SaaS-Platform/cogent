@@ -41,10 +41,10 @@ describe('Pillar 1 Marketing Shield Service (Task 5.3 & MVP.md)', () => {
     async () => {
       const result = await service.executeScan({
         organizationId: '00000000-0000-0000-0000-000000000001',
-        campaignName: 'QuickKash SMS Flash Campaign',
+        campaignName: 'InstantCredit SMS Flash Campaign',
         channel: 'SMS_BLAST',
         rawCopy:
-          'Urgent Cash Alert! Get ₦250,000 instant loan in 5 mins directly to your account! Zero interest, 100% guaranteed approval, no collateral, no credit checks. Download QuickKash app now!',
+          'Urgent Cash Alert! Get ₦250,000 instant loan in 5 mins directly to your account! Zero interest, 100% guaranteed approval, no collateral, no credit checks. Download InstantCredit app now!',
         targetAudienceDescription: 'Nigerian retail consumers seeking urgent cash',
       });
 
@@ -56,7 +56,7 @@ describe('Pillar 1 Marketing Shield Service (Task 5.3 & MVP.md)', () => {
       console.log('Findings Count:', result.findings.length);
 
       // Verify Presentation Contract (Section 7)
-      expect(result.title).toContain('QuickKash SMS Flash Campaign');
+      expect(result.title).toContain('InstantCredit SMS Flash Campaign');
       expect(result.verdict).toBe('BLOCKING_ISSUE');
       expect(result.overallRiskScore).toBeGreaterThanOrEqual(85);
       expect(result.deterministicPenaltyTotalNaira).toBeGreaterThanOrEqual(1000000);
@@ -88,10 +88,10 @@ describe('Pillar 1 Marketing Shield Service (Task 5.3 & MVP.md)', () => {
     async () => {
       const result = await service.executeScan({
         organizationId: '00000000-0000-0000-0000-000000000001',
-        campaignName: 'PrimeYield Wealth Ad',
+        campaignName: 'AlphaWealth High-Yield Ad',
         channel: 'SOCIAL_MEDIA_POST',
         rawCopy:
-          'Tired of inflation? Invest your Naira in PrimeYield and earn 35% risk-free annual return guaranteed! Your capital is 100% safe and backed by the government.',
+          'Tired of inflation? Invest your Naira in AlphaWealth and earn 35% risk-free annual return guaranteed! Your capital is 100% safe and backed by the government.',
       });
 
       expect(result.verdict).toBe('BLOCKING_ISSUE');
@@ -111,7 +111,7 @@ describe('Pillar 1 Marketing Shield Service (Task 5.3 & MVP.md)', () => {
         campaignName: 'Transparent Loan Campaign',
         channel: 'SOCIAL_MEDIA_POST',
         rawCopy:
-          'Access personal loans up to ₦250,000 at 18% APR with flexible repayment schedules. Subject to credit assessment. QuickKash Microfinance Bank is licensed by the Central Bank of Nigeria (CBN) and registered with the FCCPC.',
+          'Access personal loans up to ₦250,000 at 18% APR with flexible repayment schedules. Terms, conditions, and processing fees apply. Subject to credit assessment. Licensed by the Central Bank of Nigeria (CBN) and registered with the FCCPC.',
       });
 
       console.log('Transparent Loan Campaign findings:', result.findings.map(f => ({ rule: f.ruleCode, severity: f.severity, why: f.whyItMatters })));

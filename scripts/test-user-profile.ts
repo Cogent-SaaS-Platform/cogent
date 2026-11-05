@@ -6,7 +6,7 @@ async function main() {
   console.log('Testing User Profile & Role Persistence in Supabase...');
   const db = createAdminClient();
 
-  // 1. Fetch Samuel James profile
+  // 1. Fetch user profile
   const { data: users, error: userErr } = await db
     .from('users')
     .select('id, email, full_name, job_title, department')

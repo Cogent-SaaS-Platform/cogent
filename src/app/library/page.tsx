@@ -2,11 +2,10 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { AppShell } from '@/shared/ui/AppShell';
-import { CircularUploadDrawer } from '@/modules/radar/ui/CircularUploadDrawer';
+import { IngestRegulationModal } from '@/modules/regulatory/ui/IngestRegulationModal';
 import {
   RegulatoryInstrumentPresentation,
   StatutorySection,
-  DecomposedObligationPresentation,
 } from '@/modules/regulatory/types';
 import { RegulationLibraryHub } from '@/modules/regulatory/ui/RegulationLibraryHub';
 import { RegulatoryInstrumentsTable } from '@/modules/regulatory/ui/RegulatoryInstrumentsTable';
@@ -33,10 +32,9 @@ export default function RegulatoryLibraryPage() {
   const [sections, setSections] = useState<StatutorySection[]>([]);
   const [isLoadingSections, setIsLoadingSections] = useState(false);
 
-  // Local Starred & Ingest Drawer
+  // Local Starred & Ingest Modal
   const [starredInstrumentIds, setStarredInstrumentIds] = useState<Set<string>>(new Set());
-  const [starredObligationIds, setStarredObligationIds] = useState<Set<string>>(new Set());
-  const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [isIngestModalOpen, setIsIngestModalOpen] = useState(false);
   const [urlCircularId, setUrlCircularId] = useState<string | undefined>(undefined);
 
   // Check URL params on mount
@@ -73,7 +71,7 @@ export default function RegulatoryLibraryPage() {
       if (data.success) {
         const mapped: RegulatoryInstrumentPresentation[] = (data.instruments || []).map((inst: any) => ({
           ...inst,
-          isStarred: starredInstrumentIds.has(inst.id),
+          isStarred: starredInstrumentIds.has(inst.id) || Boolean(inst.isStarred),
         }));
         setInstruments(mapped);
       } else {
@@ -97,126 +95,29 @@ export default function RegulatoryLibraryPage() {
   const fetchClausesForInstrument = useCallback(async (inst: RegulatoryInstrumentPresentation) => {
     setIsLoadingSections(true);
     try {
-      const res = await fetch(`/api/library/clauses?instrumentId=${encodeURIComponent(inst.id)}`);
+      const res = await fetch(`/api/library/${encodeURIComponent(inst.id)}/obligations`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
-      if (data.success && data.clauses) {
-        const mappedSections: StatutorySection[] = data.clauses.map((c: any) => {
-          const obligations: DecomposedObligationPresentation[] = (c.obligations || []).map((obl: any) => {
-            let ruleNature: 'Prescriptive' | 'Risk Based' | 'Policy Applicable' | 'Mandatory Disclosure' = 'Prescriptive';
-            if (obl.obligationType === 'MANDATORY_DISCLOSURE') ruleNature = 'Mandatory Disclosure';
-            else if (obl.obligationType === 'RISK_BASED') ruleNature = 'Risk Based';
-            else if (obl.obligationType === 'POLICY_APPLICABLE') ruleNature = 'Policy Applicable';
-
-            const isStarred = starredObligationIds.has(obl.id);
-            const status = obl.status || (obl.userOverride?.status) || 'PENDING_REVIEW';
-
-            return {
-              id: obl.id,
-              clauseId: c.id,
-              sectionReference: c.sectionReference,
-              sectionHeading: c.sectionHeading,
-              obligationType: obl.obligationType,
-              ruleNature,
-              title: obl.summary || c.sectionHeading,
-              summary: obl.summary,
-              statutoryText: c.clauseText,
-              severityFloor: obl.severityFloor || 'LEVEL_3',
-              statutoryTimelineDays: obl.statutoryTimelineDays || null,
-              mandatoryDisclosureText: obl.mandatoryDisclosureText || null,
-              targetRole: obl.targetRole || 'Chief Compliance Officer',
-              status,
-              isApplicable: status !== 'NOT_APPLICABLE',
-              isStarred,
-              penalties: obl.penalties || [],
-              assessmentCriteria: obl.assessmentCriteria || [
-                {
-                  id: `crit-${obl.id}-1`,
-                  criterionText: `Internal operational manual contains unambiguous rules implementing ${c.sectionReference}`,
-                  evidenceRequired: 'Approved institutional policy document or standard operating procedure',
-                  isMandatory: true,
-                  defaultChecked: true,
-                },
-              ],
-              userOverride: obl.userOverride,
-            };
-          });
-
-          return {
-            id: c.id,
-            sectionReference: c.sectionReference,
-            sectionHeading: c.sectionHeading,
-            clauseText: c.clauseText,
-            pageNumber: c.pageNumber,
-            paragraphReference: c.paragraphReference,
-            obligationsCount: obligations.length,
-            obligations,
-          };
-        });
-
-        setSections(mappedSections);
+      if (data.success && data.sections) {
+        setSections(data.sections);
       } else {
         setSections([]);
       }
     } catch (err) {
-      console.error('Failed to load clauses', err);
+      console.error('Failed to load obligations for instrument', err);
       setSections([]);
     } finally {
       setIsLoadingSections(false);
     }
-  }, [starredObligationIds]);
+  }, []);
 
-  // 3. Update Obligation User Override
-  const handleUpdateObligationOverride = async (
-    obligationId: string,
-    override: {
-      status?: 'ADEQUATELY_MET' | 'PARTIALLY_MET' | 'GAP_DETECTED' | 'NOT_APPLICABLE' | 'PENDING_REVIEW';
-      assignedOwner?: string;
-      internalNotes?: string;
-      internalSopCitation?: string;
-      verifiedCriteriaIds?: string[];
-    }
-  ) => {
-    try {
-      await fetch('/api/library/obligations/override', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ obligationId, override }),
-      });
-
-      // Optimistically update sections state
-      setSections((prevSections) =>
-        prevSections.map((sec) => ({
-          ...sec,
-          obligations: sec.obligations.map((obl) => {
-            if (obl.id === obligationId) {
-              return {
-                ...obl,
-                status: override.status || obl.status,
-                targetRole: override.assignedOwner || obl.targetRole,
-                userOverride: {
-                  ...obl.userOverride,
-                  status: (override.status as any) || obl.status,
-                  assignedOwner: override.assignedOwner || obl.targetRole,
-                  internalNotes: override.internalNotes || '',
-                  internalSopCitation: override.internalSopCitation || '',
-                  verifiedCriteriaIds: override.verifiedCriteriaIds || [],
-                },
-              };
-            }
-            return obl;
-          }),
-        }))
-      );
-    } catch (err) {
-      console.error('Failed to persist obligation override', err);
-    }
-  };
-
-  // 4. Star Toggles
-  const handleToggleStarInstrument = (instrumentId: string, e?: React.MouseEvent) => {
+  // 3. Star Toggle for Instrument
+  const handleToggleStarInstrument = async (instrumentId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    const inst = instruments.find((i) => i.id === instrumentId);
+    const nextStarred = !inst?.isStarred;
+
     setStarredInstrumentIds((prev) => {
       const next = new Set(prev);
       if (next.has(instrumentId)) {
@@ -229,40 +130,29 @@ export default function RegulatoryLibraryPage() {
 
     setInstruments((prev) =>
       prev.map((i) =>
-        i.id === instrumentId ? { ...i, isStarred: !i.isStarred } : i
+        i.id === instrumentId ? { ...i, isStarred: nextStarred } : i
       )
     );
 
     if (activeInstrument && activeInstrument.id === instrumentId) {
       setActiveInstrument({
         ...activeInstrument,
-        isStarred: !activeInstrument.isStarred,
+        isStarred: nextStarred,
       });
+    }
+
+    try {
+      await fetch(`/api/library/${encodeURIComponent(instrumentId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isStarred: nextStarred }),
+      });
+    } catch (err) {
+      console.error('Failed to star instrument', err);
     }
   };
 
-  const handleToggleStarObligation = (obligationId: string) => {
-    setStarredObligationIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(obligationId)) {
-        next.delete(obligationId);
-      } else {
-        next.add(obligationId);
-      }
-      return next;
-    });
-
-    setSections((prevSections) =>
-      prevSections.map((sec) => ({
-        ...sec,
-        obligations: sec.obligations.map((obl) =>
-          obl.id === obligationId ? { ...obl, isStarred: !obl.isStarred } : obl
-        ),
-      }))
-    );
-  };
-
-  // 5. Select Instrument
+  // 4. Select Instrument
   const handleSelectInstrument = (inst: RegulatoryInstrumentPresentation) => {
     setActiveInstrument(inst);
     setViewMode('instrument');
@@ -276,7 +166,7 @@ export default function RegulatoryLibraryPage() {
     setViewMode('viewer');
   };
 
-  // Live Counts for Matrix
+  // Live Counts for Filter Matrix
   const domainCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const inst of instruments) {
@@ -313,7 +203,7 @@ export default function RegulatoryLibraryPage() {
           </div>
         )}
 
-        {/* View Mode 1: Centralized Regulation Library Hub & Directory Table */}
+        {/* View Mode 1: Centralized Regulation Library Hub & Directory Table (01:20-01:30) */}
         {viewMode === 'hub' && (
           <div className="space-y-8">
             <RegulationLibraryHub
@@ -325,7 +215,7 @@ export default function RegulatoryLibraryPage() {
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               onSelectInstrument={handleSelectInstrument}
-              onOpenIngestDrawer={() => setIsUploadOpen(true)}
+              onOpenIngestDrawer={() => setIsIngestModalOpen(true)}
               domainCounts={domainCounts}
               jurisdictionCounts={jurisdictionCounts}
             />
@@ -340,7 +230,7 @@ export default function RegulatoryLibraryPage() {
           </div>
         )}
 
-        {/* View Mode 2: Instrument Detail Page */}
+        {/* View Mode 2: Instrument Detail Page (01:31-01:55) */}
         {viewMode === 'instrument' && activeInstrument && (
           <InstrumentDetailPage
             instrument={activeInstrument}
@@ -350,10 +240,16 @@ export default function RegulatoryLibraryPage() {
             onViewObligations={() => setViewMode('obligations')}
             onViewDoc={() => setViewMode('viewer')}
             onToggleStar={handleToggleStarInstrument}
+            onUpdateInstrument={async (id, updates) => {
+              setActiveInstrument((prev) => (prev ? { ...prev, ...updates } : null));
+              setInstruments((prev) =>
+                prev.map((i) => (i.id === id ? { ...i, ...updates } : i))
+              );
+            }}
           />
         )}
 
-        {/* View Mode 3: Statutory Obligations Register View & Slide-Over Drawer */}
+        {/* View Mode 3: Statutory Obligations Register & 50/50 Split-Screen Workspace (01:56-02:30) */}
         {viewMode === 'obligations' && (
           <ObligationsRegisterView
             instrument={activeInstrument}
@@ -363,8 +259,6 @@ export default function RegulatoryLibraryPage() {
               if (activeInstrument) setViewMode('instrument');
               else setViewMode('hub');
             }}
-            onUpdateObligationOverride={handleUpdateObligationOverride}
-            onToggleStar={handleToggleStarObligation}
             circularId={urlCircularId}
           />
         )}
@@ -378,13 +272,16 @@ export default function RegulatoryLibraryPage() {
           />
         )}
 
-        {/* Ingest Statutory Regulation Modal / Drawer */}
-        <CircularUploadDrawer
-          isOpen={isUploadOpen}
-          onClose={() => setIsUploadOpen(false)}
-          onIngestSuccess={() => {
-            setIsUploadOpen(false);
-            fetchInstruments();
+        {/* Ingest Statutory Regulation Modal */}
+        <IngestRegulationModal
+          isOpen={isIngestModalOpen}
+          onClose={() => setIsIngestModalOpen(false)}
+          onSuccess={(newInstrument) => {
+            setIsIngestModalOpen(false);
+            setInstruments((prev) => [newInstrument, ...prev]);
+            setActiveInstrument(newInstrument);
+            setViewMode('instrument');
+            fetchClausesForInstrument(newInstrument);
           }}
         />
       </div>

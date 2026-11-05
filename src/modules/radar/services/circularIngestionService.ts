@@ -24,6 +24,8 @@ import { ApplicabilityEngine } from './applicabilityEngine';
 import { ClauseSegmentationEngine } from './clauseSegmentationEngine';
 import { ObligationExtractionService } from './obligationExtractionService';
 import { RoleSynthesisService } from './roleSynthesisService';
+import { DomSanitizer } from './domSanitizer';
+import { HorizonSynthesisEngine } from './horizonSynthesisEngine';
 
 /**
  * Circular Ingestion Service (Task 9.1 & 10.2)
@@ -97,6 +99,10 @@ export class CircularIngestionService {
       subject: input.manualSubject,
       publicationDate: input.manualPublicationDate,
     });
+
+    if (DomSanitizer.isJunkTitle(metadata.subject) || DomSanitizer.isJunkTitle(metadata.circularNumber)) {
+      throw new Error(`Ingestion rejected junk portal header or navigation crumb: "${metadata.subject || metadata.circularNumber}"`);
+    }
 
     // Step 4: Storage Upload
     const year = new Date().getFullYear();
@@ -207,6 +213,17 @@ export class CircularIngestionService {
       } catch (notifErr) {
         logger.warn({ notifErr }, 'Failed to insert live notification row; continuing pipeline');
       }
+    }
+
+    // Step 10: Trigger Authentic Document-Grounded Synthesis
+    if (!deduplicated && this.dbClient) {
+      HorizonSynthesisEngine.synthesizeAlert({
+        circularId,
+        dbClient: this.dbClient,
+        organizationId,
+      }).catch((synthErr) => {
+        logger.warn({ circularId, err: synthErr instanceof Error ? synthErr.message : String(synthErr) }, 'Asynchronous alert synthesis queued with warning');
+      });
     }
 
 
@@ -623,6 +640,22 @@ export class CircularIngestionService {
           }
         } catch (impactErr) {
           logger.warn({ impactErr }, 'Tenant impact pre-computation encountered non-fatal error');
+        }
+
+        // 7. Dynamic AI Horizon Synthesis (Auto-classify docType, alertType, severity, and synthesize executive insights)
+        try {
+          const { HorizonSynthesisEngine } = await import('./horizonSynthesisEngine');
+          await HorizonSynthesisEngine.synthesizeAlert({
+            circularId,
+            dbClient: client as any,
+            organizationId,
+            forceResynthesize: true,
+          });
+        } catch (synthErr) {
+          logger.warn(
+            { error: String(synthErr), circularId },
+            'Immediate horizon synthesis encountered error; alert recorded with PENDING_SYNTHESIS status'
+          );
         }
       }
     } catch (dbErr) {

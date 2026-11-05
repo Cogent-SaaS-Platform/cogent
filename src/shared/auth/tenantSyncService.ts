@@ -88,7 +88,7 @@ export class TenantSyncService {
       let isNewOrganization = false;
       const { data: existingOrg } = await this.adminClient
         .from('organizations')
-        .select('id')
+        .select('id, created_at')
         .eq('clerk_organization_id', clerkOrgId)
         .maybeSingle();
 

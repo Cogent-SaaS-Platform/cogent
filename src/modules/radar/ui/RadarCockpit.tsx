@@ -181,29 +181,42 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
     return undefined;
   }, [circulars, currentCircularIndex]);
 
-  // Toggle relevance handler
-  const handleToggleRelevant = (id: string) => {
+  // Toggle relevance handler with optimistic UI + persistence
+  const handleToggleRelevant = async (id: string) => {
+    const target = circulars.find((c) => c.id === id);
+    if (!target) return;
+    const nextVal = target.isRelevant !== undefined ? !target.isRelevant : !target.applicability.isApplicable;
     setCirculars((prev) =>
-      prev.map((c) => {
-        if (c.id === id) {
-          return {
-            ...c,
-            applicability: {
-              ...c.applicability,
-              isApplicable: !c.applicability.isApplicable,
-            },
-          };
-        }
-        return c;
-      })
+      prev.map((c) => (c.id === id ? { ...c, isRelevant: nextVal } : c))
     );
+    try {
+      await fetch(`/api/radar/circulars/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isRelevant: nextVal }),
+      });
+    } catch (err) {
+      console.error('Failed to persist relevance', err);
+    }
   };
 
-  // Toggle star handler
-  const handleToggleStar = (id: string) => {
+  // Toggle star handler with optimistic UI + persistence
+  const handleToggleStar = async (id: string) => {
+    const target = circulars.find((c) => c.id === id);
+    if (!target) return;
+    const nextVal = !target.isStarred;
     setCirculars((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, isStarred: !c.isStarred } : c))
+      prev.map((c) => (c.id === id ? { ...c, isStarred: nextVal } : c))
     );
+    try {
+      await fetch(`/api/radar/circulars/${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isStarred: nextVal }),
+      });
+    } catch (err) {
+      console.error('Failed to persist star status', err);
+    }
   };
 
   // Master circular update handler

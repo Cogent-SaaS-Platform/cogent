@@ -8,4 +8,6 @@ export * from './EnterpriseHeader';
 export * from './ClerkAvatar';
 export * from './AuthShowcasePanel';
 export * from './AuthTabSwitcher';
+export * from './TenantSubscriptionBanner';
+export * from './UpgradePlanModal';
 

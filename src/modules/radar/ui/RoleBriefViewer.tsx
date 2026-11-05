@@ -17,6 +17,7 @@ export interface RoleBriefViewerProps {
   technicalBriefCto?: string;
   governanceBriefCeoCro?: string;
   circularNumber: string;
+  isInformative?: boolean;
 }
 
 type RoleTab = 'legal' | 'cco' | 'coo' | 'cto' | 'cfo' | 'ceo_cro';
@@ -30,9 +31,31 @@ export function RoleBriefViewer({
   technicalBriefCto,
   governanceBriefCeoCro,
   circularNumber,
+  isInformative,
 }: RoleBriefViewerProps) {
   const [activeTab, setActiveTab] = useState<RoleTab>('legal');
   const [copiedRole, setCopiedRole] = useState<RoleTab | null>(null);
+
+  if (isInformative) {
+    return (
+      <div className="bg-white border border-slate-200 rounded-lg p-5 sm:p-6 shadow-2xs space-y-2">
+        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+          Departmental Supervisory Briefs
+        </div>
+        <div className="p-4 bg-slate-50 border border-slate-200 rounded-md flex items-start gap-3 text-xs text-slate-700">
+          <span className="w-2 h-2 rounded-full bg-blue-500 mt-1 shrink-0" />
+          <div className="space-y-1">
+            <div className="font-semibold text-slate-900">
+              Informative Alert — No mandatory departmental supervisory actions triggered
+            </div>
+            <p className="text-slate-600 leading-relaxed">
+              This publication is categorized as informational or bilateral intelligence. Zero balance sheet penalties, license sanctions, or engineering modifications are required. Intelligence is archived for supervisory situational awareness.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const getBriefContent = (tab: RoleTab): string => {
     switch (tab) {

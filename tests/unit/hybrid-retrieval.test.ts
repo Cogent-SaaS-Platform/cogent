@@ -40,7 +40,7 @@ describe('Hybrid Statutory Retrieval Service (Task 5.2)', () => {
     'retrieves statutory clauses for Canonical Scenario A (Digital Lending SMS)',
     async () => {
       const copy =
-        'Urgent Cash Alert! Get ₦250,000 instant loan in 5 mins directly to your account! Zero interest, 100% guaranteed approval, no collateral, no credit checks. Download QuickKash app now!';
+        'Urgent Cash Alert! Get ₦250,000 instant loan in 5 mins directly to your account! Zero interest, 100% guaranteed approval, no collateral, no credit checks. Download InstantCredit app now!';
 
       const result = await service.retrieveRelevantClauses(copy, {
         limit: 5,
@@ -69,7 +69,7 @@ describe('Hybrid Statutory Retrieval Service (Task 5.2)', () => {
     'retrieves statutory clauses for Canonical Scenario B (High-Yield Investment Ad)',
     async () => {
       const copy =
-        'Tired of inflation? Invest your Naira in PrimeYield and earn 35% risk-free annual return guaranteed! Your capital is 100% safe and backed by the government.';
+        'Tired of inflation? Invest your Naira in AlphaWealth and earn 35% risk-free annual return guaranteed! Your capital is 100% safe and backed by the government.';
 
       const result = await service.retrieveRelevantClauses(copy, {
         limit: 5,

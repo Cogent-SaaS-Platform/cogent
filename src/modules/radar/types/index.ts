@@ -152,6 +152,7 @@ export interface RadarCircularPresentationCard {
   generalCounselBrief?: string;
   actionItems?: RadarActionItemPresentation[];
   sourceFileUrl?: string;
+  sourceUrl?: string;
   rawText?: string;
   executiveSummary?: string;
   keyPoints?: string[];
@@ -159,13 +160,21 @@ export interface RadarCircularPresentationCard {
   docType?: string;
   alertType?: 'Actionable' | 'Informative';
   isStarred?: boolean;
+  isRelevant?: boolean;
+  severityTier?: 'G1' | 'G2' | 'G3';
+  severityScore?: number;
   severityMatrixCode?: string;
   importantDates?: Array<{ id: string; label: string; date: string; description: string }>;
+  otherDates?: Array<{ id: string; label: string; date: string; description: string }>;
   comments?: Array<{ id: string; author: string; avatar?: string; text: string; timestamp: string }>;
   auditLogs?: Array<{ id: string; timestamp: string; action: string; author: string }>;
-  workflowStatus?: 'Pending Review' | 'In Progress' | 'Reviewed' | 'Closed';
+  workflowStatus?: string;
   assignee?: { id: string; name: string; avatar?: string } | null;
   topics?: string[];
+  impactedAreas?: string[];
+  severityMatrix?: any;
+  synthesisStatus?: 'PENDING_SYNTHESIS' | 'SYNTHESIZED' | 'FAILED';
+  roleBriefs?: Record<string, string>;
 }
 
 export interface RadarActionItemPresentation {

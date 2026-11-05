@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 /**
  * PATCH /api/regulatory/obligations/[id]/assign
- * Seamlessly links dynamic assignee to the 4-Phase Obligation Register (custodian_role, department).
+ * Links dynamic assignee to obligations (custodian_role, department).
  * Commits an immutable audit record.
  */
 export async function PATCH(

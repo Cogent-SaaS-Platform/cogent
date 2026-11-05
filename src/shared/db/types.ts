@@ -447,6 +447,140 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['ai_analysis_runs']['Insert']>;
         Relationships: [];
       };
+      marketing_campaigns: {
+        Row: {
+          id: string;
+          organization_id: string;
+          title: string;
+          status: 'DRAFT' | 'IN_REVIEW' | 'REVISION' | 'APPROVED';
+          product_category: ProductCategoryCode;
+          channel: MarketingChannel;
+          canvas_content: string;
+          attached_asset_url: string | null;
+          attached_asset_type: 'IMAGE' | 'PDF' | 'URL' | null;
+          created_by: string;
+          assigned_reviewer: string;
+          risk_summary: string | null;
+          total_findings: number;
+          created_at: string;
+          updated_at: string;
+          organizations?: { name: string } | null;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          title: string;
+          status?: 'DRAFT' | 'IN_REVIEW' | 'REVISION' | 'APPROVED';
+          product_category?: ProductCategoryCode;
+          channel?: MarketingChannel;
+          canvas_content?: string;
+          attached_asset_url?: string | null;
+          attached_asset_type?: 'IMAGE' | 'PDF' | 'URL' | null;
+          created_by?: string;
+          assigned_reviewer?: string;
+          risk_summary?: string | null;
+          total_findings?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['marketing_campaigns']['Insert']>;
+        Relationships: [];
+      };
+      campaign_chat_messages: {
+        Row: {
+          id: string;
+          campaign_id: string;
+          role: 'USER' | 'ASSISTANT';
+          content: string;
+          structured_findings_json: any;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          campaign_id: string;
+          role: 'USER' | 'ASSISTANT';
+          content: string;
+          structured_findings_json?: any;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['campaign_chat_messages']['Insert']>;
+        Relationships: [];
+      };
+      extracted_promotional_claims: {
+        Row: {
+          id: string;
+          campaign_id: string;
+          organization_id: string;
+          code: string;
+          claim_text: string;
+          verdict: 'COMPLIANT' | 'WARNING' | 'BLOCKING_ISSUE';
+          regulation_id: string | null;
+          statutory_citation: string;
+          verbatim_rule: string;
+          ai_rationale: string;
+          suggested_rewrite: string | null;
+          review_status: 'PENDING' | 'APPROVED' | 'REJECTED';
+          created_at: string;
+          updated_at: string;
+          marketing_campaigns?: { title: string } | null;
+        };
+        Insert: {
+          id?: string;
+          campaign_id: string;
+          organization_id: string;
+          code: string;
+          claim_text: string;
+          verdict?: 'COMPLIANT' | 'WARNING' | 'BLOCKING_ISSUE';
+          regulation_id?: string | null;
+          statutory_citation: string;
+          verbatim_rule: string;
+          ai_rationale: string;
+          suggested_rewrite?: string | null;
+          review_status?: 'PENDING' | 'APPROVED' | 'REJECTED';
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['extracted_promotional_claims']['Insert']>;
+        Relationships: [];
+      };
+      marketing_knowledge_rules: {
+        Row: {
+          id: string;
+          organization_id: string;
+          rule_code: string;
+          title: string;
+          regulator_code: string;
+          regulation_id: string | null;
+          statutory_citation: string;
+          verbatim_clause: string;
+          prohibited_terms: string[];
+          mandatory_disclosures: string[];
+          applies_to_categories: ProductCategoryCode[];
+          applies_to_channels: MarketingChannel[];
+          is_custom: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          rule_code: string;
+          title: string;
+          regulator_code: string;
+          regulation_id?: string | null;
+          statutory_citation: string;
+          verbatim_clause: string;
+          prohibited_terms?: string[];
+          mandatory_disclosures?: string[];
+          applies_to_categories?: ProductCategoryCode[];
+          applies_to_channels?: MarketingChannel[];
+          is_custom?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['marketing_knowledge_rules']['Insert']>;
+        Relationships: [];
+      };
       marketing_scans: {
         Row: {
           id: string;

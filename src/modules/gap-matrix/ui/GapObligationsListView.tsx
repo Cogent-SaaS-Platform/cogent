@@ -20,6 +20,8 @@ import { ComplianceStatus } from '@/shared/types';
 export interface GapObligationItemViewModel {
   id: string;
   evaluationId: string;
+  obligationCode?: string;
+  obligationTitle?: string;
   regulatoryClauseReference: string;
   statutoryLegalCitation: string;
   complianceStatus: ComplianceStatus;
@@ -34,6 +36,10 @@ export interface GapObligationItemViewModel {
   statutoryRemediationTimelineDays?: number;
   matchedPolicySection?: string | null;
   matchedPolicyText?: string | null;
+  ruleType?: string;
+  policyApplicability?: string;
+  criteriaEvaluations?: any[];
+  actionItems?: any[];
   isStarred?: boolean;
 }
 
@@ -341,7 +347,7 @@ export function GapObligationsListView({
                     {/* Title */}
                     <div className="flex items-start justify-between gap-3">
                       <h4 className="text-xs font-bold text-slate-900 group-hover:text-slate-950 transition-colors">
-                        {item.regulatoryClauseReference}
+                        {item.obligationTitle || item.regulatoryClauseReference}
                       </h4>
 
                       {/* Right Status Dot & Assignee */}
@@ -415,13 +421,13 @@ export function GapObligationsListView({
                       {item.whatHappened}
                     </p>
 
-                    {/* Citations & Codes (Plain monospace per AGENTS.md) */}
+                    {/* Citations & Codes (Plain monospace per AGENTS.md - Zango Screen 4) */}
                     <div className="flex items-center gap-2 pt-1 font-mono text-[11px] text-slate-500">
-                      <span>{item.id}</span>
+                      <span>{item.obligationCode || item.id}</span>
                       <span>•</span>
-                      <span>Prescriptive</span>
+                      <span>{item.ruleType || 'Prescriptive'}</span>
                       <span>•</span>
-                      <span>{item.statutoryLegalCitation}</span>
+                      <span>{item.policyApplicability || 'Policy Applicable'}</span>
                       {item.matchedPolicySection && (
                         <>
                           <span>•</span>

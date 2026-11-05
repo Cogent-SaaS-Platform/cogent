@@ -21,7 +21,7 @@ import {
 import {
   formatStatutoryIdentifier,
   sanitizeRequirementText,
-} from '../services/obligationMetricsService';
+} from '../utils/statutoryUtils';
 
 interface SideBySideDocViewerProps {
   instrument: RegulatoryInstrumentPresentation;
@@ -211,11 +211,11 @@ export function SideBySideDocViewer({
                               )}
                             </span>
                             <span className="font-mono text-[11px] text-slate-500">
-                              {obl.ruleNature}
+                              {obl.ruleType || (obl as any).ruleNature}
                             </span>
                           </div>
                           <p className="text-xs text-slate-700 leading-relaxed">
-                            {sanitizeRequirementText(obl.summary)}
+                            {sanitizeRequirementText(obl.description || (obl as any).summary || obl.title)}
                           </p>
                         </div>
                       ))}

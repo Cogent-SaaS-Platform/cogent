@@ -168,7 +168,7 @@ export function ThreeColumnFeatureGrid() {
                 {/* White Chat/Review Box (Matching se.JPG Column 3) */}
                 <div className="bg-white border border-slate-200/80 rounded-xl p-3.5 shadow-sm space-y-2">
                   <p className="text-[11px] text-slate-800 font-medium leading-snug">
-                    Can we run "Zero Interest on First Loan"? Need ad campaign live today.
+                    Can we run &ldquo;Zero Interest on First Loan&rdquo;? Need ad campaign live today.
                   </p>
                   <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-[10px] text-slate-500 font-mono">
                     <span>ARCON § 54 DETECTED</span>
@@ -185,7 +185,7 @@ export function ThreeColumnFeatureGrid() {
                     </span>
                   </div>
                   <p className="text-[10px] text-slate-600 font-mono italic">
-                    "Introductory 0% Annual Fee with standard CBN-vetted APR."
+                    &ldquo;Introductory 0% Annual Fee with standard CBN-vetted APR.&rdquo;
                   </p>
                 </div>
               </div>
@@ -211,7 +211,7 @@ export function ThreeColumnFeatureGrid() {
                 {/* Customer Pain Point */}
                 <div className="mt-3 p-3 rounded-lg bg-slate-50 border border-slate-200/80 text-xs text-slate-600 leading-relaxed">
                   <span className="font-semibold text-slate-800 block text-[11px] mb-0.5">THE PROBLEM:</span>
-                  Tired of marketing treating legal like the "Department of No," launching unvetted ads, or tweaking live landing pages that trigger ₦500k–₦10M+ ARCON and CBN penalties?
+                  Tired of marketing treating legal like the &ldquo;Department of No,&rdquo; launching unvetted ads, or tweaking live landing pages that trigger ₦500k–₦10M+ ARCON and CBN penalties?
                 </div>
 
                 {/* Features */}

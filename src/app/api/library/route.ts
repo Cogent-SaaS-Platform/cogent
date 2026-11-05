@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantContext } from '@/shared/auth';
 import { logger } from '@/shared/logger';
 import { createAdminClient } from '@/shared/db';
 import {
   REGULATORY_INSTRUMENTS_SEED,
   REGULATORY_DOMAINS,
-  RegulatoryInstrumentSeed,
 } from '@/shared/db/regulatoryCorpusData';
 import {
   DocumentClassification,
   JurisdictionCode,
   RegulatoryDomainCode,
 } from '@/shared/types';
+import { RegulatoryInstrumentPresentation } from '@/modules/regulatory/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,17 +24,29 @@ export async function GET(req: NextRequest) {
     const jurisdiction = searchParams.get('jurisdiction') as JurisdictionCode | null;
     const classification = searchParams.get('classification') as DocumentClassification | null;
     const search = searchParams.get('search')?.toLowerCase().trim();
+    const isStarredFilter = searchParams.get('starred') === 'true';
 
     // 1. Query database instruments with joined regulatory bodies and versions
-    let dbItems: any[] = [];
+    let dbItems: RegulatoryInstrumentPresentation[] = [];
     try {
-      const { data: instruments, error: instError } = await db
-        .from('regulatory_instruments')
+      const { data: instruments, error: instError } = await (db.from('regulatory_instruments') as any)
         .select(`
           id,
           title,
           short_name,
           instrument_type,
+          overview,
+          scope,
+          key_requirement_areas,
+          domain,
+          jurisdiction,
+          classification,
+          is_starred,
+          owner,
+          captured_text,
+          source_url,
+          publication_date,
+          entry_into_force_date,
           created_at,
           regulatory_bodies (
             id,
@@ -51,23 +62,47 @@ export async function GET(req: NextRequest) {
             effective_date,
             canonical_source_url,
             source_file_url,
-            is_active,
-            verification_status
+            is_active
           )
         `)
         .order('created_at', { ascending: false });
 
       if (instruments && !instError) {
-        // Query clauses count
+        // Query clauses count & obligations count
         const { data: clausesData } = await db
           .from('regulatory_clauses')
           .select('id, document_version_id');
 
         const clauseCountByVersion = new Map<string, number>();
+        const clauseIds: string[] = [];
         if (clausesData) {
           for (const clause of clausesData) {
+            clauseIds.push(clause.id);
             const count = clauseCountByVersion.get(clause.document_version_id) || 0;
             clauseCountByVersion.set(clause.document_version_id, count + 1);
+          }
+        }
+
+        // Count obligations per clause
+        const { data: oblsData } = await db
+          .from('regulatory_obligations')
+          .select('id, clause_id');
+
+        const obligationsCountByClause = new Map<string, number>();
+        if (oblsData) {
+          for (const obl of oblsData) {
+            const count = obligationsCountByClause.get(obl.clause_id) || 0;
+            obligationsCountByClause.set(obl.clause_id, count + 1);
+          }
+        }
+
+        // Map version to obligations count
+        const obligationsCountByVersion = new Map<string, number>();
+        if (clausesData) {
+          for (const c of clausesData) {
+            const oblCount = obligationsCountByClause.get(c.id) || 0;
+            const existing = obligationsCountByVersion.get(c.document_version_id) || 0;
+            obligationsCountByVersion.set(c.document_version_id, existing + oblCount);
           }
         }
 
@@ -81,88 +116,50 @@ export async function GET(req: NextRequest) {
             sectionsCount = versions.reduce((acc: number, v: any) => acc + (clauseCountByVersion.get(v.id) || 0), 0);
           }
 
+          let totalObligationsCount = activeVersion ? obligationsCountByVersion.get(activeVersion.id) || 0 : 0;
+          if (totalObligationsCount === 0) {
+            totalObligationsCount = versions.reduce((acc: number, v: any) => acc + (obligationsCountByVersion.get(v.id) || 0), 0);
+          }
+
           let year = new Date(inst.created_at).getFullYear();
-          if (activeVersion?.publication_date) {
+          if (inst.publication_date) {
+            const parsedYear = new Date(inst.publication_date).getFullYear();
+            if (!isNaN(parsedYear)) year = parsedYear;
+          } else if (activeVersion?.publication_date) {
             const parsedYear = new Date(activeVersion.publication_date).getFullYear();
             if (!isNaN(parsedYear)) year = parsedYear;
           }
-          const yearMatch = inst.title.match(/\b(19\d\d|20\d\d)\b/);
-          if (yearMatch) {
-            year = parseInt(yearMatch[1], 10);
-          }
-
-          // Match seed item to preserve enriched domain and classification
-          const instShort = (inst.short_name || '').toLowerCase();
-          const instTitle = (inst.title || '').toLowerCase();
-          const matchedSeed = REGULATORY_INSTRUMENTS_SEED.find((s) => {
-            const seedShort = s.short_name.toLowerCase();
-            const seedTitle = s.title.toLowerCase();
-            return (
-              seedShort === instShort ||
-              seedTitle === instTitle ||
-              instShort.includes(seedShort) ||
-              seedShort.includes(instShort) ||
-              instTitle.includes(seedShort)
-            );
-          });
-
-          // Resolve sensible default domain if not matched
-          // Resolve sensible default domain if not matched
-          let defaultDomain = 'FINTECH_PAYMENTS';
-          const regCode = (body?.code || '').toUpperCase();
-          if (regCode === 'FCCPC' || instTitle.includes('lending') || instTitle.includes('consumer')) defaultDomain = 'DIGITAL_LENDING';
-          else if (regCode === 'ARCON' || instTitle.includes('advertising') || instTitle.includes('vetting')) defaultDomain = 'CONSUMER_PROTECTION';
-          else if (regCode === 'NDPC' || instTitle.includes('privacy') || instTitle.includes('data')) defaultDomain = 'DATA_PRIVACY_AI';
-          else if (regCode === 'SEC' && (instTitle.includes('vasp') || instTitle.includes('virtual') || instTitle.includes('crypto'))) defaultDomain = 'CRYPTO_VASP';
-          else if (regCode === 'SEC') defaultDomain = 'CAPITAL_MARKETS';
-          else if (instTitle.includes('aml') || instTitle.includes('laundering') || regCode === 'NFIU') defaultDomain = 'AML_CFT';
-
-          // Accurate Jurisdiction Resolution
-          let jurisdiction: JurisdictionCode = matchedSeed?.jurisdiction || 'NG';
-          if (regCode === 'BOG' || instTitle.includes('ghana') || instShort.includes('ghana')) {
-            jurisdiction = 'GH';
-          } else if (regCode === 'CBK' || instTitle.includes('kenya') || instShort.includes('kenya')) {
-            jurisdiction = 'KE';
-          } else if (regCode === 'SARB' || instTitle.includes('south africa') || instShort.includes('south africa')) {
-            jurisdiction = 'ZA';
-          } else if (regCode === 'WAEMU' || regCode === 'GIABA') {
-            jurisdiction = 'SUPRANATIONAL';
-          }
-
-          // Clean human-readable titles vs circular reference codes
-          const isShortNameRawCode =
-            !inst.short_name ||
-            inst.short_name.includes('/') ||
-            inst.short_name === activeVersion?.reference_code ||
-            /^[A-Z0-9_\-\/]+$/.test(inst.short_name.trim());
 
           const cleanTitle = inst.title && inst.title.length > 5 ? inst.title : (inst.short_name || 'Regulatory Directive');
-          const cleanShortTitle = isShortNameRawCode
-            ? (cleanTitle.length > 60 ? cleanTitle.slice(0, 57) + '...' : cleanTitle)
-            : inst.short_name;
-
-          const citation = activeVersion?.reference_code || (isShortNameRawCode ? inst.short_name : `${inst.short_name} (${year})`);
+          const cleanShortTitle = inst.short_name || cleanTitle;
+          const citation = activeVersion?.reference_code || `${cleanShortTitle} (${year})`;
 
           return {
             id: inst.id,
             shortTitle: cleanShortTitle,
             fullTitle: cleanTitle,
             officialCitation: citation,
-            regulator: body?.code || matchedSeed?.body_code || 'CBN',
+            regulator: body?.code || 'CBN',
             regulatorName: body?.name || 'Regulatory Authority',
-            instrumentType: inst.instrument_type,
-            domain: matchedSeed?.domain || (defaultDomain as RegulatoryDomainCode),
-            jurisdiction,
-            classification: matchedSeed?.classification || 'SUBSIDIARY_REGULATION',
+            instrumentType: inst.instrument_type || 'SUBSIDIARY_REGULATION',
+            domain: inst.domain || 'FINTECH_PAYMENTS',
+            jurisdiction: inst.jurisdiction || 'NG',
+            classification: inst.classification || 'SUBSIDIARY_REGULATION',
             year,
-            sectionsCount: sectionsCount > 0 ? sectionsCount : (matchedSeed ? matchedSeed.versions[0]?.clauses?.length || 0 : 0),
+            sectionsCount,
+            totalObligationsCount,
             status: (activeVersion?.is_active ? 'ACTIVE_LAW' : 'AMENDED') as 'ACTIVE_LAW' | 'AMENDED',
-            description: matchedSeed?.description || cleanTitle,
+            description: inst.overview || cleanTitle,
+            overview: inst.overview || cleanTitle,
+            scope: inst.scope || 'Applies to regulated financial institutions in Nigeria.',
+            keyRequirementAreas: Array.isArray(inst.key_requirement_areas) ? inst.key_requirement_areas : [],
             activeVersionId: activeVersion?.id || null,
-            publicationDate: activeVersion?.publication_date || null,
-            effectiveDate: activeVersion?.effective_date || null,
-            sourceFileUrl: activeVersion?.source_file_url || activeVersion?.canonical_source_url || body?.official_portal_url || null,
-            createdAt: inst.created_at || activeVersion?.publication_date || null,
+            publicationDate: inst.publication_date || activeVersion?.publication_date || null,
+            effectiveDate: inst.entry_into_force_date || activeVersion?.effective_date || null,
+            sourceFileUrl: activeVersion?.source_file_url || activeVersion?.canonical_source_url || inst.source_url || null,
+            isStarred: Boolean(inst.is_starred),
+            owner: inst.owner || 'Chief Compliance Officer',
+            capturedText: inst.captured_text || null,
           };
         });
       }
@@ -171,9 +168,11 @@ export async function GET(req: NextRequest) {
     }
 
     // 2. Map all authentic seed instruments
-    const seedItems = REGULATORY_INSTRUMENTS_SEED.map((seed, idx) => {
+    const seedItems: RegulatoryInstrumentPresentation[] = REGULATORY_INSTRUMENTS_SEED.map((seed, idx) => {
       const activeVersion = seed.versions[0];
       const sectionsCount = seed.versions.reduce((acc, v) => acc + (v.clauses?.length || 0), 0);
+      const totalObligationsCount = (activeVersion?.clauses || []).reduce((acc, c) => acc + (c.obligations?.length || 0), 0);
+
       let year = seed.enacted_year || 2023;
       if (activeVersion?.publication_date) {
         const parsedYear = new Date(activeVersion.publication_date).getFullYear();
@@ -203,20 +202,32 @@ export async function GET(req: NextRequest) {
         classification: seed.classification || 'SUBSIDIARY_REGULATION',
         year,
         sectionsCount,
-        status: 'ACTIVE_LAW' as const,
+        totalObligationsCount,
+        status: 'ACTIVE_LAW',
         description: seed.description || seed.title,
+        overview: seed.description || `Operative statutory instrument establishing legal frameworks under ${seed.body_code}.`,
+        scope: `Applies to all licensed entities and corporate institutions operating within the Nigerian financial and capital markets.`,
+        keyRequirementAreas: [
+          {
+            title: 'Statutory Compliance Baseline',
+            description: 'Institutional policies and operating procedures must maintain continuous concordance with this legislation.',
+          },
+          {
+            title: 'Audit & Examination Readiness',
+            description: 'Maintains evidentiary compliance records for statutory inspections and supervisory inquiries.',
+          },
+        ],
         activeVersionId: `seed-ver-${idx}`,
-        publicationDate: activeVersion?.publication_date || null,
-        effectiveDate: activeVersion?.effective_date || null,
+        publicationDate: activeVersion?.publication_date || `${year}-01-01`,
+        effectiveDate: activeVersion?.effective_date || `${year}-01-01`,
         sourceFileUrl: activeVersion?.canonical_source_url || null,
-        createdAt: activeVersion?.publication_date
-          ? new Date(activeVersion.publication_date).toISOString()
-          : new Date(`${year}-01-01`).toISOString(),
+        isStarred: false,
+        owner: 'Chief Compliance Officer',
       };
     });
 
     // 3. Merge: prefer DB item if present, append non-existing seed items
-    const mergedMap = new Map<string, any>();
+    const mergedMap = new Map<string, RegulatoryInstrumentPresentation>();
     for (const item of dbItems) {
       mergedMap.set(item.fullTitle.toLowerCase(), item);
       mergedMap.set(item.shortTitle.toLowerCase(), item);
@@ -229,15 +240,8 @@ export async function GET(req: NextRequest) {
 
     let allItems = Array.from(new Set(mergedMap.values()));
 
-    // Sort all items: newest created/published first so fresh uploads appear at top
-    allItems.sort((a, b) => {
-      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      if (timeA && timeB && timeA !== timeB) {
-        return timeB - timeA;
-      }
-      return (b.year || 0) - (a.year || 0);
-    });
+    // Sort: newest created/published first
+    allItems.sort((a, b) => (b.year || 0) - (a.year || 0));
 
     // 4. Apply Filters
     if (domain && domain !== ('ALL' as any)) {
@@ -256,6 +260,10 @@ export async function GET(req: NextRequest) {
       allItems = allItems.filter((i) => i.regulator.toUpperCase() === regulator.toUpperCase());
     }
 
+    if (isStarredFilter) {
+      allItems = allItems.filter((i) => Boolean(i.isStarred));
+    }
+
     if (search) {
       allItems = allItems.filter(
         (i) =>
@@ -272,7 +280,7 @@ export async function GET(req: NextRequest) {
       const matching = allItems.filter((i) => i.domain === dom.code);
       return {
         ...dom,
-        totalInstruments: matching.length > 0 ? matching.length : dom.totalInstruments,
+        totalInstruments: matching.length,
       };
     });
 

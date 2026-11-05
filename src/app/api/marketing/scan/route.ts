@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
 
     const elapsedMs = Math.round(performance.now() - startTime);
 
-    if (resolvedOrgId && (viewModel.status === 'BLOCKING_ISSUE' || viewModel.status === 'ISSUE_DETECTED')) {
+    if (resolvedOrgId && (viewModel.verdict === 'BLOCKING_ISSUE' || viewModel.verdict === 'ISSUE_DETECTED')) {
       try {
         await tenantCtx.dbClient.from('notifications').insert({
           organization_id: resolvedOrgId,

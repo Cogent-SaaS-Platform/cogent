@@ -72,4 +72,10 @@ export function createAdminClient(): SupabaseClient<Database> {
   });
 }
 
+/**
+ * Common convenience aliases for tests and modules
+ */
+export const getSupabaseClient = createClient;
+export const getSupabaseAdminClient = createAdminClient;
+
 export * from './types';

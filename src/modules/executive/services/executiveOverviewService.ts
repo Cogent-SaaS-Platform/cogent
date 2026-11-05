@@ -466,7 +466,7 @@ export class ExecutiveOverviewService {
       }
     }
 
-    // If database circulars provide fewer than 3 upcoming gates, provide dynamically calculated canonical countdown gates
+    // If fewer than 3 upcoming gates found with future deadlines, provide dynamically calculated canonical countdown gates across pillars
     if (urgentGates.length < 3) {
       urgentGates.push(
         {
@@ -512,36 +512,6 @@ export class ExecutiveOverviewService {
           linkContext: {
             targetPillar: 'radar',
             searchTerm: 'NIBSS',
-            action: 'open_drawer',
-          },
-        },
-        {
-          id: 'gate_ndpc_audit',
-          title: 'NDPA 2023 Statutory Data Protection Controller Registry Filing',
-          regulatorCode: 'NDPC',
-          sourcePillar: 'radar',
-          deadlineDate: formatFutureDate(60),
-          daysRemaining: 60,
-          priority: 'MEDIUM',
-          actionRequired: 'Annual data controller audit filing with Nigeria Data Protection Commission',
-          linkContext: {
-            targetPillar: 'radar',
-            searchTerm: 'NDPA',
-            action: 'open_drawer',
-          },
-        },
-        {
-          id: 'gate_sec_digital',
-          title: 'SEC Digital Asset Custody & VASP Capital Adequacy Attestation',
-          regulatorCode: 'SEC',
-          sourcePillar: 'gap-matrix',
-          deadlineDate: formatFutureDate(90),
-          daysRemaining: 90,
-          priority: 'MEDIUM',
-          actionRequired: 'Quarterly regulatory capital buffer calculation and CCO sign-off for digital assets',
-          linkContext: {
-            targetPillar: 'gap-matrix',
-            searchTerm: 'SEC',
             action: 'open_drawer',
           },
         }
@@ -800,37 +770,27 @@ export class ExecutiveOverviewService {
       }
     }
 
-    if (impactedPolicies.length === 0) {
-      impactedPolicies.push(
-        {
-          id: 'pol-aml',
-          name: 'AML / CFT & Sanctions Policy',
-          regulators: ['CBN', 'NFIU', 'FATF'],
-          alertCount: Math.max(3, Math.min(8, unreadHighPriorityCount || 6)),
-          ownerInitials: 'CCO',
-        },
-        {
-          id: 'pol-fraud',
-          name: 'Corporate Governance & Anti-Fraud Policy',
-          regulators: ['CAMA', 'CBN', 'EFCC'],
-          alertCount: 4,
-          ownerInitials: 'GC',
-        },
-        {
-          id: 'pol-lending',
-          name: 'Digital Lending & Consumer Credit Policy',
-          regulators: ['FCCPC', 'CBN'],
-          alertCount: 3,
-          ownerInitials: 'CRO',
-        },
-        {
-          id: 'pol-data',
-          name: 'Data Protection & Privacy Policy',
-          regulators: ['NDPC', 'NITDA'],
-          alertCount: Math.max(2, criticalGapsCount > 0 ? Math.min(5, criticalGapsCount) : 3),
-          ownerInitials: 'DPO',
+    if (impactedPolicies.length === 0 && this.dbClient) {
+      try {
+        const { data: anyPolicies } = await this.dbClient
+          .from('policy_documents')
+          .select('id, title, department')
+          .limit(6);
+
+        if (anyPolicies) {
+          for (const p of anyPolicies) {
+            impactedPolicies.push({
+              id: p.id,
+              name: p.title,
+              regulators: ['CBN'],
+              alertCount: criticalGapsCount > 0 ? 1 : 0,
+              ownerInitials: p.department?.includes('TECH') ? 'CTO' : 'CCO',
+            });
+          }
         }
-      );
+      } catch (err) {
+        logger.warn({ err }, 'Failed reading fallback policy documents');
+      }
     }
 
     return {

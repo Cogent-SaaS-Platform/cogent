@@ -239,54 +239,7 @@ SECTION 2: TRANSACTION MONITORING & STR REPORTING
           ]);
         }
 
-        // 6. Zero-Empty-State: Ensure Tailored Marketing Scan Assets are Active
-        const { count: scanCount } = await dbClient
-          .from('marketing_scans')
-          .select('id', { count: 'exact', head: true })
-          .eq('organization_id', organizationId);
-
-        if (!scanCount || scanCount === 0) {
-          const isLender =
-            licenseType.includes('DIGITAL_LENDER') || licenseType.includes('FINANCE_COMPANY');
-
-          const { data: users } = await dbClient.from('users').select('id').limit(1);
-          const userId = users?.[0]?.id || '00000000-0000-0000-0000-000000000001';
-
-          await dbClient.from('marketing_scans').insert([
-            {
-              organization_id: organizationId,
-              user_id: userId,
-              campaign_name: isLender
-                ? `${companyName} Instant Nano-Loan In-App Promo`
-                : `${companyName} Mobile Banking App Launch Campaign`,
-              channel: isLender ? 'IN_APP_PUSH_NOTIFICATION' : 'SOCIAL_MEDIA_POST',
-              raw_copy: isLender
-                ? 'Need emergency funds? Get up to ₦50,000 instantly with transparent APR disclosures and zero hidden charges. Regulated by FCCPC.'
-                : 'Experience fast, seamless commercial payments with Bank-grade encryption. Licensed by the Central Bank of Nigeria. Deposits insured by NDIC.',
-              verdict: 'NO_ISSUE_DETECTED',
-              approval_status: 'APPROVED_BY_CCO',
-              deterministic_penalty_naira: 0,
-              overall_risk_score: 5,
-              arcon_preclearance_required: true,
-            },
-            {
-              organization_id: organizationId,
-              user_id: userId,
-              campaign_name: isLender
-                ? `${companyName} 24h Flash Credit SMS Broadcast`
-                : `${companyName} High-Yield Savings Promo`,
-              channel: 'SMS_BLAST',
-              raw_copy: isLender
-                ? 'Borrow ₦100,000 today with 0% interest and instant payout. No collateral needed!'
-                : 'Earn guaranteed 25% annual return with zero risk! Open your savings vault now.',
-              verdict: 'ISSUE_DETECTED',
-              approval_status: 'NEEDS_RE_REVIEW',
-              deterministic_penalty_naira: isLender ? 5000000 : 10000000,
-              overall_risk_score: 85,
-              arcon_preclearance_required: true,
-            },
-          ]);
-        }
+        // 6. Zero fake marketing campaigns: Marketing workspace starts 100% clean
 
         // 7. Zero-Empty-State: Real-Time Welcome & Horizon Notifications
         await dbClient.from('notifications').insert([
