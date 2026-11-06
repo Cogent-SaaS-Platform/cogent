@@ -34,6 +34,71 @@ import { RadarCircularPresentationCard } from '../types';
 import { AssigneeSelect, AssigneeSelection } from '@/modules/organization/ui/AssigneeSelect';
 import { RoleBriefViewer } from './RoleBriefViewer';
 
+export function formatTopicPill(raw: string): string {
+  if (!raw) return '';
+  const trimmed = raw.trim();
+
+  const KNOWN_TOPIC_MAP: Record<string, string> = {
+    'COMMERCIAL_BANK': 'Commercial Bank',
+    'MERCHANT_BANK': 'Merchant Bank',
+    'PAYMENT_SERVICE_BANK': 'Payment Service Bank (PSB)',
+    'MICROFINANCE_BANK_NATIONAL': 'National Microfinance Bank',
+    'MICROFINANCE_BANK_STATE': 'State Microfinance Bank',
+    'MICROFINANCE_BANK_UNIT': 'Unit Microfinance Bank',
+    'FINANCE_COMPANY': 'Finance Company',
+    'SWITCHING_AND_PROCESSING': 'Switching & Processing',
+    'PAYMENT_SOLUTION_SERVICES_PSSP': 'Payment Solution Services (PSSP)',
+    'PAYMENT_TERMINAL_SERVICE_PROVIDER_PTSP': 'Payment Terminal Service Provider (PTSP)',
+    'MOBILE_MONEY_OPERATOR_MMO': 'Mobile Money Operator (MMO)',
+    'SUPER_AGENT': 'Super Agent',
+    'DIGITAL_LENDER_FCCPC_REGISTERED': 'Digital Lender (FCCPC Registered)',
+    'SEC_REGISTERED_DIGITAL_SUB_BROKER': 'Digital Sub-Broker (SEC Registered)',
+    'SEC_REGISTERED_ROBO_ADVISOR': 'Robo-Advisor (SEC Registered)',
+    'CRYPTO_VASP_SEC_APPROVED': 'Virtual Asset Provider (VASP)',
+    'NIBSS_INSTANT_PAYMENT': 'NIBSS Instant Payment (NIP)',
+    'CENTRAL_PAY_DIRECT': 'Direct Debit / PayDirect',
+    'ATM_SETTLEMENT': 'ATM Settlement',
+    'POS_ACQUIRING': 'POS Acquiring',
+    'INTERSWITCH_WEBPAY': 'WebPay Rails',
+    'UNIFIED_PAYMENTS_PAYATTITUDE': 'PayAttitude Rails',
+    'REMITA_COLLECTIONS': 'Remita Collections',
+    'E_NAIRA': 'eNaira Digital Rail',
+    'EFEMS': 'Enhanced Foreign Exchange Market (EFEMS)',
+    'NIGSAC': 'Nigeria Sanctions Committee (NIGSAC)',
+    'UNSC': 'UN Security Council (UNSC)',
+    'OFAC': 'OFAC Sanctions',
+    'AML_CFT': 'AML / CFT Compliance',
+    'KYC_EDD': 'Tiered KYC & EDD',
+    'NDPA_2023': 'NDPA 2023 Privacy',
+    'ARCON_ASP': 'ARCON ASP Pre-Vetting',
+  };
+
+  if (KNOWN_TOPIC_MAP[trimmed]) return KNOWN_TOPIC_MAP[trimmed];
+  if (KNOWN_TOPIC_MAP[trimmed.toUpperCase()]) return KNOWN_TOPIC_MAP[trimmed.toUpperCase()];
+
+  if (trimmed.includes('_')) {
+    return trimmed
+      .split('_')
+      .map((word) => {
+        const u = word.toUpperCase();
+        if (
+          [
+            'CBN', 'SEC', 'NDPC', 'FCCPC', 'ARCON', 'NFIU', 'NDIC',
+            'ATM', 'POS', 'PTSP', 'PTSA', 'PSSP', 'MMO', 'PSB', 'DMB', 'MFB',
+            'KYC', 'AML', 'CFT', 'PEP', 'STR', 'CTR', 'BVN', 'NIN', 'NIP',
+            'FX', 'USSD', 'API', 'VASP', 'EFEMS', 'NFEM', 'DPO', 'CAR', 'GAID'
+          ].includes(u)
+        ) {
+          return u;
+        }
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      })
+      .join(' ');
+  }
+
+  return trimmed;
+}
+
 interface HorizonAlertDetailProps {
   circular: RadarCircularPresentationCard;
   onBack: () => void;
@@ -775,30 +840,35 @@ export function HorizonAlertDetail({
           </div>
 
           {/* ────────────────────────────────────────────────────────────────────────
-              4-PHASE STATUTORY OBLIGATION REGISTER ACTION BANNER
+              LINKED REGULATORY INSTRUMENT ACTION CARD (Shown for binding regulatory instruments)
               ──────────────────────────────────────────────────────────────────────── */}
-          <div className="bg-white border border-slate-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-md bg-slate-100 flex items-center justify-center text-slate-800 shrink-0">
-                <Layers className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-slate-900">
-                  4-Phase Statutory Obligation Architecture
+          {alertType === 'Actionable' &&
+            circular.docType !== 'News & Events' &&
+            circular.docType !== 'Reports & Research' &&
+            circular.docType !== 'Legal Briefing / Law Firm Alert' && (
+              <div className="bg-white border border-slate-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-md bg-slate-100 flex items-center justify-center text-slate-800 shrink-0">
+                    <Layers className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-slate-900">
+                      Linked Regulatory Instrument
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      View codified statutory obligations, enforcement clauses, and penalty floors in Regulation Library.
+                    </div>
+                  </div>
                 </div>
-                <div className="text-[11px] text-slate-500">
-                  Inspect atomic regulatory duties, orphan gap risk, internal safeguards, and audit evidence health.
-                </div>
+                <Link
+                  href={`/library?circularNumber=${encodeURIComponent(circular.circularNumber)}&view=obligations`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-900 text-white hover:bg-slate-800 text-xs font-medium shrink-0 transition-colors shadow-2xs"
+                >
+                  <span>View Obligations in Regulation Library</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </Link>
               </div>
-            </div>
-            <Link
-              href={`/library?view=obligations&circularId=${encodeURIComponent(circular.id)}&circularNumber=${encodeURIComponent(circular.circularNumber)}`}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-900 text-white hover:bg-slate-800 text-xs font-medium shrink-0 transition-colors shadow-2xs"
-            >
-              <span>View in Obligations Register</span>
-              <ArrowUpRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
+            )}
 
           {/* ────────────────────────────────────────────────────────────────────────
               COMMENTS & AUDIT LOGS CARD (Ref Video 01:10 – 01:17)
@@ -1134,8 +1204,8 @@ export function HorizonAlertDetail({
                 <span className="text-slate-500 block text-[11px] mb-1">Topics</span>
                 <div className="flex flex-wrap gap-1">
                   {(circular.topics && circular.topics.length > 0 ? circular.topics : [circular.regulator, 'Regulatory Directive']).map((t) => (
-                    <span key={t} className="px-2 py-0.5 bg-slate-100 rounded text-[11px] font-mono text-slate-700 border border-slate-200">
-                      {t}
+                    <span key={t} className="px-2 py-0.5 bg-slate-100 rounded text-[11px] font-medium text-slate-700 border border-slate-200">
+                      {formatTopicPill(t)}
                     </span>
                   ))}
                 </div>
@@ -1145,8 +1215,8 @@ export function HorizonAlertDetail({
                   <span className="text-slate-500 block text-[11px] mb-1">Impacted Areas</span>
                   <div className="flex flex-wrap gap-1">
                     {circular.impactedAreas.map((area: string) => (
-                      <span key={area} className="px-2 py-0.5 bg-slate-100 rounded text-[11px] font-mono text-slate-700 border border-slate-200">
-                        {area}
+                      <span key={area} className="px-2 py-0.5 bg-slate-100 rounded text-[11px] font-medium text-slate-700 border border-slate-200">
+                        {formatTopicPill(area)}
                       </span>
                     ))}
                   </div>

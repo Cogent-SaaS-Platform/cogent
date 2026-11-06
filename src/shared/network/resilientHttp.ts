@@ -41,12 +41,14 @@ export interface ResilientRequestOptions {
   headers?: Record<string, string>;
   body?: string | Buffer;
   timeoutMs?: number;
+  maxRedirects?: number;
 }
 
 export async function resilientFetch<T = any>(
   urlStr: string,
   options: ResilientRequestOptions = {}
 ): Promise<ResilientResponse<T>> {
+  const maxRedirects = options.maxRedirects ?? 3;
   const url = new URL(urlStr);
   const isHttps = url.protocol === 'https:';
   const client = isHttps ? https : http;
@@ -79,6 +81,35 @@ export async function resilientFetch<T = any>(
         timeout: timeoutDuration,
       },
       (res) => {
+        const statusCode = res.statusCode || 0;
+        const locationHeader = res.headers.location;
+        if (
+          [301, 302, 303, 307, 308].includes(statusCode) &&
+          locationHeader &&
+          maxRedirects > 0
+        ) {
+          clearTimeout(hardTimeoutTimer);
+          res.resume();
+          if (settled) return;
+          settled = true;
+          try {
+            const redirectUrl = new URL(
+              Array.isArray(locationHeader) ? locationHeader[0] : locationHeader,
+              urlStr
+            ).toString();
+            resilientFetch<T>(redirectUrl, {
+              ...options,
+              maxRedirects: maxRedirects - 1,
+            })
+              .then(resolve)
+              .catch(reject);
+            return;
+          } catch (redirectErr) {
+            reject(redirectErr);
+            return;
+          }
+        }
+
         const chunks: Buffer[] = [];
         res.on('data', (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
         res.on('end', () => {

@@ -116,7 +116,9 @@ export interface PenaltyEscalationProjection {
 export interface RadarCircularPresentationCard {
   id: string;
   circularNumber: string;
-  regulator: RegulatorCode;
+  regulator: RegulatorCode | string;
+  sourceCategory?: 'REGULATOR' | 'LAW_FIRM' | 'NEWS_MEDIA';
+  linkedInstrumentId?: string | null;
   subject: string;
   summary: string;
   publicationDate: string;

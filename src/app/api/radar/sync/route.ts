@@ -23,6 +23,13 @@ export async function POST(req: NextRequest) {
 
     const summary = await collector.syncAllLiveSources(tenantCtx.organizationId);
 
+    // Automatically run the synthesis & deduplication pipeline queue across all alerts
+    const { HorizonSynthesisEngine } = await import('@/modules/radar/services/horizonSynthesisEngine');
+    const queueSummary = await HorizonSynthesisEngine.runAutomatedPipelineQueue(tenantCtx.dbClient, {
+      organizationId: tenantCtx.organizationId,
+      concurrency: 4,
+    });
+
     // Emit live notification to tenant enclave
     if (tenantCtx.organizationId) {
       try {

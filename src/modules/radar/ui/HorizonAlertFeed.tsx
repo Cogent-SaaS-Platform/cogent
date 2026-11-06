@@ -43,14 +43,33 @@ interface HorizonAlertFeedProps {
   initialTopicKey?: string;
 }
 
-const ALL_REGULATORS: Array<{ code: string; label: string }> = [
-  { code: 'CBN', label: 'Central Bank of Nigeria (CBN)' },
-  { code: 'NDPC', label: 'Nigeria Data Protection Commission (NDPC)' },
-  { code: 'FCCPC', label: 'Federal Competition & Consumer Protection (FCCPC)' },
-  { code: 'SEC', label: 'Securities & Exchange Commission (SEC)' },
-  { code: 'ARCON', label: 'Advertising Regulatory Council (ARCON)' },
-  { code: 'NFIU', label: 'Nigerian Financial Intelligence Unit (NFIU)' },
-  { code: 'NDIC', label: 'Nigeria Deposit Insurance Corporation (NDIC)' },
+export interface SourceOption {
+  code: string;
+  label: string;
+  category: 'Apex Regulator' | 'Law Firm Briefing' | 'Regulatory News';
+}
+
+export const ALL_SOURCES_CONFIG: SourceOption[] = [
+  // Apex Regulators
+  { code: 'CBN', label: 'Central Bank of Nigeria (CBN)', category: 'Apex Regulator' },
+  { code: 'SEC', label: 'Securities & Exchange Commission (SEC)', category: 'Apex Regulator' },
+  { code: 'NDPC', label: 'Nigeria Data Protection Commission (NDPC)', category: 'Apex Regulator' },
+  { code: 'FCCPC', label: 'Federal Competition & Consumer Protection (FCCPC)', category: 'Apex Regulator' },
+  { code: 'ARCON', label: 'Advertising Regulatory Council (ARCON)', category: 'Apex Regulator' },
+  { code: 'NFIU', label: 'Nigerian Financial Intelligence Unit (NFIU)', category: 'Apex Regulator' },
+  { code: 'NDIC', label: 'Nigeria Deposit Insurance Corporation (NDIC)', category: 'Apex Regulator' },
+  // Tier-1 Law Firms
+  { code: 'BANWO_IGHODALO', label: 'Banwo & Ighodalo Client Alerts', category: 'Law Firm Briefing' },
+  { code: 'ALUKO_OYEBODE', label: 'Aluko & Oyebode Client Briefings', category: 'Law Firm Briefing' },
+  { code: 'TEMPLARS', label: 'Templars Law Regulatory Alerts', category: 'Law Firm Briefing' },
+  { code: 'DETAIL_SOLICITORS', label: 'Detail Commercial Solicitors', category: 'Law Firm Briefing' },
+  { code: 'OLANIWUN_AJAYI', label: 'Olaniwun Ajayi LP Client Alerts', category: 'Law Firm Briefing' },
+  { code: 'UUBO', label: 'Udo Udoma & Belo-Osagie Alerts', category: 'Law Firm Briefing' },
+  { code: 'PAVESTONES', label: 'Pavestones Legal Compliance Alerts', category: 'Law Firm Briefing' },
+  // Financial & Regulatory News Media
+  { code: 'NAIRAMETRICS', label: 'Nairametrics Financial Wire', category: 'Regulatory News' },
+  { code: 'BUSINESSDAY', label: 'BusinessDay Banking & Regulation', category: 'Regulatory News' },
+  { code: 'TECHCABAL', label: 'TechCabal FinTech Wire', category: 'Regulatory News' },
 ];
 
 const ALL_DOC_TYPES = [
@@ -58,6 +77,7 @@ const ALL_DOC_TYPES = [
   'Regulations & Guidelines',
   'Exposure Draft',
   'Enforcement & Sanctions',
+  'Legal Briefing / Law Firm Alert',
   'Reports & Research',
   'News & Events',
 ];
@@ -458,28 +478,31 @@ export function HorizonAlertFeed({
     setCurrentPage(1);
   };
 
-  const filteredRegulatorsList = useMemo(() => {
-    if (!sourceSearchTerm.trim()) return ALL_REGULATORS;
+  const filteredSourcesList = useMemo(() => {
+    if (!sourceSearchTerm.trim()) return ALL_SOURCES_CONFIG;
     const term = sourceSearchTerm.toLowerCase();
-    return ALL_REGULATORS.filter(
-      (r) => r.code.toLowerCase().includes(term) || r.label.toLowerCase().includes(term)
+    return ALL_SOURCES_CONFIG.filter(
+      (r) =>
+        r.code.toLowerCase().includes(term) ||
+        r.label.toLowerCase().includes(term) ||
+        r.category.toLowerCase().includes(term)
     );
   }, [sourceSearchTerm]);
 
   return (
     <div className="bg-white rounded-lg border border-slate-200 shadow-2xs overflow-hidden flex flex-col">
       {/* ──────────────────────────────────────────────────────────────────────────
-          1. TOP BAR: TABS & CONTROLS (Ref Video 00:33 – 00:59)
+          1. TOP BAR: TABS & CONTROLS (Single-Row Clean Grid Alignment)
           ────────────────────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between border-b border-slate-200 px-4 py-2.5 gap-3 bg-white">
+      <div className="flex items-center justify-between border-b border-slate-200 px-3 sm:px-4 py-2.5 gap-2 bg-white overflow-x-auto min-w-0 flex-nowrap">
         {/* Left: View Tabs */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={() => {
               setActiveTab('pending');
               setCurrentPage(1);
             }}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 ${
+            className={`px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 shrink-0 ${
               activeTab === 'pending'
                 ? 'bg-slate-100 text-slate-900 font-bold'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
@@ -498,7 +521,7 @@ export function HorizonAlertFeed({
               setActiveTab('all');
               setCurrentPage(1);
             }}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+            className={`px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-md transition-colors shrink-0 ${
               activeTab === 'all'
                 ? 'bg-slate-100 text-slate-900 font-bold'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
@@ -512,7 +535,7 @@ export function HorizonAlertFeed({
               setActiveTab('starred');
               setCurrentPage(1);
             }}
-            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1 ${
+            className={`px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-md transition-colors flex items-center gap-1 shrink-0 ${
               activeTab === 'starred'
                 ? 'bg-slate-100 text-slate-900 font-bold'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
@@ -523,10 +546,10 @@ export function HorizonAlertFeed({
           </button>
         </div>
 
-        {/* Right: Controls & Actions */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Right: Controls & Actions (Single row with shrink-0 items) */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Relevant Only Green Toggle Switch */}
-          <label className="flex items-center gap-2 cursor-pointer select-none px-2 py-1 text-xs text-slate-700 hover:text-slate-900">
+          <label className="flex items-center gap-1.5 cursor-pointer select-none px-1.5 py-1 text-xs text-slate-700 hover:text-slate-900 shrink-0">
             <input
               type="checkbox"
               checked={relevantOnly}
@@ -547,19 +570,20 @@ export function HorizonAlertFeed({
                 }`}
               />
             </div>
-            <span className="font-medium text-xs">Relevant Only</span>
+            <span className="font-medium text-xs hidden md:inline">Relevant Only</span>
+            <span className="font-medium text-xs md:hidden">Relevant</span>
           </label>
 
-          <div className="h-4 w-px bg-slate-200 hidden sm:block" />
+          <div className="h-4 w-px bg-slate-200 shrink-0" />
 
           {/* Multi-Select Searchable Source Dropdown */}
-          <div className="relative" ref={sourceDropdownRef}>
+          <div className="relative shrink-0" ref={sourceDropdownRef}>
             <button
               type="button"
               onClick={() => setIsSourceDropdownOpen(!isSourceDropdownOpen)}
-              className="h-8 pl-2.5 pr-7 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md hover:border-slate-300 focus:outline-hidden flex items-center gap-1.5 transition-colors"
+              className="h-8 pl-2.5 pr-7 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md hover:border-slate-300 focus:outline-hidden flex items-center gap-1.5 transition-colors shrink-0"
             >
-              <span>
+              <span className="truncate max-w-[100px] sm:max-w-[130px]">
                 {selectedSources.length === 0
                   ? 'All Sources'
                   : selectedSources.length === 1
@@ -570,21 +594,21 @@ export function HorizonAlertFeed({
             </button>
 
             {isSourceDropdownOpen && (
-              <div className="absolute left-0 mt-1.5 w-64 bg-white rounded-lg border border-slate-200 shadow-lg p-2 z-50 space-y-2">
+              <div className="absolute right-0 sm:left-0 mt-1.5 w-72 bg-white rounded-lg border border-slate-200 shadow-lg p-2.5 z-50 space-y-2">
                 <div className="relative">
                   <Search className="w-3 h-3 text-slate-400 absolute left-2 top-2 pointer-events-none" />
                   <input
                     type="text"
                     value={sourceSearchTerm}
                     onChange={(e) => setSourceSearchTerm(e.target.value)}
-                    placeholder="Search regulators..."
+                    placeholder="Search sources, regulators, law firms..."
                     className="w-full h-7 pl-7 pr-2 text-xs bg-slate-50 border border-slate-200 rounded focus:outline-hidden focus:bg-white"
                     autoFocus
                   />
                 </div>
 
                 <div className="flex items-center justify-between text-[11px] px-1 text-slate-500 border-b border-slate-100 pb-1">
-                  <span>Filter Regulators</span>
+                  <span>Regulators & Feeds ({filteredSourcesList.length})</span>
                   {selectedSources.length > 0 && (
                     <button
                       type="button"
@@ -599,23 +623,38 @@ export function HorizonAlertFeed({
                   )}
                 </div>
 
-                <div className="max-h-48 overflow-y-auto space-y-1">
-                  {filteredRegulatorsList.map((r) => {
-                    const isChecked = selectedSources.includes(r.code);
+                <div className="max-h-56 overflow-y-auto space-y-2">
+                  {(['Apex Regulator', 'Law Firm Briefing', 'Regulatory News'] as const).map((cat) => {
+                    const groupItems = filteredSourcesList.filter((s) => s.category === cat);
+                    if (groupItems.length === 0) return null;
                     return (
-                      <label
-                        key={r.code}
-                        className="flex items-center gap-2 px-2 py-1 text-xs rounded hover:bg-slate-50 cursor-pointer text-slate-700"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleSourceSelection(r.code)}
-                          className="rounded border-slate-300 text-slate-900 focus:ring-0"
-                        />
-                        <span className="font-semibold text-slate-900">{r.code}</span>
-                        <span className="text-[11px] text-slate-500 truncate">{r.label.split('(')[0]}</span>
-                      </label>
+                      <div key={cat} className="space-y-0.5">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-1 pt-1">
+                          {cat === 'Apex Regulator'
+                            ? 'Apex Regulators'
+                            : cat === 'Law Firm Briefing'
+                            ? 'Tier-1 Law Firm Briefings'
+                            : 'Financial & Regulatory Media'}
+                        </div>
+                        {groupItems.map((r) => {
+                          const isChecked = selectedSources.includes(r.code);
+                          return (
+                            <label
+                              key={r.code}
+                              className="flex items-center gap-2 px-2 py-1 text-xs rounded hover:bg-slate-50 cursor-pointer text-slate-700"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => toggleSourceSelection(r.code)}
+                                className="rounded border-slate-300 text-slate-900 focus:ring-0"
+                              />
+                              <span className="font-semibold text-slate-900 shrink-0">{r.code}</span>
+                              <span className="text-[11px] text-slate-500 truncate">{r.label}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
                     );
                   })}
                 </div>
@@ -624,14 +663,14 @@ export function HorizonAlertFeed({
           </div>
 
           {/* Dynamic Assignee Dropdown */}
-          <div className="relative">
+          <div className="relative shrink-0">
             <select
               value={selectedAssignee}
               onChange={(e) => {
                 setSelectedAssignee(e.target.value);
                 setCurrentPage(1);
               }}
-              className="h-8 pl-2.5 pr-6 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md hover:border-slate-300 focus:outline-hidden appearance-none cursor-pointer max-w-[180px] truncate"
+              className="h-8 pl-2 pr-5 sm:pl-2.5 sm:pr-6 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md hover:border-slate-300 focus:outline-hidden appearance-none cursor-pointer max-w-[100px] sm:max-w-[130px] md:max-w-[160px] truncate shrink-0"
             >
               <option value="ALL">All Assignees</option>
               <option value="UNASSIGNED">Unassigned</option>
@@ -654,18 +693,18 @@ export function HorizonAlertFeed({
                 </optgroup>
               )}
             </select>
-            <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-2.5 pointer-events-none" />
+            <ChevronDown className="w-3 h-3 text-slate-400 absolute right-1.5 sm:right-2 top-2.5 pointer-events-none" />
           </div>
 
           {/* Time Range Dropdown */}
-          <div className="relative">
+          <div className="relative shrink-0 hidden sm:block">
             <select
               value={selectedTimeRange}
               onChange={(e) => {
                 setSelectedTimeRange(e.target.value);
                 setCurrentPage(1);
               }}
-              className="h-8 pl-2.5 pr-6 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md hover:border-slate-300 focus:outline-hidden appearance-none cursor-pointer"
+              className="h-8 pl-2.5 pr-6 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-md hover:border-slate-300 focus:outline-hidden appearance-none cursor-pointer shrink-0"
             >
               <option value="all">All Time</option>
               <option value="3d">Last 3 Days</option>
@@ -676,10 +715,10 @@ export function HorizonAlertFeed({
           </div>
 
           {/* Extended Filters Popover Trigger */}
-          <div className="relative">
+          <div className="relative shrink-0">
             <button
               onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-              className={`h-8 px-2.5 rounded-md border flex items-center gap-1.5 transition-colors text-xs font-medium ${
+              className={`h-8 px-2 sm:px-2.5 rounded-md border flex items-center gap-1.5 transition-colors text-xs font-medium shrink-0 ${
                 showFilterDropdown || filterUrgency !== 'ALL' || filterDocType !== 'ALL'
                   ? 'border-slate-400 bg-slate-50 text-slate-900 font-semibold'
                   : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
@@ -687,7 +726,7 @@ export function HorizonAlertFeed({
               title="Extended Filters"
             >
               <Filter className="w-3.5 h-3.5" />
-              <span>Filters</span>
+              <span className="hidden sm:inline">Filters</span>
             </button>
 
             {showFilterDropdown && (
@@ -767,8 +806,8 @@ export function HorizonAlertFeed({
           </div>
 
           {/* Search Input */}
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5 pointer-events-none" />
+          <div className="relative shrink-0">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2 top-2.5 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
@@ -777,17 +816,18 @@ export function HorizonAlertFeed({
                 setCurrentPage(1);
               }}
               placeholder="Search..."
-              className="h-8 pl-8 pr-2 text-xs bg-white border border-slate-200 rounded-md w-36 sm:w-44 focus:w-56 focus:outline-hidden focus:border-slate-400 transition-all placeholder:text-slate-400"
+              className="h-8 pl-7 pr-2 text-xs bg-white border border-slate-200 rounded-md w-24 sm:w-32 md:w-40 focus:w-48 focus:outline-hidden focus:border-slate-400 transition-all placeholder:text-slate-400 shrink-0"
             />
           </div>
 
           {/* Ingest Circular CTA */}
           <button
             onClick={onOpenIngest}
-            className="h-8 px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs flex items-center gap-1.5 shadow-xs transition-colors shrink-0"
+            className="h-8 px-2.5 sm:px-3 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs flex items-center gap-1.5 shadow-xs transition-colors shrink-0 whitespace-nowrap"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Ingest Circular</span>
+            <Plus className="w-3.5 h-3.5 shrink-0" />
+            <span className="hidden sm:inline">Ingest Circular</span>
+            <span className="sm:hidden">Ingest</span>
           </button>
         </div>
       </div>

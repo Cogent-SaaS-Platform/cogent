@@ -85,6 +85,7 @@ export const HorizonDocTypeEnum = z.enum([
   'Regulations & Guidelines',
   'Exposure Draft',
   'Enforcement & Sanctions',
+  'Legal Briefing / Law Firm Alert',
   'Reports & Research',
   'News & Events',
 ]);

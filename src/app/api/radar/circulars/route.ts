@@ -7,6 +7,10 @@ import { RegulatorCode, RadarPriority, LicenseType, PaymentRail, LineageStatus }
 import { CircularTargetingContext } from '@/modules/radar/types';
 import { computeInitials } from '@/modules/organization/services/teamService';
 import {
+  resolveHorizonSourceMetadata,
+  isLegacyOrPlaceholderText,
+} from '@/modules/radar/services/horizonSynthesisEngine';
+import {
   TOPIC_TAXONOMY,
   buildTopicClassificationText,
   classifyTopic,
@@ -111,11 +115,18 @@ export async function GET(req: NextRequest) {
     // 4. Enrich each circular with dynamic statutory countdowns and tenant applicability
     const enrichedCirculars = rawCirculars.map((c) => {
       const topicKey = classifyTopic(buildTopicClassificationText(c));
-      let regulatorCode: RegulatorCode = 'CBN';
-      const refPrefix = (c.circular_number || '').split('/')[0]?.toUpperCase();
-      if (['CBN', 'SEC', 'ARCON', 'NDPC', 'FCCPC', 'NFIU', 'NDIC'].includes(refPrefix)) {
-        regulatorCode = refPrefix as RegulatorCode;
-      }
+
+      const docVersions = c.regulatory_document_versions;
+      const firstDocVersion = Array.isArray(docVersions) ? docVersions[0] : docVersions;
+      const sourceUrl =
+        firstDocVersion?.canonical_source_url ||
+        (c as any).canonical_source_url ||
+        firstDocVersion?.source_file_url ||
+        (c as any).source_file_url ||
+        '';
+
+      const sourceMeta = resolveHorizonSourceMetadata(c.circular_number, sourceUrl);
+      const regulatorCode: RegulatorCode = sourceMeta.governingRegulator;
 
       const countdown = defaultCountdownCalculator.calculateCountdown({
         statutoryDeadline: c.statutory_deadline,
@@ -165,35 +176,17 @@ export async function GET(req: NextRequest) {
       const pubDate = c.issuance_date || c.created_at?.slice(0, 10) || '2025-01-15';
       const effDate = c.effective_date || c.issuance_date || c.created_at?.slice(0, 10) || pubDate;
 
-      const isLegacyMadLibText = (text?: string | null): boolean => {
-        if (!text || typeof text !== 'string') return true;
-        const lower = text.toLowerCase();
-        return (
-          lower.includes('on official notice') ||
-          lower.includes('enacted circular directive') ||
-          lower.includes('the directive mandates comprehensive operational compliance regarding') ||
-          lower.includes('failure to conform to the statutory mandates set out in this circular exposes') ||
-          lower.includes('the central bank of nigeria has enacted circular') ||
-          lower.includes('has enacted circular') ||
-          lower.includes('issued circular directive') ||
-          lower.includes('supervisory intelligence briefing establishes') ||
-          lower.includes('default statutory enforcement penalties apply') ||
-          lower.includes('statutory baseline under') ||
-          lower.includes('mandatory compliance must be validated with immediate effect')
-        );
-      };
-
       const docType = c.doc_type || 'Circular / Directive';
       const alertType = c.alert_type || (c.priority === 'CRITICAL_EMERGENCY' || c.priority === 'HIGH' || Boolean(c.statutory_deadline) ? 'Actionable' : 'Informative');
       const isInformative = alertType === 'Informative';
       const matrixBriefs = (c.severity_matrix as any)?.departmentalBriefs || {};
 
       const resolveBrief = (impactBrief?: string | null, matrixKey?: string, defaultInformativeText?: string) => {
-        if (impactBrief && impactBrief.length > 30 && !isLegacyMadLibText(impactBrief)) {
-          return impactBrief;
-        }
-        if (matrixKey && matrixBriefs[matrixKey] && matrixBriefs[matrixKey].length > 20 && !isLegacyMadLibText(matrixBriefs[matrixKey])) {
+        if (matrixKey && matrixBriefs[matrixKey] && !isLegacyOrPlaceholderText(matrixBriefs[matrixKey])) {
           return matrixBriefs[matrixKey];
+        }
+        if (impactBrief && !isLegacyOrPlaceholderText(impactBrief)) {
+          return impactBrief;
         }
         if (isInformative) {
           return defaultInformativeText || 'Informative Alert — No mandatory departmental supervisory actions triggered.';
@@ -270,15 +263,6 @@ export async function GET(req: NextRequest) {
         c.applies_universally ? 'Universal Directive' : null,
       ])).filter(Boolean) as string[];
 
-      const docVersions = c.regulatory_document_versions;
-      const firstDocVersion = Array.isArray(docVersions) ? docVersions[0] : docVersions;
-      const sourceUrl =
-        firstDocVersion?.canonical_source_url ||
-        (c as any).canonical_source_url ||
-        firstDocVersion?.source_file_url ||
-        (c as any).source_file_url ||
-        '';
-
       let resolvedAssignee: { id: string; name: string; avatar?: string } | null = null;
       if (existingImpact?.assigned_to_user_id && usersMap.has(existingImpact.assigned_to_user_id)) {
         const u = usersMap.get(existingImpact.assigned_to_user_id);
@@ -327,7 +311,9 @@ export async function GET(req: NextRequest) {
       return {
         id: c.id,
         circularNumber: c.circular_number,
-        regulator: regulatorCode,
+        regulator: sourceMeta.sourceCode,
+        sourceCategory: sourceMeta.sourceCategory,
+        linkedInstrumentId: firstDocVersion?.instrument_id || null,
         subject: c.subject,
         summary: c.summary,
         executiveSummary,

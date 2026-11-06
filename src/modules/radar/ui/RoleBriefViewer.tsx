@@ -60,36 +60,30 @@ export function RoleBriefViewer({
   const getBriefContent = (tab: RoleTab): string => {
     switch (tab) {
       case 'legal':
-        return (
-          generalCounselBrief ||
-          'Statutory baseline analysis, enabling legislation citations, supervisory enforcement powers, and legal liability shielding.'
-        );
+        return generalCounselBrief && generalCounselBrief.trim().length > 35
+          ? generalCounselBrief
+          : `No specific legal shielding, contractual redrafts, or precedent conflicts identified for General Counsel under ${circularNumber}. Routine statutory monitoring applies.`;
       case 'cco':
-        return (
-          executiveBriefCco ||
-          'Statutory obligations, regulatory filing timelines, and mandatory sanctions for default under Nigerian financial regulations.'
-        );
+        return executiveBriefCco && executiveBriefCco.trim().length > 35
+          ? executiveBriefCco
+          : `No direct supervisory filings or mandatory compliance disclosures mandated for this role under ${circularNumber}.`;
       case 'coo':
-        return (
-          actionBriefCoo ||
-          'Operational rail execution, terminal configurations, settlement cut-off windows, and clearing dispute workflows.'
-        );
+        return actionBriefCoo && actionBriefCoo.trim().length > 35
+          ? actionBriefCoo
+          : `Operational payment processing rails, partner clearing workflows, and settlement cut-off windows remain unaffected by ${circularNumber}.`;
       case 'cto':
-        return (
-          technicalBriefCto ||
-          technicalBriefProductEng ||
-          'System architecture, API specifications, authentication limit modifications (2FA thresholds), and immutable audit trail retention.'
-        );
+        return (technicalBriefCto && technicalBriefCto.trim().length > 35) ||
+          (technicalBriefProductEng && technicalBriefProductEng.trim().length > 35)
+          ? (technicalBriefCto || technicalBriefProductEng)!
+          : `No API schema modifications, payload changes, or authentication limit modifications required under ${circularNumber}.`;
       case 'cfo':
-        return (
-          financialBriefCfo ||
-          'Reserve capital ratios, minimum liquidity buffers, interchange fee caps, and institutional balance sheet exposure.'
-        );
+        return financialBriefCfo && financialBriefCfo.trim().length > 35
+          ? financialBriefCfo
+          : `Zero capital reserve adjustments, liquidity buffer increases, or institutional balance sheet exposure triggered by ${circularNumber}.`;
       case 'ceo_cro':
-        return (
-          governanceBriefCeoCro ||
-          'Enterprise governance, Board Risk Committee reporting, systemic risk containment, and executive remediation sign-off.'
-        );
+        return governanceBriefCeoCro && governanceBriefCeoCro.trim().length > 35
+          ? governanceBriefCeoCro
+          : `Enterprise risk baseline maintained. Alert noted for supervisory horizon awareness under ${circularNumber}.`;
     }
   };
 

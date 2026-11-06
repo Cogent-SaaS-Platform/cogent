@@ -124,11 +124,24 @@ export class DomSanitizer {
   }
 
   /**
-   * Identifies and rejects generic navigation items, category headings, and bare regulator names
-   * from becoming corrupted regulatory alert records.
+   * Identifies and rejects generic navigation items, category headings, department landing pages,
+   * and bare regulator names from becoming corrupted regulatory alert records.
    */
   public static isJunkTitle(rawTitle: string): boolean {
     if (!rawTitle) return true;
+
+    // Reject generic portal/department landing page titles before stripping pipes
+    if (
+      /\|\s*(?:central bank of nigeria|securities and exchange commission|nigeria data protection commission|nigeria deposit insurance corporation|federal competition)/i.test(
+        rawTitle
+      ) ||
+      /^(?:payments?\s+system\s+supervision|banking\s+supervision|financial\s+policy\s+and\s+regulation|trade\s+and\s+exchange|other\s+financial\s+institutions\s+supervision|consumer\s+protection\s+department|currency\s+operations)\b/i.test(
+        rawTitle.trim()
+      )
+    ) {
+      return true;
+    }
+
     const clean = this.cleanTitle(rawTitle).trim().toLowerCase();
     if (clean.length < 10) return true;
 
@@ -146,6 +159,10 @@ export class DomSanitizer {
       'media',
       'publications',
       'regulatory framework',
+      'payments system supervision central bank of nigeria',
+      'payments system supervision',
+      'banking supervision central bank of nigeria',
+      'financial policy and regulation central bank of nigeria',
       'consumer rights',
       'consumer responsibilities',
       'consumer rights & responsibilities',
@@ -206,6 +223,21 @@ export class DomSanitizer {
     if (/^[^a-zA-Z]+$/.test(clean)) return true;
 
     return false;
+  }
+
+  /**
+   * Produces a canonical normalized key for deduplicating identical alerts across different
+   * circular_number slugs or minor punctuation/spelling variations.
+   */
+  public static normalizeTitleForDedup(rawTitle: string): string {
+    if (!rawTitle) return '';
+    return this.cleanTitle(rawTitle)
+      .toLowerCase()
+      .replace(/\bguidlines\b/g, 'guidelines')
+      .replace(/^(?:re\s*:\s*|circular\s+on\s+|letter\s+to\s+all\s+banks\s+and\s+other\s+financial\s+institutions\s*[:\-–—]?\s*)/i, '')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   /**

@@ -290,7 +290,7 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
         id: `ref-${matchedCirc.id}`,
         statutoryInstrumentTitle: `${matchedCirc.regulator} Directive ${matchedCirc.circularNumber}`,
         citationClause: matchedCirc.circularNumber,
-        regulatorCode: matchedCirc.regulator,
+        regulatorCode: matchedCirc.regulator as RegulatorCode,
         verbatimLegalText: `${matchedCirc.subject}\n\n${matchedCirc.summary}`,
         statutoryPenaltyNaira: matchedCirc.penaltyEscalationProjection?.totalProjectedExposureNaira,
         dailyFineNaira: matchedCirc.penaltyEscalationProjection?.dailyFineNaira,

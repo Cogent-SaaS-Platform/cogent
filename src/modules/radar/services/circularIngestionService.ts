@@ -289,15 +289,36 @@ export class CircularIngestionService {
     try {
       const client = this.dbClient;
 
-      // 1. Deduplication Check: Check if circular already exists by checksum or reference code
-      const { data: existingCirculars } = await client
+      // 1. Deduplication Check: Check if circular already exists by checksum, reference code, or normalized subject
+      const { data: existingByHashOrRef } = await client
         .from('radar_circulars')
-        .select('id, document_version_id, circular_number, lineage_status, document_checksum')
+        .select('id, document_version_id, circular_number, lineage_status, document_checksum, subject')
         .or(`document_checksum.eq.${sourceFileHash},circular_number.eq.${metadata.circularNumber}`)
         .limit(1);
 
-      if (existingCirculars && existingCirculars.length > 0) {
-        const existing = existingCirculars[0];
+      let matchedExisting = existingByHashOrRef?.[0] || null;
+
+      if (!matchedExisting && metadata.subject && metadata.subject.length > 12) {
+        const targetNorm = DomSanitizer.normalizeTitleForDedup(metadata.subject);
+        const { data: allSubjects } = await client
+          .from('radar_circulars')
+          .select('id, document_version_id, circular_number, lineage_status, document_checksum, subject');
+
+        if (allSubjects) {
+          for (const candidate of allSubjects) {
+            if (
+              candidate.subject &&
+              DomSanitizer.normalizeTitleForDedup(candidate.subject) === targetNorm
+            ) {
+              matchedExisting = candidate;
+              break;
+            }
+          }
+        }
+      }
+
+      if (matchedExisting) {
+        const existing = matchedExisting;
         const nowIso = new Date().toISOString();
 
         // 1. Bump radar_circulars timestamp and update subject if better metadata available
@@ -594,16 +615,12 @@ export class CircularIngestionService {
                   );
                 }
               } else {
-                await client.from('radar_tenant_impacts').upsert(
+                await (client.from('radar_tenant_impacts').upsert as any)(
                   {
                     organization_id: org.id,
                     circular_id: circularId,
                     is_applicable: false,
                     applicability_reason: evalResult.reason,
-                    executive_brief_cco: 'Non-applicable to institutional license profile.',
-                    action_brief_coo: 'No operational action required.',
-                    technical_brief_product_eng: 'No technical modification required.',
-                    financial_brief_cfo: 'No capital or financial exposure.',
                     status: 'FILTERED_OUT',
                   },
                   { onConflict: 'organization_id,circular_id' }

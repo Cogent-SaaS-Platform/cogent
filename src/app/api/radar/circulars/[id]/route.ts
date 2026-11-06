@@ -6,6 +6,10 @@ import { defaultCountdownCalculator } from '@/modules/radar/services/deadlineCou
 import { ApplicabilityEngine } from '@/modules/radar/services/applicabilityEngine';
 import { CircularTargetingContext } from '@/modules/radar/types';
 import { computeInitials } from '@/modules/organization/services/teamService';
+import {
+  resolveHorizonSourceMetadata,
+  isLegacyOrPlaceholderText,
+} from '@/modules/radar/services/horizonSynthesisEngine';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,11 +40,17 @@ export async function GET(
     const applicabilityEngine = new ApplicabilityEngine({ dbClient });
     const profile = await applicabilityEngine.fetchTenantProfile(organizationId);
 
-    let regulatorCode: RegulatorCode = 'CBN';
-    const refPrefix = (c.circular_number || '').split('/')[0]?.toUpperCase();
-    if (['CBN', 'SEC', 'ARCON', 'NDPC', 'FCCPC', 'NFIU', 'NDIC'].includes(refPrefix)) {
-      regulatorCode = refPrefix as RegulatorCode;
-    }
+    const docVersions = c.regulatory_document_versions;
+    const firstDocVersion = Array.isArray(docVersions) ? docVersions[0] : docVersions;
+    const sourceUrl =
+      firstDocVersion?.canonical_source_url ||
+      c.canonical_source_url ||
+      firstDocVersion?.source_file_url ||
+      c.source_file_url ||
+      '';
+
+    const sourceMeta = resolveHorizonSourceMetadata(c.circular_number, sourceUrl);
+    const regulatorCode: RegulatorCode = sourceMeta.governingRegulator;
 
     const circularTargeting: CircularTargetingContext = {
       regulator: regulatorCode,
@@ -81,35 +91,17 @@ export async function GET(
       };
     }
 
-    const isLegacyMadLibText = (text?: string | null): boolean => {
-      if (!text || typeof text !== 'string') return true;
-      const lower = text.toLowerCase();
-      return (
-        lower.includes('on official notice') ||
-        lower.includes('enacted circular directive') ||
-        lower.includes('the directive mandates comprehensive operational compliance regarding') ||
-        lower.includes('failure to conform to the statutory mandates set out in this circular exposes') ||
-        lower.includes('the central bank of nigeria has enacted circular') ||
-        lower.includes('has enacted circular') ||
-        lower.includes('issued circular directive') ||
-        lower.includes('supervisory intelligence briefing establishes') ||
-        lower.includes('default statutory enforcement penalties apply') ||
-        lower.includes('statutory baseline under') ||
-        lower.includes('mandatory compliance must be validated with immediate effect')
-      );
-    };
-
     const docType = c.doc_type || 'Circular / Directive';
     const alertType = c.alert_type || (c.priority === 'CRITICAL_EMERGENCY' || c.priority === 'HIGH' || Boolean(c.statutory_deadline) ? 'Actionable' : 'Informative');
     const isInformative = alertType === 'Informative';
     const matrixBriefs = (c.severity_matrix as any)?.departmentalBriefs || {};
 
     const resolveBrief = (impactBrief?: string | null, matrixKey?: string, defaultInformativeText?: string) => {
-      if (impactBrief && impactBrief.length > 30 && !isLegacyMadLibText(impactBrief)) {
-        return impactBrief;
-      }
-      if (matrixKey && matrixBriefs[matrixKey] && matrixBriefs[matrixKey].length > 20 && !isLegacyMadLibText(matrixBriefs[matrixKey])) {
+      if (matrixKey && matrixBriefs[matrixKey] && !isLegacyOrPlaceholderText(matrixBriefs[matrixKey])) {
         return matrixBriefs[matrixKey];
+      }
+      if (impactBrief && !isLegacyOrPlaceholderText(impactBrief)) {
+        return impactBrief;
       }
       if (isInformative) {
         return defaultInformativeText || 'Informative Alert — No mandatory departmental supervisory actions triggered.';
@@ -158,22 +150,15 @@ export async function GET(
 
     const actionItems = existingImpact?.radar_action_items || [];
 
-    const docVersions = c.regulatory_document_versions;
-    const firstDocVersion = Array.isArray(docVersions) ? docVersions[0] : docVersions;
-    const sourceUrl =
-      firstDocVersion?.canonical_source_url ||
-      c.canonical_source_url ||
-      firstDocVersion?.source_file_url ||
-      c.source_file_url ||
-      '';
-
     const severityTier = c.severity_tier || 'G1';
     const severityScore = typeof c.severity_score === 'number' ? c.severity_score : (c.priority === 'CRITICAL_EMERGENCY' ? 88 : 18);
 
     const presentation = {
       id: c.id,
       circularNumber: c.circular_number,
-      regulator: regulatorCode,
+      regulator: sourceMeta.sourceCode,
+      sourceCategory: sourceMeta.sourceCategory,
+      linkedInstrumentId: firstDocVersion?.instrument_id || null,
       subject: c.subject,
       summary: c.summary,
       executiveSummary: c.executive_summary || c.summary || 'Authentic synthesis pending analysis by Horizon Engine.',
