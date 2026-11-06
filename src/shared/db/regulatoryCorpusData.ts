@@ -163,7 +163,7 @@ export const REGULATORY_INSTRUMENTS_SEED: RegulatoryInstrumentSeed[] = [
         verification_notes: 'Verified against Federal Republic of Nigeria Official Gazette and ARCON Secretariat Master Copy.',
         clauses: [
           {
-            section_reference: 'Article 24(1)',
+            section_reference: 'Section 54',
             section_heading: 'Honesty and Deceptive Claims in Advertising',
             clause_text:
               'All advertisements and marketing communications must be honest, truthful, and accurate. Advertisements must not contain statements, promises, guarantees, or visual presentations that directly or indirectly deceive or mislead consumers regarding product benefits, terms of service, costs, approval certainty, or risk profiles.',
@@ -191,7 +191,7 @@ export const REGULATORY_INSTRUMENTS_SEED: RegulatoryInstrumentSeed[] = [
                     exact_pattern: '100% guaranteed approval',
                     is_regex: false,
                     severity: 'CRITICAL',
-                    statutory_rationale: 'Misleading absolute certainty of credit approval prohibited under Article 24(1) of ARCON Code 2022.',
+                    statutory_rationale: 'Misleading absolute certainty of credit approval prohibited under Section 54 of ARCON Act 2022.',
                     mandatory_disclosure_required: 'Subject to credit assessment and terms & conditions.',
                   },
                   {

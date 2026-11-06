@@ -47,11 +47,11 @@ async function main() {
 
   const standardRules = [
     {
-      rule_code: 'ARCON-2022-ART24-GUARANTEE',
+      rule_code: 'ARCON-2022-SEC54-GUARANTEE',
       title: 'Prohibition of Guaranteed Credit or Unconditional Loan Approval',
       regulator_code: 'ARCON',
       regulation_id: arconInst?.id || null,
-      statutory_citation: 'ARCON Code 2022 Article 24(1)(b) & Section 54',
+      statutory_citation: 'ARCON Act 2022 Section 54 & ASP Vetting Standards',
       verbatim_clause: 'No advertisement for financial services shall represent or imply that credit approval or loan disbursement is guaranteed without regard to customer eligibility or statutory underwriting standards.',
       prohibited_terms: ['guaranteed approval', '100% approval', 'instant guaranteed loan', 'no credit check', 'no bvn'],
       mandatory_disclosures: ['Subject to credit assessment and underwriting approval', 'Terms and conditions apply'],
@@ -73,11 +73,11 @@ async function main() {
       is_custom: false,
     },
     {
-      rule_code: 'SEC-RULE-322-INVESTMENT-PROMOTIONS',
+      rule_code: 'SEC-RULE-39B-INVESTMENT-PROMOTIONS',
       title: 'Prohibition of Guaranteed High-Yield Returns in Wealth Advertisements',
       regulator_code: 'SEC',
       regulation_id: secInst?.id || null,
-      statutory_citation: 'SEC Consolidated Rules 2013 Rule 322 & ISA 2007 Section 67',
+      statutory_citation: 'SEC Consolidated Rules 2013 Rule 39(b) & ISA 2007 Section 67',
       verbatim_clause: 'Advertisements offering securities, collective investment schemes, or portfolio management shall not state or imply guaranteed capital preservation or risk-free returns. Past performance must include statutory risk warnings.',
       prohibited_terms: ['risk-free return', 'guaranteed return', 'guaranteed annual yield', 'capital 100% safe', 'backed by government'],
       mandatory_disclosures: ['Capital is at risk', 'Past performance is not indicative of future returns', 'Registered with SEC as a Fund/Portfolio Manager'],

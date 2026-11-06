@@ -83,7 +83,7 @@ export const AddRuleModal: React.FC<AddRuleModalProps> = ({
           <div className="flex items-center gap-2">
             <BookOpen className="h-4 w-4 text-slate-700" />
             <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-              Add Statutory Marketing Rule
+              Add Institutional Policy / Playbook Rule
             </h3>
           </div>
           <button
@@ -202,7 +202,7 @@ export const AddRuleModal: React.FC<AddRuleModalProps> = ({
               disabled={isSubmitting}
               className="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium shadow-xs disabled:opacity-50 cursor-pointer"
             >
-              {isSubmitting ? 'Adding...' : 'Add Rule'}
+              {isSubmitting ? 'Adding...' : 'Add Playbook Rule'}
             </button>
           </div>
         </form>

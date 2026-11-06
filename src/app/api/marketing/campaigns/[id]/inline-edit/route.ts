@@ -28,7 +28,7 @@ export async function POST(
     // Verify campaign tenant ownership
     const { data: campaignRow, error: cErr } = await dbClient
       .from('marketing_campaigns')
-      .select('id, organization_id')
+      .select('id, organization_id, canvas_content')
       .eq('id', id)
       .eq('organization_id', organizationId)
       .single();
@@ -58,6 +58,8 @@ export async function POST(
       actionPrompt,
       productCategory,
       channel,
+      citedVerbatimStatute: body.citedVerbatimStatute || undefined,
+      fullAdContext: body.fullAdContext || campaignRow.canvas_content || undefined,
     });
 
     // Record inline rewrite telemetry event for Starter monthly quota tracking

@@ -1,9 +1,8 @@
-'use client';
-
 import React, { Suspense } from 'react';
 import { AppShell } from '@/shared/ui/AppShell';
 import { MarketingShieldDashboard } from '@/modules/marketing-shield/ui';
 
+export const dynamic = 'force-dynamic';
 export default function MarketingPage() {
   return (
     <AppShell activePillarOverride="marketing">

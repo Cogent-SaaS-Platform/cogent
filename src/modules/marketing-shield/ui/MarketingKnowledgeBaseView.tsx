@@ -83,7 +83,7 @@ export const MarketingKnowledgeBaseView: React.FC<MarketingKnowledgeBaseViewProp
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
         >
           <Plus className="h-3.5 w-3.5" />
-          <span>Add Custom Rule</span>
+          <span>Add Playbook Rule</span>
         </button>
       </div>
 
@@ -129,79 +129,120 @@ export const MarketingKnowledgeBaseView: React.FC<MarketingKnowledgeBaseViewProp
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredRules.map((rule) => (
-            <div
-              key={rule.id}
-              className="bg-white border border-slate-200 rounded-lg p-4 space-y-3 shadow-2xs flex flex-col justify-between"
-            >
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs text-slate-600 font-semibold">{rule.ruleCode}</span>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">
-                      {rule.regulatorCode}
-                    </span>
+          {filteredRules.map((rule) => {
+            const sourceLink =
+              rule.sourceUrlOrPdfPath ||
+              (rule.regulationId ? `/library/${rule.regulationId}` : '/library');
+
+            return (
+              <div
+                key={rule.id}
+                className="bg-white border border-slate-200 rounded-lg p-4 space-y-3 shadow-2xs flex flex-col justify-between hover:border-slate-300 transition-colors"
+              >
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs text-slate-600 font-semibold">
+                        {rule.ruleCode}
+                      </span>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                        {rule.regulatorCode}
+                      </span>
+                    </div>
+                    {rule.isCustom ? (
+                      <span className="text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded">
+                        Internal Policy / Playbook Rule
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-300 px-2 py-0.5 rounded inline-flex items-center gap-1">
+                        <ShieldCheck className="h-3 w-3 text-emerald-600" />
+                        Statutory Source (Regulation Library)
+                      </span>
+                    )}
                   </div>
-                  {rule.isCustom && (
-                    <span className="text-[10px] font-medium text-slate-500 bg-slate-50 border border-slate-200 px-1.5 py-0.2 rounded">
-                      Custom Rule
-                    </span>
+
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-900 leading-snug">{rule.title}</h3>
+                    {rule.instrumentTitle && (
+                      <div className="text-[11px] font-semibold text-slate-700 mt-0.5">
+                        {rule.instrumentTitle}
+                      </div>
+                    )}
+                    <div className="font-mono text-xs text-slate-600">
+                      {rule.sectionOrClauseRef || rule.statutoryCitation}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      <span>Verbatim Statutory Quote</span>
+                      {!rule.isCustom && (
+                        <span className="text-emerald-700 font-mono text-[10px]">
+                          100% Extracted Source Proof
+                        </span>
+                      )}
+                    </div>
+                    <blockquote className="bg-slate-50 border-l-4 border-emerald-600 rounded-r p-3 text-xs text-slate-800 italic font-serif leading-relaxed">
+                      &ldquo;{rule.verbatimStatutoryText || rule.verbatimClause}&rdquo;
+                    </blockquote>
+                  </div>
+
+                  {rule.prohibitedTerms.length > 0 && (
+                    <div>
+                      <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                        Prohibited Phrases
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {rule.prohibitedTerms.map((term, i) => (
+                          <span
+                            key={i}
+                            className="font-mono text-[11px] bg-rose-50 text-rose-700 border border-rose-200 px-1.5 py-0.5 rounded"
+                          >
+                            &ldquo;{term}&rdquo;
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {rule.mandatoryDisclosures.length > 0 && (
+                    <div>
+                      <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                        Mandatory Disclosures
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {rule.mandatoryDisclosures.map((disc, i) => (
+                          <span
+                            key={i}
+                            className="text-[11px] bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.5 rounded"
+                          >
+                            {disc}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
 
-                <h3 className="text-xs font-bold text-slate-900 leading-snug">{rule.title}</h3>
-                <div className="font-mono text-xs text-slate-600">{rule.statutoryCitation}</div>
+                <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                  <span className="inline-flex items-center gap-1 text-slate-700 font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    Active Enforcement
+                  </span>
 
-                <div className="bg-slate-50 border border-slate-100 rounded p-2.5 text-xs text-slate-700 italic leading-relaxed">
-                  &ldquo;{rule.verbatimClause}&rdquo;
+                  <a
+                    href={sourceLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 hover:text-slate-900 border border-slate-200 transition-colors cursor-pointer"
+                  >
+                    <span>View Source Document</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
                 </div>
-
-                {rule.prohibitedTerms.length > 0 && (
-                  <div>
-                    <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                      Prohibited Phrases
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      {rule.prohibitedTerms.map((term, i) => (
-                        <span
-                          key={i}
-                          className="font-mono text-[11px] bg-rose-50 text-rose-700 border border-rose-200 px-1.5 py-0.5 rounded"
-                        >
-                          &ldquo;{term}&rdquo;
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {rule.mandatoryDisclosures.length > 0 && (
-                  <div>
-                    <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                      Mandatory Disclosures
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      {rule.mandatoryDisclosures.map((disc, i) => (
-                        <span
-                          key={i}
-                          className="text-[11px] bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.5 rounded"
-                        >
-                          {disc}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
-
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-                <span>Applies across {rule.appliesToCategories.length || 'All'} categories</span>
-                <span className="inline-flex items-center gap-1 text-slate-700 font-medium">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  Active Enforcement
-                </span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

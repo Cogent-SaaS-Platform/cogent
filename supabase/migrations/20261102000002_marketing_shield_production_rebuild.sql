@@ -131,11 +131,11 @@ INSERT INTO marketing_knowledge_rules (
 )
 SELECT 
   o.id,
-  'ARCON-2022-ART24-GUARANTEE',
+  'ARCON-2022-SEC54-GUARANTEE',
   'Prohibition of Guaranteed Credit or Unconditional Loan Approval',
   'ARCON',
   (SELECT id FROM regulatory_instruments WHERE short_name = 'ARCON Code 2022' LIMIT 1),
-  'ARCON Code 2022 Article 24(1)(b) & Section 54',
+  'ARCON Act 2022 Section 54 & ASP Vetting Standards',
   'No advertisement for financial services shall represent or imply that credit approval or loan disbursement is guaranteed without regard to customer eligibility or statutory underwriting standards.',
   ARRAY['guaranteed approval', '100% approval', 'instant guaranteed loan', 'no credit check', 'no bvn'],
   ARRAY['Subject to credit assessment and underwriting approval', 'Terms and conditions apply'],
@@ -191,11 +191,11 @@ INSERT INTO marketing_knowledge_rules (
 )
 SELECT 
   o.id,
-  'SEC-RULE-322-INVESTMENT-PROMOTIONS',
+  'SEC-RULE-39B-INVESTMENT-PROMOTIONS',
   'Prohibition of Guaranteed High-Yield Returns in Wealth Advertisements',
   'SEC',
   (SELECT id FROM regulatory_instruments WHERE short_name LIKE '%SEC Consolidated Rules%' LIMIT 1),
-  'SEC Consolidated Rules 2013 Rule 322 & ISA 2007 Section 67',
+  'SEC Consolidated Rules 2013 Rule 39(b) & ISA 2007 Section 67',
   'Advertisements offering securities, collective investment schemes, or portfolio management shall not state or imply guaranteed capital preservation or risk-free returns. Past performance must include statutory risk warnings.',
   ARRAY['risk-free return', 'guaranteed return', 'guaranteed annual yield', 'capital 100% safe', 'backed by government'],
   ARRAY['Capital is at risk', 'Past performance is not indicative of future returns', 'Registered with SEC as a Fund/Portfolio Manager'],

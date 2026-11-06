@@ -6,22 +6,22 @@ describe('ArconDossierService (Epic 7 / Task 7.2 - Official ARCON Pre-Clearance 
   const mockViewModel: MarketingShieldViewModel = {
     title: 'CreditFlow Flash Campaign Pre-Vetting Report',
     verdict: 'BLOCKING_ISSUE',
-    overallRiskScore: 94,
+    overallRiskScore: 90,
     deterministicPenaltyTotalNaira: 5000000,
     executiveSummary:
       'The submitted copy for "CreditFlow Flash Campaign" contains critical statutory violations under Nigerian advertising regulations. Direct prohibited promises generate an aggregate deterministic fine exposure of ₦5,000,000.',
     findings: [
       {
         id: 'fnd_1',
-        ruleCode: 'ARCON-2022-CODE-ART24',
+        ruleCode: 'ARCON-2022-SEC54-VETTING',
         regulatorCode: 'ARCON',
         severity: 'CRITICAL',
         findingType: 'DETERMINISTIC_MATCH',
         flaggedExcerpt: '100% guaranteed approval',
         whyItMatters:
-          'Advertising a guaranteed credit or loan approval is strictly prohibited under ARCON Code 2022 Article 24.',
+          'Advertising a guaranteed credit or loan approval is strictly prohibited under ARCON Act 2022 Section 54 and advertising standards.',
         statutoryCitation:
-          'ARCON Code 2022 Article 24(1)(b) - Deceptive Credit Advertisements: "No advertisement for financial services shall represent or imply that credit approval is guaranteed."',
+          'ARCON Act 2022 Section 54 & ASP Standards - Deceptive Credit Advertisements: "No advertisement for financial services shall represent or imply that credit approval is guaranteed."',
         statutoryPenaltyNaira: 5000000,
         recommendedAction: 'Adopt compliant rewrite specifying credit underwriting criteria.',
         mandatoryDisclosureRequired: 'Subject to underwriting verification and credit criteria.',
@@ -84,8 +84,8 @@ describe('ArconDossierService (Epic 7 / Task 7.2 - Official ARCON Pre-Clearance 
     expect(md).toContain(mockViewModel.compliantRewrite);
 
     // Verify statutory citations
-    expect(md).toContain('ARCON-2022-CODE-ART24');
-    expect(md).toContain('ARCON Code 2022 Article 24(1)(b)');
+    expect(md).toContain('ARCON-2022-SEC54-VETTING');
+    expect(md).toContain('ARCON Act 2022 Section 54');
 
     // Verify CCO attestation block
     expect(md).toContain('CHIEF COMPLIANCE OFFICER FORMAL ATTESTATION');

@@ -8,9 +8,13 @@ import {
   ArrowRight,
   RefreshCw,
   AlertTriangle,
+  ExternalLink,
+  ShieldCheck,
+  X,
 } from 'lucide-react';
 import {
   CampaignChatMessage,
+  StructuredFinding,
 } from '../types';
 import { ProductCategoryCode, MarketingChannel } from '@/shared/types';
 import { AttachAssetModal } from './AttachAssetModal';
@@ -43,6 +47,65 @@ interface CopilotChatPaneProps {
   attachedAssetType?: 'IMAGE' | 'PDF' | 'URL' | null;
 }
 
+const parseInlineMarkdown = (text: string) => {
+  const parts = text.split(/(\*\*.*?\*\*)/g);
+  return parts.map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
+      return (
+        <strong key={index} className="font-semibold text-slate-900">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    return part;
+  });
+};
+
+const renderFormattedMessage = (content: string) => {
+  const lines = content.split('\n');
+  return (
+    <div className="space-y-1.5 text-xs text-slate-800 leading-relaxed">
+      {lines.map((line, i) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={i} className="h-1" />;
+
+        if (trimmed.startsWith('### ')) {
+          return (
+            <h5
+              key={i}
+              className="font-bold text-slate-900 text-xs mt-2.5 pt-1.5 border-t border-slate-100 flex items-center gap-1.5"
+            >
+              <span>{trimmed.replace(/^###\s*/, '')}</span>
+            </h5>
+          );
+        }
+        if (trimmed.startsWith('## ')) {
+          return (
+            <h4
+              key={i}
+              className="font-bold text-slate-900 text-xs mt-3 pt-2 border-t border-slate-200"
+            >
+              {trimmed.replace(/^##\s*/, '')}
+            </h4>
+          );
+        }
+
+        if (trimmed.startsWith('• ') || trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+          const bulletContent = trimmed.replace(/^[•\-\*]\s*/, '');
+          return (
+            <div key={i} className="flex items-start gap-1.5 pl-1.5">
+              <span className="text-slate-400 mt-1 text-[10px]">•</span>
+              <span className="flex-1">{parseInlineMarkdown(bulletContent)}</span>
+            </div>
+          );
+        }
+
+        return <p key={i}>{parseInlineMarkdown(trimmed)}</p>;
+      })}
+    </div>
+  );
+};
+
 export const CopilotChatPane: React.FC<CopilotChatPaneProps> = ({
   messages,
   productCategory,
@@ -68,6 +131,7 @@ export const CopilotChatPane: React.FC<CopilotChatPaneProps> = ({
   const [attachedMime, setAttachedMime] = useState<string | undefined>();
   const [attachedUrl, setAttachedUrl] = useState<string | undefined>();
   const [attachedLabel, setAttachedLabel] = useState<string | null>(null);
+  const [selectedFindingForProof, setSelectedFindingForProof] = useState<StructuredFinding | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -196,7 +260,11 @@ export const CopilotChatPane: React.FC<CopilotChatPaneProps> = ({
                     : 'bg-white text-slate-900 border border-slate-200 rounded-tl-none shadow-2xs space-y-3'
                 }`}
               >
-                <div className="whitespace-pre-wrap">{msg.content}</div>
+                {isUser ? (
+                  <div className="whitespace-pre-wrap">{msg.content}</div>
+                ) : (
+                  renderFormattedMessage(msg.content)
+                )}
 
                 {!isUser && msg.structuredFindingsJson && msg.structuredFindingsJson.length > 0 && (
                   <div className="mt-3 pt-3 border-t border-slate-200 space-y-2">
@@ -236,12 +304,54 @@ export const CopilotChatPane: React.FC<CopilotChatPaneProps> = ({
                                 )}
                               </td>
                               <td className="py-2 px-2.5 align-top">
-                                <div className="font-semibold text-slate-800">
-                                  {finding.regulatoryRule}
-                                </div>
-                                <div className="font-mono text-xs text-slate-600">
-                                  {finding.statutoryCitation}
-                                </div>
+                                {finding.epistemicTier === 'VERIFIED_STATUTORY_CITATION' ||
+                                (!finding.epistemicTier && finding.matchedRuleId) ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedFindingForProof(finding)}
+                                    className="group text-left inline-flex flex-col gap-1 p-1 -m-1 rounded hover:bg-emerald-50/80 border border-transparent hover:border-emerald-200 transition-colors cursor-pointer"
+                                    title="Click to view verbatim statutory quote & source document in Regulation Library"
+                                  >
+                                    <div className="flex items-center gap-1">
+                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                        <ShieldCheck className="h-3 w-3 text-emerald-700 shrink-0" />
+                                        <span>{finding.regulatorCode || 'CBN'}</span>
+                                        <span>•</span>
+                                        <span className="truncate max-w-[120px]">
+                                          {finding.instrumentTitle || finding.regulatoryRule}
+                                        </span>
+                                        <span>✓</span>
+                                      </span>
+                                    </div>
+                                    <div className="font-mono text-[11px] text-slate-700 font-semibold group-hover:text-emerald-900 flex items-center gap-1">
+                                      <span className="truncate max-w-[160px]">
+                                        {finding.sectionRef || finding.statutoryCitation}
+                                      </span>
+                                      <ExternalLink className="h-2.5 w-2.5 opacity-60 group-hover:opacity-100 shrink-0" />
+                                    </div>
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedFindingForProof(finding)}
+                                    className="group text-left inline-flex flex-col gap-1 p-1 -m-1 rounded hover:bg-amber-50/80 border border-transparent hover:border-amber-200 transition-colors cursor-pointer"
+                                    title="Click to inspect compliance advisory details"
+                                  >
+                                    <div className="flex items-center gap-1">
+                                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-900 border border-amber-300">
+                                        <AlertTriangle className="h-3 w-3 text-amber-600 shrink-0" />
+                                        <span>⚠️ Advisory</span>
+                                        <span>•</span>
+                                        <span className="truncate max-w-[120px]">
+                                          {finding.regulatorCode || 'Domain'}
+                                        </span>
+                                      </span>
+                                    </div>
+                                    <div className="font-mono text-[11px] text-slate-600 truncate max-w-[160px]">
+                                      {finding.regulatoryRule}
+                                    </div>
+                                  </button>
+                                )}
                               </td>
                               <td className="py-2 px-2.5 text-slate-600 align-top">
                                 <div>{finding.complianceGap}</div>
@@ -372,7 +482,7 @@ export const CopilotChatPane: React.FC<CopilotChatPaneProps> = ({
                 className="text-[11px] font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded px-2 py-1 cursor-pointer focus:outline-none"
               >
                 <option value="ALL">All Nigerian Rules</option>
-                <option value="ARCON">ARCON Code 2022</option>
+                <option value="ARCON">ARCON Advertising Standards</option>
                 <option value="CBN">CBN Consumer Protection</option>
                 <option value="FCCPC">FCCPC Digital Lending</option>
                 <option value="SEC">SEC Capital Rules</option>
@@ -427,6 +537,141 @@ export const CopilotChatPane: React.FC<CopilotChatPaneProps> = ({
           }
         }}
       />
+
+      {/* Statutory Source Proof Popover / Modal */}
+      {selectedFindingForProof && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+          <div className="bg-white border border-slate-200 rounded-xl max-w-lg w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3.5 bg-slate-50">
+              <div className="flex items-center gap-2">
+                <Scale className="h-4 w-4 text-slate-800" />
+                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                  Statutory Source Proof &amp; Verbatim Lineage
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedFindingForProof(null)}
+                className="text-slate-400 hover:text-slate-600 transition-colors p-1 cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+              {/* Epistemic Tier Badge */}
+              <div>
+                {selectedFindingForProof.epistemicTier === 'VERIFIED_STATUTORY_CITATION' ||
+                (!selectedFindingForProof.epistemicTier && selectedFindingForProof.matchedRuleId) ? (
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-300">
+                    <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                    <span>✓ Verified Statutory Citation (Foreign-Key Locked to Regulation Library)</span>
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-amber-50 text-amber-900 border border-amber-300">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    <span>⚠️ Compliance Advisory (Unlinked to Library Statute — Zero Invented Sections)</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Flagged Element */}
+              <div className="space-y-1">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Flagged Claim in Marketing Copy
+                </div>
+                <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-900 font-mono text-xs font-medium">
+                  &ldquo;{selectedFindingForProof.claimElement}&rdquo;
+                </div>
+              </div>
+
+              {/* Official Instrument & Section Reference */}
+              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs">
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    Official Instrument
+                  </div>
+                  <div className="font-semibold text-slate-900 mt-0.5">
+                    {selectedFindingForProof.instrumentTitle || selectedFindingForProof.regulatoryRule}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    Section Reference
+                  </div>
+                  <div className="font-mono font-semibold text-slate-800 mt-0.5">
+                    {selectedFindingForProof.sectionRef || selectedFindingForProof.statutoryCitation}
+                  </div>
+                </div>
+              </div>
+
+              {/* Verbatim Statutory Quote */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    Verbatim Statutory Text from Ingested Instrument
+                  </span>
+                  <span className="text-[10px] font-medium text-emerald-700 font-mono">
+                    100% Extracted Source Proof
+                  </span>
+                </div>
+                <blockquote className="p-3.5 rounded-lg bg-emerald-50/40 border-l-4 border-emerald-600 text-xs text-slate-900 leading-relaxed italic font-serif">
+                  &ldquo;{selectedFindingForProof.verbatimStatutoryQuote || 'Statutory instrument text verified in Regulation Library.'}&rdquo;
+                </blockquote>
+              </div>
+
+              {/* Compliance Gap & Required Fix */}
+              <div className="space-y-2 text-xs">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">
+                    Compliance Analysis:
+                  </span>
+                  <p className="text-slate-700">{selectedFindingForProof.complianceGap}</p>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block mb-0.5">
+                    Required Remediation:
+                  </span>
+                  <p className="text-slate-900 font-medium">{selectedFindingForProof.requiredFix}</p>
+                </div>
+              </div>
+
+              {/* Actions Footer */}
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                {selectedFindingForProof.sourceUrlOrPdfPath ? (
+                  <a
+                    href={selectedFindingForProof.sourceUrlOrPdfPath}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                  >
+                    <span>Verify in Official Gazette / Source PDF</span>
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                ) : (
+                  <a
+                    href="/library"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    <span>Regulation Library</span>
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSelectedFindingForProof(null)}
+                  className="px-3.5 py-1.5 rounded-lg border border-slate-300 text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -25,7 +25,7 @@ const PRODUCT_CATEGORIES = [
   { id: 'DIGITAL_NANO_LOAN', label: 'Digital Nano-Lending', desc: 'Regulated under FCCPC & CBN Consumer Protection' },
   { id: 'SAVINGS_DEPOSIT', label: 'Savings & Term Deposits', desc: 'NDIC deposit insurance & CBN prudential guidelines' },
   { id: 'REMITTANCE_FX', label: 'Cross-Border Remittances & FX', desc: 'CBN IMTO Guidelines & NFIU AML monitoring' },
-  { id: 'WEALTHTECH_INVEST', label: 'WealthTech & Securities', desc: 'SEC Rule 322 & capital market protections' },
+  { id: 'WEALTHTECH_INVEST', label: 'WealthTech & Securities', desc: 'SEC Consolidated Rules & capital market protections' },
   { id: 'CARD_ISSUANCE_WALLET', label: 'Card Issuing & Digital Wallets', desc: 'CBN Contactless & Tokenization circulars' },
 ];
 

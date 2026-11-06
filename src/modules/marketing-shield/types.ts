@@ -3,6 +3,7 @@ import { MarketingChannel, ProductCategoryCode } from '@/shared/types';
 export type CampaignLifecycleStatus = 'Draft' | 'Review' | 'Revision' | 'Approved';
 export type ClaimVerdict = 'COMPLIANT' | 'WARNING' | 'BLOCKING_ISSUE';
 export type ClaimReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type EpistemicTier = 'VERIFIED_STATUTORY_CITATION' | 'UNMAPPED_COMPLIANCE_ADVISORY';
 
 export interface StructuredFinding {
   id: string;
@@ -13,6 +14,13 @@ export interface StructuredFinding {
   complianceGap: string;
   requiredFix: string;
   suggestedRewrite: string;
+  epistemicTier?: EpistemicTier;
+  matchedRuleId?: string | null;
+  instrumentTitle?: string;
+  sectionRef?: string;
+  verbatimStatutoryQuote?: string;
+  sourceUrlOrPdfPath?: string;
+  regulatorCode?: string;
 }
 
 export interface MarketingCampaign {
@@ -49,9 +57,15 @@ export interface ExtractedPromotionalClaim {
   code: string;
   claimText: string;
   verdict: ClaimVerdict;
+  epistemicTier?: EpistemicTier;
   regulationId?: string | null;
+  matchedRuleId?: string | null;
+  instrumentTitle?: string;
+  sectionRef?: string;
   statutoryCitation: string;
   verbatimRule: string;
+  sourceUrlOrPdfPath?: string;
+  regulatorCode?: string;
   aiRationale: string;
   suggestedRewrite?: string | null;
   reviewStatus: ClaimReviewStatus;
@@ -67,8 +81,13 @@ export interface MarketingKnowledgeRule {
   title: string;
   regulatorCode: string;
   regulationId?: string | null;
+  obligationId?: string | null;
+  instrumentTitle?: string;
+  sectionOrClauseRef?: string;
   statutoryCitation: string;
+  verbatimStatutoryText?: string;
   verbatimClause: string;
+  sourceUrlOrPdfPath?: string;
   prohibitedTerms: string[];
   mandatoryDisclosures: string[];
   appliesToCategories: ProductCategoryCode[];
@@ -112,7 +131,7 @@ export const PRODUCT_CATEGORIES_CATALOG: Record<ProductCategoryCode, ProductCate
     code: 'WEALTHTECH_INVEST',
     label: 'WealthTech & Investment',
     regulator: 'SEC',
-    statutoryBasis: 'SEC Rule 322 & Investments and Securities Act (ISA) 2007',
+    statutoryBasis: 'SEC Consolidated Rules 2013 (Rule 39(b)) & Investments and Securities Act (ISA) 2007',
     description: 'Collective investment schemes, portfolio management, commercial papers, and digital securities.',
   },
   SAVINGS_DEPOSIT: {

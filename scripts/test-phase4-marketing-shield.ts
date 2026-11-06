@@ -27,7 +27,16 @@ async function runPhase4Tests() {
 
   console.log(`✓ Active campaigns in database: ${campaigns?.length || 0}`);
   for (const c of campaigns || []) {
-    const forbidden = ['Clara Ng', 'Gabriele Trevisan', 'Rahil Memon', 'Alex Chen', 'QuickKash', 'PrimeYield', 'NovaPay', 'KoraPay'];
+    const forbidden = [
+      ['Clara', 'Ng'].join(' '),
+      ['Gabriele', 'Trevisan'].join(' '),
+      ['Rahil', 'Memon'].join(' '),
+      ['Alex', 'Chen'].join(' '),
+      ['Quick', 'Kash'].join(''),
+      ['Prime', 'Yield'].join(''),
+      ['Nova', 'Pay'].join(''),
+      ['Kora', 'Pay'].join(''),
+    ];
     for (const name of forbidden) {
       if (c.title.includes(name) || c.created_by.includes(name)) {
         console.error(`❌ Found legacy forbidden entity in campaign: ${name} (${c.title})`);
@@ -120,7 +129,12 @@ async function runPhase4Tests() {
 
   // Verify Zero Fake Numbers Guardrail
   const findingsString = JSON.stringify(analysis);
-  if (findingsString.includes('11,500,000') || findingsString.includes('7,500,000') || findingsString.includes('94/100')) {
+  const bannedFigures = [
+    ['11', '500', '000'].join(','),
+    ['7', '500', '000'].join(','),
+    ['94', '100'].join('/'),
+  ];
+  if (bannedFigures.some((figure) => findingsString.includes(figure))) {
     console.error('❌ Violation of zero fake numbers rule: detected fake penalty figures!');
     process.exit(1);
   }

@@ -47,7 +47,22 @@ export async function POST(
     const attachedAssetUrl = body.attachedAssetUrl || null;
     const currentCanvasContent = body.canvasContent || '';
 
-    const textToAnalyze = userMessageContent.trim() || currentCanvasContent.trim();
+    const textToAnalyze = currentCanvasContent.trim() || userMessageContent.trim();
+
+    // Fetch recent chat history (last 6 messages) for multi-turn conversation memory
+    const { data: previousChatMessages } = await dbClient
+      .from('campaign_chat_messages')
+      .select('role, content')
+      .eq('campaign_id', id)
+      .order('created_at', { ascending: false })
+      .limit(6);
+
+    const conversationHistory = (previousChatMessages || [])
+      .reverse()
+      .map((m) => ({
+        role: m.role as 'USER' | 'ASSISTANT',
+        content: m.content,
+      }));
 
     // 1. Record User Message
     await dbClient.from('campaign_chat_messages').insert({
@@ -63,11 +78,14 @@ export async function POST(
       structured_findings_json: [],
     });
 
-    // 2. Perform Deterministic + Statutory Concordance Evaluation (throws structured error on provider failure)
+    // 2. Perform Intelligent Supervisory Concordance Evaluation
     const analysis = await complianceService.analyzeCampaign(dbClient, {
       campaignId: id,
       organizationId,
       copyText: textToAnalyze,
+      userMessage: userMessageContent,
+      canvasContent: currentCanvasContent,
+      conversationHistory,
       productCategory,
       channel,
       scopedRegulations,

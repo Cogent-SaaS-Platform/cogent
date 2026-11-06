@@ -11,6 +11,7 @@ import {
   ArrowRight,
   ShieldCheck,
   RefreshCw,
+  Sparkles,
 } from 'lucide-react';
 import {
   MarketingCampaign,
@@ -63,6 +64,7 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
   const [rewriteError, setRewriteError] = useState<string | null>(null);
   const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
   const [highlightAnimation, setHighlightAnimation] = useState(false);
+  const [activeHighlightedFinding, setActiveHighlightedFinding] = useState<StructuredFinding | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
@@ -178,6 +180,30 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
     }
   };
 
+  const handleFormatBold = () => {
+    if (!selectionRange) return;
+    const isBold =
+      selectedText.startsWith('**') && selectedText.endsWith('**') && selectedText.length >= 4;
+    const newText = isBold ? selectedText.slice(2, -2) : `**${selectedText}**`;
+    const before = canvasContent.substring(0, selectionRange.start);
+    const after = canvasContent.substring(selectionRange.end);
+    onCanvasChange(`${before}${newText}${after}`);
+    setSelectedText(newText);
+    setSelectionRange({ start: selectionRange.start, end: selectionRange.start + newText.length });
+  };
+
+  const handleFormatItalic = () => {
+    if (!selectionRange) return;
+    const isItalic =
+      selectedText.startsWith('*') && selectedText.endsWith('*') && selectedText.length >= 2;
+    const newText = isItalic ? selectedText.slice(1, -1) : `*${selectedText}*`;
+    const before = canvasContent.substring(0, selectionRange.start);
+    const after = canvasContent.substring(selectionRange.end);
+    onCanvasChange(`${before}${newText}${after}`);
+    setSelectedText(newText);
+    setSelectionRange({ start: selectionRange.start, end: selectionRange.start + newText.length });
+  };
+
   const handleExecuteRewrite = async (instruction: string) => {
     if (!selectedText) return;
     try {
@@ -185,6 +211,13 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
       setRewriteError(null);
       setAiSuggestion(null);
       setLastRewriteInstruction(instruction);
+
+      // Find overlapping finding to extract its verbatim statutory quote for contextual rewrite
+      const matchingFinding = findings.find((f) => {
+        const ce = f.claimElement?.toLowerCase().trim();
+        const st = selectedText.toLowerCase().trim();
+        return ce && st && (ce.includes(st) || st.includes(ce));
+      });
 
       const res = await fetch(`/api/marketing/campaigns/${campaign.id}/inline-edit`, {
         method: 'POST',
@@ -194,6 +227,8 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
           actionPrompt: instruction,
           productCategory: campaign.productCategory,
           channel: campaign.channel,
+          citedVerbatimStatute: matchingFinding?.verbatimStatutoryQuote || undefined,
+          fullAdContext: canvasContent,
         }),
       });
 
@@ -357,7 +392,7 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
                   <div className="text-xs text-slate-600 space-y-1">
                     <p className="font-medium text-slate-800">Visual Prominence Assessment:</p>
                     <p className="text-[11px] text-slate-500">
-                      Mandatory risk warnings and license attribution must remain legible with high-contrast text under ARCON Code 2022 Article 24.
+                      Mandatory risk warnings and license attribution must remain legible with high-contrast text under ARCON Act 2022 & Advertising Standards Guidelines.
                     </p>
                   </div>
                 </div>
@@ -397,8 +432,8 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
                     <button
                       key={idx}
                       type="button"
-                      onClick={() => selectFindingInEditor(seg.finding!)}
-                      title={`${seg.finding.regulatoryRule} (${seg.finding.statutoryCitation}): Click to remediate`}
+                      onClick={() => setActiveHighlightedFinding(seg.finding!)}
+                      title={`${seg.finding.regulatoryRule} (${seg.finding.statutoryCitation}): Click to inspect verbatim statutory quote & replace`}
                       className={`px-1 py-0.5 rounded font-medium underline underline-offset-2 cursor-pointer transition-colors ${
                         isBlocking
                           ? 'bg-rose-50 text-rose-800 decoration-rose-500 hover:bg-rose-100'
@@ -410,24 +445,138 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
                   );
                 })}
               </div>
+
+              {/* Active Highlight Popover with Verbatim Statutory Quote & 1-Click Replace */}
+              {activeHighlightedFinding && (
+                <div className="p-3.5 rounded-lg bg-white border border-slate-300 shadow-md space-y-3 animate-in fade-in duration-150">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`w-2 h-2 rounded-full ${
+                          activeHighlightedFinding.severity === 'BLOCKING_ISSUE'
+                            ? 'bg-rose-500'
+                            : 'bg-amber-500'
+                        }`}
+                      />
+                      <span className="text-xs font-bold text-slate-900">
+                        {activeHighlightedFinding.regulatoryRule}
+                      </span>
+                      <span className="font-mono text-[11px] text-slate-500">
+                        ({activeHighlightedFinding.statutoryCitation})
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveHighlightedFinding(null)}
+                      className="text-slate-400 hover:text-slate-600 text-xs p-0.5 cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center justify-between">
+                      <span>Verbatim Statutory Quote from Official Instrument:</span>
+                      <span className="text-emerald-700 font-mono text-[10px]">
+                        100% Ingested Source
+                      </span>
+                    </div>
+                    <blockquote className="p-2.5 rounded bg-emerald-50/50 border-l-4 border-emerald-600 text-xs text-slate-800 italic font-serif leading-relaxed">
+                      &ldquo;
+                      {activeHighlightedFinding.verbatimStatutoryQuote ||
+                        'Statutory requirement extracted from Nigerian regulatory corpus.'}
+                      &rdquo;
+                    </blockquote>
+                  </div>
+
+                  <div className="space-y-1 text-xs">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      Required Remediation:
+                    </div>
+                    <p className="text-slate-700">{activeHighlightedFinding.requiredFix}</p>
+                  </div>
+
+                  {activeHighlightedFinding.suggestedRewrite && (
+                    <div className="p-2.5 rounded bg-slate-50 border border-slate-200 space-y-1 text-xs">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        Pre-Cleared Compliant Rewrite:
+                      </div>
+                      <p className="font-medium text-slate-900">
+                        &ldquo;{activeHighlightedFinding.suggestedRewrite}&rdquo;
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        selectFindingInEditor(activeHighlightedFinding);
+                        setActiveHighlightedFinding(null);
+                      }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium cursor-pointer"
+                    >
+                      <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                      <span>Ask AI custom edit</span>
+                    </button>
+
+                    {activeHighlightedFinding.suggestedRewrite && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = canvasContent.replace(
+                            activeHighlightedFinding.claimElement,
+                            activeHighlightedFinding.suggestedRewrite
+                          );
+                          onCanvasChange(updated);
+                          setHighlightAnimation(true);
+                          setTimeout(() => setHighlightAnimation(false), 1200);
+                          setActiveHighlightedFinding(null);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs cursor-pointer"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                        <span>✓ Replace with Compliant Wording</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
           {/* Interactive Copy Canvas */}
           <div className="relative flex-1 flex flex-col min-h-[280px]">
-            {/* Floating Selection Toolbar */}
+            {/* Floating Selection Toolbar: [B] [I] | [✨ Ask AI] */}
             {toolbarPos && selectedText && !isAiMenuOpen && !aiSuggestion && (
               <div
                 style={{ top: toolbarPos.top, left: toolbarPos.left }}
-                className="absolute z-20 flex items-center gap-1 bg-slate-900 text-white rounded-md px-2 py-1 shadow-lg text-xs"
+                className="absolute z-20 flex items-center gap-1 bg-slate-900 text-white rounded-md px-1.5 py-1 shadow-xl text-xs"
               >
                 <button
                   type="button"
-                  onClick={() => setIsAiMenuOpen(true)}
-                  className="inline-flex items-center gap-1.5 font-semibold text-white hover:text-slate-200 px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                  onClick={handleFormatBold}
+                  className="px-2 py-0.5 rounded font-bold hover:bg-slate-800 text-slate-200 hover:text-white transition-colors cursor-pointer text-xs"
+                  title="Bold (**text**)"
                 >
-                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-                  <span>Ask AI</span>
+                  B
+                </button>
+                <button
+                  type="button"
+                  onClick={handleFormatItalic}
+                  className="px-2 py-0.5 rounded italic font-serif hover:bg-slate-800 text-slate-200 hover:text-white transition-colors cursor-pointer text-xs"
+                  title="Italic (*text*)"
+                >
+                  I
+                </button>
+                <span className="w-px h-4 bg-slate-700 mx-0.5" />
+                <button
+                  type="button"
+                  onClick={() => setIsAiMenuOpen(true)}
+                  className="inline-flex items-center gap-1.5 font-semibold text-white hover:text-amber-200 px-2 py-0.5 rounded hover:bg-slate-800 cursor-pointer transition-colors"
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+                  <span>✨ Ask AI</span>
                 </button>
               </div>
             )}
@@ -474,7 +623,7 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
                     type="text"
                     value={aiCustomPrompt}
                     onChange={(e) => setAiCustomPrompt(e.target.value)}
-                    placeholder="Specify custom compliance edit instruction..."
+                    placeholder="Tell Cogent how to edit this selection..."
                     className="w-full px-2.5 py-1.5 rounded border border-slate-200 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
                   />
                   {aiCustomPrompt && (
@@ -498,13 +647,13 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
                       disabled={isGeneratingRewrite}
                       onClick={() =>
                         handleExecuteRewrite(
-                          'Make compliant with CBN, FCCPC, and ARCON statutory prohibitions.'
+                          'Make compliant with cited statutory requirements and mandatory disclosures.'
                         )
                       }
                       className="text-left px-2 py-1.5 rounded hover:bg-slate-100 text-[11px] text-slate-700 flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-50"
                     >
-                      <ShieldCheck className="h-3.5 w-3.5 text-slate-600 shrink-0" />
-                      <span>Make compliant</span>
+                      <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                      <span>🛡️ Make compliant with cited regulation</span>
                     </button>
                     <button
                       type="button"
@@ -517,7 +666,7 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
                       className="text-left px-2 py-1.5 rounded hover:bg-slate-100 text-[11px] text-slate-700 flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-50"
                     >
                       <Scale className="h-3.5 w-3.5 text-slate-600 shrink-0" />
-                      <span>Add mandatory disclosure</span>
+                      <span>➕ Insert required statutory disclosure</span>
                     </button>
                     <button
                       type="button"
@@ -529,8 +678,8 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
                       }
                       className="text-left px-2 py-1.5 rounded hover:bg-slate-100 text-[11px] text-slate-700 flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-50"
                     >
-                      <FileText className="h-3.5 w-3.5 text-slate-600 shrink-0" />
-                      <span>Make more persuasive</span>
+                      <Sparkles className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                      <span>✨ Make more persuasive (while staying compliant)</span>
                     </button>
                     <button
                       type="button"
@@ -543,27 +692,27 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
                       className="text-left px-2 py-1.5 rounded hover:bg-slate-100 text-[11px] text-slate-700 flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-50"
                     >
                       <Layers className="h-3.5 w-3.5 text-slate-600 shrink-0" />
-                      <span>Make shorter</span>
+                      <span>✂️ Shorten to fit SMS / headline limit</span>
                     </button>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Real-Time Rewrite Suggestion Popover (`Accept` / `Try again` / `Discard`) */}
+            {/* Real-Time Rewrite Suggestion Popover (`COGENT SUGGESTION`) */}
             {toolbarPos && aiSuggestion && (
               <div
                 style={{ top: toolbarPos.top + 32, left: Math.max(10, toolbarPos.left - 40) }}
                 className="absolute z-30 w-96 bg-white border border-slate-200 rounded-lg shadow-xl p-3 text-xs space-y-2.5"
               >
                 <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-                    <span>Pre-Cleared Remediation Suggestion</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                    <span>COGENT SUGGESTION</span>
                   </span>
                   <button
                     onClick={handleDiscardRewrite}
-                    className="text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
+                    className="text-slate-400 hover:text-slate-600 text-xs cursor-pointer p-0.5"
                   >
                     ✕
                   </button>
@@ -580,7 +729,7 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
                       onClick={handleDiscardRewrite}
                       className="px-2.5 py-1 rounded bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 text-[11px] font-medium cursor-pointer"
                     >
-                      Discard
+                      ✕ Discard
                     </button>
                     <button
                       type="button"
@@ -588,7 +737,9 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
                       onClick={() => handleExecuteRewrite(lastRewriteInstruction)}
                       className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 text-[11px] font-medium cursor-pointer disabled:opacity-50"
                     >
-                      <RefreshCw className={`h-3 w-3 ${isGeneratingRewrite ? 'animate-spin' : ''}`} />
+                      <RefreshCw
+                        className={`h-3 w-3 ${isGeneratingRewrite ? 'animate-spin' : ''}`}
+                      />
                       <span>Try again</span>
                     </button>
                   </div>
@@ -598,7 +749,7 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
                     className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-medium shadow-xs cursor-pointer"
                   >
                     <Check className="h-3 w-3" />
-                    <span>Accept</span>
+                    <span>✓ Accept</span>
                   </button>
                 </div>
               </div>
