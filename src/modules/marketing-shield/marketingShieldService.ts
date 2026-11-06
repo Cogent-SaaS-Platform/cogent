@@ -260,7 +260,7 @@ export class MarketingShieldService {
       const detCandidates = deterministicResult.findings.map((f) => ({
         candidateRuleCode: f.matchedPattern.toUpperCase().replace(/\s+/g, '_'),
         flaggedExcerpt: f.flaggedExcerpt,
-        explanation: f.explanation,
+        explanation: f.statutoryRationale,
         recommendedFix: 'Align ad copy with statutory consumer protection and advertising guidelines.',
       }));
 

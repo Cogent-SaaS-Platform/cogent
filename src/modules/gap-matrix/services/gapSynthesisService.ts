@@ -1,4 +1,6 @@
 import crypto from 'crypto';
+import { z } from 'zod';
+import { ComplianceStatus } from '@/shared/types';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '@/shared/db';
 import { ConfigurationError } from '@/shared/errors';
@@ -10,6 +12,7 @@ import {
   EvaluatedGapItem,
   GapEvaluationOutputSchema,
   GapClausePairPromptInput,
+  GapItemSynthesis,
 } from '../types';
 import { StatutoryBenchmarkService } from './statutoryBenchmarkService';
 import { PolicyVectorIndexService } from './policyVectorIndexService';
@@ -251,7 +254,7 @@ export class GapSynthesisService {
 
       const synthesized =
         synthesisOutput.items.find(
-          (item) => item.regulatoryClauseReference?.toLowerCase().trim() === targetRef
+          (item: GapItemSynthesis) => item.regulatoryClauseReference?.toLowerCase().trim() === targetRef
         ) || synthesisOutput.items[i];
 
       if (!synthesized) {
