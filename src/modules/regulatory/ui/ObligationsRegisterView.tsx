@@ -341,10 +341,16 @@ export function ObligationsRegisterView({
           policyApplicability: editFormData.policyApplicability,
           status: editFormData.status,
           clauseId: editFormData.clauseId,
+          criteria: editFormData.criteria,
         }),
       });
 
       if (res.ok) {
+        const data = await res.json().catch(() => null);
+        const savedCriteria: AssessmentCriterionItem[] = Array.isArray(data?.criteria)
+          ? data.criteria
+          : editFormData.criteria;
+
         // Find assigned section info
         const targetSection = sections.find((s) => s.id === editFormData.clauseId) || sections[0];
 
@@ -358,13 +364,12 @@ export function ObligationsRegisterView({
           clauseId: editFormData.clauseId,
           sectionHeading: targetSection?.sectionHeading || activeObligation.sectionHeading,
           sectionReference: targetSection?.sectionReference || activeObligation.sectionReference,
-          assessmentCriteria: editFormData.criteria,
+          assessmentCriteria: savedCriteria,
         };
 
         // Update sections state
         setSections((prev) =>
           prev.map((sec) => {
-            // Remove from old section if moved
             const filteredObs = sec.obligations.filter((o) => o.id !== activeObligation.id);
             if (sec.id === editFormData.clauseId) {
               return {
@@ -382,6 +387,7 @@ export function ObligationsRegisterView({
         );
 
         setActiveObligation(updatedObl);
+        setEditFormData((prev) => ({ ...prev, criteria: savedCriteria }));
         setIsEditMode(false);
       } else if (res.status === 402 || res.status === 403) {
         const errData = await res.json().catch(() => null);
@@ -1490,47 +1496,65 @@ export function ObligationsRegisterView({
               </button>
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   if (!newObligationData.title.trim()) return;
                   const sec = sections.find((s) => s.id === newObligationData.clauseId) || sections[0];
-                  const newObl: RegulatoryObligationPresentation = {
-                    id: `obl-${Date.now()}`,
-                    clauseId: sec.id,
-                    code: `OBL-${Math.floor(100 + Math.random() * 900)}`,
-                    sectionReference: sec.sectionReference,
-                    sectionHeading: sec.sectionHeading,
-                    title: newObligationData.title,
-                    description: newObligationData.description,
-                    ruleType: newObligationData.ruleType,
-                    policyApplicability: newObligationData.policyApplicability,
-                    verbatimQuote: newObligationData.description,
-                    assessmentCriteria: [
-                      {
-                        id: `crit-${Date.now()}-1`,
-                        type: 'Core Criteria',
-                        text: `Ensure internal operational controls enforce ${newObligationData.title}`,
-                        isMandatory: true,
-                      },
-                    ],
-                    riskDescription: 'Operational breach results in supervisory sanctions.',
-                    status: 'Pending Review',
-                    isRelevant: true,
-                    isStarred: false,
-                    penalties: [],
-                  };
+                  if (!sec) return;
 
-                  setSections((prev) =>
-                    prev.map((s) =>
-                      s.id === sec.id
-                        ? {
-                            ...s,
-                            obligations: [...(s.obligations || []), newObl],
-                            obligationsCount: (s.obligationsCount || s.obligations?.length || 0) + 1,
-                          }
-                        : s
-                    )
-                  );
-                  setIsAddObligationModalOpen(false);
+                  if (instrument?.id) {
+                    try {
+                      const res = await fetch(
+                        `/api/library/${encodeURIComponent(instrument.id)}/obligations`,
+                        {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            clauseId: sec.id,
+                            title: newObligationData.title.trim(),
+                            description: newObligationData.description.trim() || newObligationData.title.trim(),
+                            ruleType: newObligationData.ruleType,
+                            policyApplicability: newObligationData.policyApplicability,
+                          }),
+                        }
+                      );
+
+                      if (res.status === 402 || res.status === 403) {
+                        const errData = await res.json().catch(() => null);
+                        setIsAddObligationModalOpen(false);
+                        setUpgradeModalState({
+                          isOpen: true,
+                          featureName:
+                            errData?.featureName || 'Custom Obligation Creation & Criteria Editing (✎)',
+                          requiredPlan: (errData?.requiredPlan as PlanTier) || 'PRO',
+                          reason:
+                            errData?.error ||
+                            'Creating statutory obligations requires the Pro Tier.',
+                          isReadOnly: errData?.code === 'TRIAL_EXPIRED',
+                        });
+                        return;
+                      }
+
+                      const data = await res.json();
+                      if (res.ok && data?.success && data.obligation) {
+                        setSections((prev) =>
+                          prev.map((s) =>
+                            s.id === sec.id
+                              ? {
+                                  ...s,
+                                  obligations: [...(s.obligations || []), data.obligation],
+                                  obligationsCount:
+                                    (s.obligationsCount || s.obligations?.length || 0) + 1,
+                                }
+                              : s
+                          )
+                        );
+                        setIsAddObligationModalOpen(false);
+                        return;
+                      }
+                    } catch (err) {
+                      console.error('Failed persisting custom obligation', err);
+                    }
+                  }
                 }}
                 className="px-3 py-1.5 bg-slate-900 text-white text-xs font-medium rounded-lg"
               >

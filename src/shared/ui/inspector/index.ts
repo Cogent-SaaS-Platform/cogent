@@ -5,4 +5,3 @@ export * from './ReferencePane';
 export * from './MultiPaneContainer';
 export * from './DenseDataTable';
 export * from './adapters';
-export * from './MultiPaneShowcase';

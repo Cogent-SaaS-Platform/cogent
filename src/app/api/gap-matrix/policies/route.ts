@@ -9,9 +9,9 @@ import { verifyEntitlement } from '@/lib/plans';
  * GET /api/gap-matrix/policies
  * Returns all ingested policy documents for the authenticated tenant with clause counts and latest evaluations.
  */
-export async function GET(req: NextRequest) {
+export async function GET(_req?: NextRequest) {
   try {
-    const tenantCtx = await getTenantContext();
+    const tenantCtx = await getTenantContext({ allowDevFallback: true });
     const organizationId = tenantCtx.organizationId;
     const dbClient = tenantCtx.dbClient;
 
@@ -39,11 +39,11 @@ export async function GET(req: NextRequest) {
       .order('created_at', { ascending: false });
 
     if (error) {
-      logger.warn({ error: error.message }, 'Failed retrieving tenant policy documents; falling back to clean tenant array');
-      return NextResponse.json({
-        success: true,
-        data: [],
-      });
+      logger.error({ error: error.message }, 'Failed retrieving tenant policy documents');
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 500 }
+      );
     }
 
     const formattedPolicies = (policies || []).map((p: Record<string, unknown>) => {
@@ -72,6 +72,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       data: formattedPolicies,
+      policies: formattedPolicies,
     });
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error(String(error));
@@ -90,9 +91,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const contentType = req.headers.get('content-type') || '';
-    const tenantCtx = await getTenantContext();
+    const tenantCtx = await getTenantContext({ allowDevFallback: true });
 
-    // Enforce quota on policy document uploads
     const entitlement = await verifyEntitlement(tenantCtx.dbClient, tenantCtx.organizationId, 'POLICY_UPLOAD');
     if (!entitlement.allowed) {
       return NextResponse.json(entitlement.errorPayload, { status: entitlement.statusCode });

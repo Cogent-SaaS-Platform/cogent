@@ -6,6 +6,11 @@ import { AuditService } from '@/modules/audit/auditService';
 import { logger } from '@/shared/logger';
 import { RegulatorCode, PlatformPillar } from '@/shared/types';
 import {
+  TOPIC_TAXONOMY,
+  buildTopicClassificationText,
+  classifyTopic,
+} from '@/shared/taxonomy/regulatoryTopics';
+import {
   ExecutiveOverviewData,
   PillarComplianceSnapshot,
   DepartmentalReadinessItem,
@@ -277,65 +282,92 @@ export class ExecutiveOverviewService {
       },
     };
 
-    // Regulator Coverage Matrix (6 Canonical Nigerian Regulators)
-    const regulatorCoverage: RegulatorCoverageItem[] = [
+    // Regulator Coverage Matrix (7 Canonical Nigerian Regulators — dynamically computed from DB)
+    const canonicalRegulators: Array<{
+      code: RegulatorCode;
+      name: string;
+      keyStatute: string;
+    }> = [
       {
-        regulatorCode: 'CBN',
-        regulatorName: 'Central Bank of Nigeria',
-        activeInstrumentsCount: 28,
-        complianceRate: 89,
-        status: 'COMPLIANT',
-        keyStatute: 'BOFIA 2020 & Consumer Protection Framework 2019',
+        code: 'CBN',
+        name: 'Central Bank of Nigeria',
+        keyStatute: 'BOFIA 2020 & CBN Consumer Protection Framework',
       },
       {
-        regulatorCode: 'FCCPC',
-        regulatorName: 'Federal Competition & Consumer Protection Commission',
-        activeInstrumentsCount: 9,
-        complianceRate: 85,
-        status: 'COMPLIANT',
-        keyStatute: 'FCCPC Digital Lending Regulations 2022',
+        code: 'FCCPC',
+        name: 'Federal Competition & Consumer Protection Commission',
+        keyStatute: 'FCCPA 2018 & Digital Lending Framework 2022',
       },
       {
-        regulatorCode: 'ARCON',
-        regulatorName: 'Advertising Regulatory Council of Nigeria',
-        activeInstrumentsCount: 14,
-        complianceRate: 96,
-        status: 'COMPLIANT',
-        keyStatute: 'Nigerian Code of Advertising Practice 2022',
+        code: 'ARCON',
+        name: 'Advertising Regulatory Council of Nigeria',
+        keyStatute: 'ARCON Act 2022 & Nigerian Code of Advertising Practice',
       },
       {
-        regulatorCode: 'NDPC',
-        regulatorName: 'Nigeria Data Protection Commission',
-        activeInstrumentsCount: 11,
-        complianceRate: 91,
-        status: 'COMPLIANT',
+        code: 'NDPC',
+        name: 'Nigeria Data Protection Commission',
         keyStatute: 'Nigeria Data Protection Act (NDPA) 2023',
       },
       {
-        regulatorCode: 'NFIU',
-        regulatorName: 'Nigerian Financial Intelligence Unit',
-        activeInstrumentsCount: 16,
-        complianceRate: 84,
-        status: 'REVIEW_UNDERWAY',
-        keyStatute: 'MLA 2022 & NFIU STR Reporting Window (72h)',
+        code: 'NFIU',
+        name: 'Nigerian Financial Intelligence Unit',
+        keyStatute: 'Money Laundering (Prevention and Prohibition) Act 2022',
       },
       {
-        regulatorCode: 'SEC',
-        regulatorName: 'Securities and Exchange Commission',
-        activeInstrumentsCount: 7,
-        complianceRate: 92,
-        status: 'COMPLIANT',
-        keyStatute: 'SEC Rules on Digital Sub-Brokers & VASPs 2026',
+        code: 'SEC',
+        name: 'Securities and Exchange Commission',
+        keyStatute: 'Investments and Securities Act & SEC Consolidated Rules',
       },
       {
-        regulatorCode: 'NDIC',
-        regulatorName: 'Nigeria Deposit Insurance Corporation',
-        activeInstrumentsCount: 8,
-        complianceRate: 95,
-        status: 'COMPLIANT',
-        keyStatute: 'NDIC Act 2023 & Deposit Insurance Guidelines',
+        code: 'NDIC',
+        name: 'Nigeria Deposit Insurance Corporation',
+        keyStatute: 'NDIC Act 2023',
       },
     ];
+
+    const regInstrumentCounts: Record<string, number> = {};
+    for (const r of canonicalRegulators) regInstrumentCounts[r.code] = 0;
+
+    if (this.dbClient) {
+      try {
+        const { data: instRows } = await (this.dbClient.from('regulatory_instruments') as any)
+          .select('id, is_binding, regulatory_bodies(code)')
+          .eq('is_binding', true);
+
+        if (Array.isArray(instRows)) {
+          for (const row of instRows) {
+            const code = row.regulatory_bodies?.code;
+            if (code && regInstrumentCounts[code] !== undefined) {
+              regInstrumentCounts[code]++;
+            }
+          }
+        }
+
+        const { data: ruleRows } = await (this.dbClient.from('marketing_knowledge_rules') as any)
+          .select('regulator_code')
+          .eq('organization_id', organizationId);
+
+        if (Array.isArray(ruleRows)) {
+          for (const row of ruleRows) {
+            const code = row.regulator_code;
+            if (code && regInstrumentCounts[code] !== undefined && regInstrumentCounts[code] === 0) {
+              regInstrumentCounts[code]++;
+            }
+          }
+        }
+      } catch (regErr) {
+        logger.warn({ regErr }, 'Failed reading dynamic regulator instrument counts');
+      }
+    }
+
+    const regulatorCoverage: RegulatorCoverageItem[] = canonicalRegulators.map((r) => ({
+      regulatorCode: r.code,
+      regulatorName: r.name,
+      activeInstrumentsCount: regInstrumentCounts[r.code] || 0,
+      complianceRate: activePoliciesCount > 0 ? gapHealth : 100,
+      status: criticalGapsCount > 0 ? 'REVIEW_UNDERWAY' : 'COMPLIANT',
+      keyStatute: r.keyStatute,
+    }));
 
     // Departmental Readiness Breakdown (Dynamically scaled from live telemetry)
     const departmentalReadiness: DepartmentalReadinessItem[] = [
@@ -461,67 +493,55 @@ export class ExecutiveOverviewService {
             });
           }
         }
+        // Also load tenant custom compliance_deadlines and gap_evaluations action items
+        try {
+          const { data: customRows } = await (this.dbClient.from('compliance_deadlines') as any)
+            .select('id, title, regulator_code, source_module, due_date, priority, summary')
+            .eq('organization_id', organizationId)
+            .eq('is_completed', false)
+            .gte('due_date', todayIso)
+            .order('due_date', { ascending: true })
+            .limit(10);
+
+          if (Array.isArray(customRows)) {
+            for (const cd of customRows) {
+              const deadlineTime = new Date(cd.due_date).getTime();
+              const daysRemaining = Math.max(0, Math.ceil((deadlineTime - nowMs) / 86400000));
+              const pillar: PlatformPillar =
+                cd.source_module === 'gap'
+                  ? 'gap-matrix'
+                  : cd.source_module === 'marketing'
+                  ? 'marketing'
+                  : 'radar';
+              urgentGates.push({
+                id: cd.id,
+                title: cd.title,
+                regulatorCode: (cd.regulator_code as RegulatorCode) || 'CBN',
+                sourcePillar: pillar,
+                deadlineDate: String(cd.due_date).slice(0, 10),
+                daysRemaining,
+                priority: (cd.priority as any) || 'HIGH',
+                actionRequired: cd.summary || cd.title,
+                linkContext: {
+                  targetPillar: pillar,
+                  searchTerm: cd.title,
+                  action: 'open_drawer',
+                },
+              });
+            }
+          }
+        } catch (dlErr) {
+          logger.warn({ dlErr }, 'Failed reading compliance_deadlines for urgent gates');
+        }
       } catch (err) {
         logger.warn({ err }, 'Failed reading live circular deadlines for urgent gates');
       }
     }
 
-    // If fewer than 3 upcoming gates found with future deadlines, provide dynamically calculated canonical countdown gates across pillars
-    if (urgentGates.length < 3) {
-      urgentGates.push(
-        {
-          id: 'gate_arcon_asp',
-          title: 'ARCON Pre-Clearance Dossier for Consumer Credit Promotional Campaign',
-          regulatorCode: 'ARCON',
-          sourcePillar: 'marketing',
-          deadlineDate: formatFutureDate(7),
-          daysRemaining: 7,
-          priority: 'HIGH',
-          actionRequired: 'Submit ASP Form 01 with verified compliant APR disclosures before campaign launch',
-          linkContext: {
-            targetPillar: 'marketing',
-            findingRuleCode: 'ARCON-CODE-2022-ART-45',
-            action: 'open_dossier',
-          },
-        },
-        {
-          id: 'gate_nfiu_str',
-          title: 'NFIU Suspicious Transaction Reporting Window (72h Gate & Bi-Weekly Review)',
-          regulatorCode: 'NFIU',
-          sourcePillar: 'gap-matrix',
-          deadlineDate: formatFutureDate(14),
-          daysRemaining: 14,
-          priority: 'CRITICAL_EMERGENCY',
-          actionRequired: 'CCO submission of AML/CFT statutory concordance audit report to Board Risk Committee',
-          linkContext: {
-            targetPillar: 'gap-matrix',
-            policySectionNumber: 'Section 4.1',
-            searchTerm: 'STR',
-            action: 'open_drawer',
-          },
-        },
-        {
-          id: 'gate_cbn_2fa',
-          title: 'CBN Biometric 2FA Protocol & Interbank Settlement Rail Reconciliation',
-          regulatorCode: 'CBN',
-          sourcePillar: 'radar',
-          deadlineDate: formatFutureDate(30),
-          daysRemaining: 30,
-          priority: 'HIGH',
-          actionRequired: 'Engineering deployment of biometric token validation on interbank settlement rails',
-          linkContext: {
-            targetPillar: 'radar',
-            searchTerm: 'NIBSS',
-            action: 'open_drawer',
-          },
-        }
-      );
-    }
-
     // Chronological ordering (strictly ascending daysRemaining: most urgent first)
     urgentGates.sort((a, b) => a.daysRemaining - b.daysRemaining);
 
-    // Cross-Pillar Recent Activity Stream (Loaded dynamically from audit_logs and compliance_cascade_events)
+    // Cross-Pillar Recent Activity Stream (Loaded strictly from live audit_logs and compliance_cascade_events)
     const recentActivities: CrossPillarActivityItem[] = [];
 
     if (this.dbClient) {
@@ -565,185 +585,92 @@ export class ExecutiveOverviewService {
       }
     }
 
-    const canonicalBaselineActivities: CrossPillarActivityItem[] = [
-      {
-        id: 'act_gm_1',
-        timestamp: '12 minutes ago',
-        sourcePillar: 'gap-matrix',
-        action: '5-W Gap Matrix Evaluated & Sealed',
-        description: 'Completed 5-W evaluation of Internal Policy Manual against CBN baseline with SHA-256 seal.',
-        regulatorCode: 'CBN',
-        sha256VerificationHash: 'ac1d685a7c6b6bc5ddcf22ca0def2f26fcabdaa39c4cdf8c31f92f003819e6bd',
-        linkContext: {
-          targetPillar: 'gap-matrix',
-          action: 'open_dossier',
-        },
-      },
-      {
-        id: 'act_rd_2',
-        timestamp: '1 hour ago',
-        sourcePillar: 'radar',
-        action: 'New Regulatory Circular Ingested',
-        description: 'Central Bank of Nigeria published circular FPR/DIR/CIR/GEN/09/088 on Mandatory 2FA Biometric Validation.',
-        regulatorCode: 'CBN',
-        sha256VerificationHash: '7f9c2d1b8e4a3c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d',
-        linkContext: {
-          targetPillar: 'radar',
-          action: 'open_drawer',
-        },
-      },
-      {
-        id: 'act_ms_3',
-        timestamp: '3 hours ago',
-        sourcePillar: 'marketing',
-        action: 'Marketing Copy Pre-Vetted & Signed Off',
-        description: 'Flash credit SMS copy evaluated; 2 blocking issues corrected with compliant APR disclosures.',
-        regulatorCode: 'ARCON',
-        sha256VerificationHash: 'd345f5108a9b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d',
-        linkContext: {
-          targetPillar: 'marketing',
-          action: 'open_dossier',
-        },
-      },
-    ];
-
-    // Ensure all 3 pillars are represented in the cross-pillar feed
-    const presentPillars = new Set(recentActivities.map((a) => a.sourcePillar));
-    for (const baseAct of canonicalBaselineActivities) {
-      if (!presentPillars.has(baseAct.sourcePillar)) {
-        recentActivities.push(baseAct);
-        presentPillars.add(baseAct.sourcePillar);
-      }
-    }
-
-    // Dynamic Trending Topics derived from live database circulars (or active radar stream)
-    const topicDefinitions = [
-      {
-        name: 'AML/CFT & Sanctions',
-        keywords: ['aml', 'cft', 'kyc', 'sanction', 'fatf', 'money laundering', 'str', 'beneficial ownership'],
-        baseCount: 8,
-      },
-      {
-        name: 'Consumer Protection & APR',
-        keywords: ['consumer', 'apr', 'fee', 'interest rate', 'disclosure', 'customer protection', 'fccpc', 'credit'],
-        baseCount: 6,
-      },
-      {
-        name: 'Data Privacy & NDPA 2023',
-        keywords: ['data protection', 'privacy', 'ndpc', 'ndpa', 'personal data', 'consent', 'dpo'],
-        baseCount: 5,
-      },
-      {
-        name: 'Cybersecurity & Operational Resilience',
-        keywords: ['cyber', 'resilience', 'incident', 'cloud', 'token', 'security', '2fa', 'biometric', 'outage'],
-        baseCount: 4,
-      },
-      {
-        name: 'Digital Lending & Sub-Brokers',
-        keywords: ['lending', 'loan', 'sub-broker', 'digital asset', 'vasp', 'brokerage', 'capital adequacy'],
-        baseCount: 4,
-      },
-      {
-        name: 'Corporate Governance & CAMA',
-        keywords: ['governance', 'cama', 'board', 'director', 'restructuring', 'merger', 'acquisition', 'labour'],
-        baseCount: 3,
-      },
-    ];
-
+    // Dynamic Trending Topics derived strictly from live database circulars using shared TOPIC_TAXONOMY
     const trendingTopics: TrendingTopicItem[] = [];
     if (this.dbClient) {
       try {
-        const { data: allCircs } = await this.dbClient
-          .from('radar_circulars')
-          .select('subject, summary, raw_text, created_at')
-          .limit(100);
+        const { data: allCircs } = await (this.dbClient.from('radar_circulars') as any)
+          .select('circular_number, subject, summary, executive_summary, topics, raw_text, issuance_date, created_at');
 
-        if (allCircs && allCircs.length > 0) {
-          const now = Date.now();
-          const thirtyDaysAgo = now - 30 * 86400000;
+        const circRows: any[] = allCircs || [];
+        const now = Date.now();
+        const thirtyDaysAgo = now - 30 * 86400000;
+        const sixtyDaysAgo = now - 60 * 86400000;
 
-          const scoredTopics = topicDefinitions.map((def) => {
-            let count = 0;
-            let recentCount = 0;
-            for (const circ of allCircs) {
-              const fullText = `${circ.subject || ''} ${circ.summary || ''} ${circ.raw_text?.slice(0, 500) || ''}`.toLowerCase();
-              const matches = def.keywords.some((kw) => fullText.includes(kw));
-              if (matches) {
-                count++;
-                const createdTime = circ.created_at ? new Date(circ.created_at).getTime() : 0;
-                if (createdTime >= thirtyDaysAgo) {
-                  recentCount++;
-                }
-              }
-            }
-            const totalCount = count > 0 ? count : def.baseCount;
-            let trend: 'UP' | 'DOWN' | 'STABLE' = 'STABLE';
-            let trendValue = '→';
-            if (recentCount >= 2 || totalCount > def.baseCount) {
-              trend = 'UP';
-              trendValue = `↑${recentCount || 1}`;
-            } else if (totalCount < def.baseCount) {
-              trend = 'DOWN';
-              trendValue = '↓1';
-            }
-            return {
-              name: def.name,
-              count: totalCount,
-              trend,
-              trendValue,
-            };
+        const stats: Record<string, { count: number; recent: number; prior: number }> = {};
+        for (const t of TOPIC_TAXONOMY) {
+          stats[t.key] = { count: 0, recent: 0, prior: 0 };
+        }
+
+        for (const circ of circRows) {
+          const matchedKey = classifyTopic(buildTopicClassificationText(circ));
+          stats[matchedKey].count++;
+          const ts = circ.issuance_date
+            ? new Date(circ.issuance_date).getTime()
+            : circ.created_at
+            ? new Date(circ.created_at).getTime()
+            : 0;
+          if (ts >= thirtyDaysAgo) stats[matchedKey].recent++;
+          else if (ts >= sixtyDaysAgo) stats[matchedKey].prior++;
+        }
+
+        const maxCount = Math.max(...Object.values(stats).map((s) => s.count), 1);
+        for (const t of TOPIC_TAXONOMY) {
+          const s = stats[t.key];
+          const diff = s.recent - s.prior;
+          const trend: 'UP' | 'DOWN' | 'STABLE' = diff > 0 ? 'UP' : diff < 0 ? 'DOWN' : 'STABLE';
+          const trendValue = diff > 0 ? `↑${diff}` : diff < 0 ? `↓${Math.abs(diff)}` : '→';
+          trendingTopics.push({
+            name: t.name,
+            count: s.count,
+            max: maxCount,
+            trend,
+            trendValue,
           });
-
-          const maxCount = Math.max(...scoredTopics.map((t) => t.count), 10);
-          for (const st of scoredTopics) {
-            trendingTopics.push({
-              name: st.name,
-              count: st.count,
-              max: maxCount,
-              trend: st.trend,
-              trendValue: st.trendValue,
-            });
-          }
         }
       } catch (err) {
-        logger.warn({ err }, 'Failed calculating dynamic trending topics; falling back to canonical topics');
+        logger.warn({ err }, 'Failed calculating dynamic trending topics');
       }
     }
 
-    if (trendingTopics.length === 0) {
-      trendingTopics.push(
-        { name: 'AML/CFT & Sanctions', count: 14, max: 16, trend: 'UP', trendValue: '↑6' },
-        { name: 'Consumer Protection & APR', count: 11, max: 16, trend: 'STABLE', trendValue: '→' },
-        { name: 'Data Privacy & NDPA 2023', count: 9, max: 16, trend: 'UP', trendValue: '↑4' },
-        { name: 'Cybersecurity & Operational Resilience', count: 7, max: 16, trend: 'UP', trendValue: '↑2' },
-        { name: 'Digital Lending & Sub-Brokers', count: 6, max: 16, trend: 'DOWN', trendValue: '↓1' },
-        { name: 'Statutory Reporting & CAMA', count: 5, max: 16, trend: 'STABLE', trendValue: '→' }
-      );
-    }
-
-    // Dynamic Impacted Policies derived from policy_documents and gap_evaluations
+    // Dynamic Impacted Policies derived strictly from tenant-scoped policy_documents and gap_evaluations
     const impactedPolicies: ImpactedPolicyItem[] = [];
     if (this.dbClient) {
       try {
-        const { data: dbPolicies } = await this.dbClient
-          .from('policy_documents')
-          .select('id, title, department, created_at')
-          .eq('organization_id', organizationId)
-          .limit(10);
+        const [{ data: dbPolicies }, { data: orgGapEvals }] = await Promise.all([
+          this.dbClient
+            .from('policy_documents')
+            .select('id, title, department, created_at')
+            .eq('organization_id', organizationId)
+            .limit(25),
+          (this.dbClient.from('gap_evaluations') as any)
+            .select('id, policy_id, policy_ids, critical_gaps_count, partially_met_count, created_at')
+            .eq('organization_id', organizationId)
+            .order('created_at', { ascending: false }),
+        ]);
+
+        const evalList: any[] = orgGapEvals || [];
 
         if (dbPolicies && dbPolicies.length > 0) {
           for (const pol of dbPolicies) {
-            const alertCount = criticalGapsCount > 0 ? Math.ceil(criticalGapsCount / dbPolicies.length) : 2;
+            const matchedEval = evalList.find(
+              (ev) =>
+                (Array.isArray(ev.policy_ids) && ev.policy_ids.includes(pol.id)) ||
+                ev.policy_id === pol.id
+            );
+            const alertCount = matchedEval
+              ? (Number(matchedEval.critical_gaps_count) || 0) +
+                (Number(matchedEval.partially_met_count) || 0)
+              : 0;
+
             let regulators = ['CBN'];
             const lowerTitle = pol.title.toLowerCase();
             if (lowerTitle.includes('aml') || lowerTitle.includes('sanction') || lowerTitle.includes('cft')) {
-              regulators = ['CBN', 'NFIU', 'FATF'];
+              regulators = ['CBN', 'NFIU'];
             } else if (lowerTitle.includes('privacy') || lowerTitle.includes('data')) {
-              regulators = ['NDPC', 'NITDA'];
+              regulators = ['NDPC'];
             } else if (lowerTitle.includes('lending') || lowerTitle.includes('credit')) {
               regulators = ['FCCPC', 'CBN'];
-            } else if (lowerTitle.includes('governance') || lowerTitle.includes('fraud')) {
-              regulators = ['CAMA', 'CBN', 'EFCC'];
             } else if (lowerTitle.includes('cyber') || lowerTitle.includes('it') || lowerTitle.includes('security')) {
               regulators = ['CBN', 'NDIC'];
             }
@@ -764,59 +691,12 @@ export class ExecutiveOverviewService {
               ownerInitials,
             });
           }
+
+          impactedPolicies.sort((a, b) => b.alertCount - a.alertCount);
         }
       } catch (polErr) {
         logger.warn({ polErr }, 'Failed reading tenant policy documents for impacted policies');
       }
-    }
-
-    if (impactedPolicies.length === 0 && this.dbClient) {
-      try {
-        const { data: anyPolicies } = await this.dbClient
-          .from('policy_documents')
-          .select('id, title, department')
-          .limit(6);
-
-        if (anyPolicies && anyPolicies.length > 0) {
-          for (const p of anyPolicies) {
-            impactedPolicies.push({
-              id: p.id,
-              name: p.title,
-              regulators: ['CBN'],
-              alertCount: criticalGapsCount > 0 ? 1 : 2,
-              ownerInitials: p.department?.includes('TECH') ? 'CTO' : 'CCO',
-            });
-          }
-        }
-      } catch (err) {
-        logger.warn({ err }, 'Failed reading fallback policy documents');
-      }
-    }
-
-    if (impactedPolicies.length === 0) {
-      impactedPolicies.push(
-        {
-          id: '00000000-0000-0000-0000-000000000101',
-          name: 'AML / CFT & Sanctions Compliance Policy',
-          regulators: ['CBN', 'NFIU'],
-          alertCount: criticalGapsCount > 0 ? criticalGapsCount : 4,
-          ownerInitials: 'CCO',
-        },
-        {
-          id: '00000000-0000-0000-0000-000000000102',
-          name: 'Data Protection & Consumer Privacy Framework (NDPA)',
-          regulators: ['NDPC'],
-          alertCount: 3,
-          ownerInitials: 'DPO',
-        },
-        {
-          id: '00000000-0000-0000-0000-000000000103',
-          name: 'Core Banking Information Security & Access Governance',
-          regulators: ['CBN'],
-          alertCount: 2,
-          ownerInitials: 'CTO',
-        }
-      );
     }
 
     return {
@@ -875,9 +755,9 @@ export class ExecutiveOverviewService {
 
 ## 1. Executive Summary & Board Bottom Line
 This quarterly regulatory attestation provides the Board Audit & Risk Committee with an auditable, real-time snapshot of institutional compliance health across the 3 core operational pillars:
-- **Pillar 1 (Marketing Shield):** Pre-vetted promotional campaigns maintain an approval rate of **${overview.liveTelemetry?.marketing.approvalRate ?? 94}%**, preventing statutory fines under the ARCON Act 2022 and FCCPC consumer transparency rules.
-- **Pillar 2 (Regulatory Radar):** Continuous monitoring of **${overview.liveTelemetry?.radar.activeCirculars ?? 12}** regulatory circulars from Nigerian authorities (CBN, SEC, NDPC, NFIU, ARCON, FCCPC), with **${overview.liveTelemetry?.radar.unreadHighPriority ?? 2}** urgent directives under multi-role implementation.
-- **Pillar 3 (5-W Gap Matrix):** Clause-by-clause statutory concordance of **${overview.liveTelemetry?.gapMatrix.activePolicies ?? 4}** internal operational policies reveals an aggregate alignment score of **${overview.liveTelemetry?.gapMatrix.concordancePercentage ?? 82}%**. Active Board-adopted replacement wording mitigates unhedged balance sheet penalty risks.
+- **Pillar 1 (Marketing Shield):** Pre-vetted promotional campaigns maintain an approval rate of **${overview.liveTelemetry?.marketing.approvalRate ?? 0}%**, preventing statutory fines under the ARCON Act 2022 and FCCPC consumer transparency rules.
+- **Pillar 2 (Regulatory Radar):** Continuous monitoring of **${overview.liveTelemetry?.radar.activeCirculars ?? 0}** regulatory circulars from Nigerian authorities (CBN, SEC, NDPC, NFIU, ARCON, FCCPC), with **${overview.liveTelemetry?.radar.unreadHighPriority ?? 0}** urgent directives under multi-role implementation.
+- **Pillar 3 (5-W Gap Matrix):** Clause-by-clause statutory concordance of **${overview.liveTelemetry?.gapMatrix.activePolicies ?? 0}** internal operational policies reveals an aggregate alignment score of **${overview.liveTelemetry?.gapMatrix.concordancePercentage ?? 100}%**. Active Board-adopted replacement wording mitigates unhedged balance sheet penalty risks.
 
 ---
 

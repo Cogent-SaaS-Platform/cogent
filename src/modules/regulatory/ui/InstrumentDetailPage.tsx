@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import {
   ArrowLeft,
   Star,
@@ -9,14 +10,9 @@ import {
   Copy,
   Check,
   FileText,
-  User,
   ChevronRight,
-  ShieldCheck,
-  Building2,
-  Calendar,
   Layers,
   Scale,
-  Clock,
   ChevronDown,
   ChevronUp,
   MessageSquare,
@@ -62,6 +58,32 @@ export function InstrumentDetailPage({
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [localComments, setLocalComments] = useState<any[]>(instrument.comments || []);
   const [localAuditLogs, setLocalAuditLogs] = useState<any[]>(instrument.auditLogs || []);
+  const [linkedPolicies, setLinkedPolicies] = useState<
+    Array<{ id: string; title: string; department: string; versionTag: string }>
+  >([]);
+
+  React.useEffect(() => {
+    setLocalComments(instrument.comments || []);
+    setLocalAuditLogs(instrument.auditLogs || []);
+  }, [instrument.id, instrument.comments, instrument.auditLogs]);
+
+  React.useEffect(() => {
+    fetch('/api/gap-matrix/policies')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (Array.isArray(data?.policies)) {
+          setLinkedPolicies(
+            data.policies.map((p: any) => ({
+              id: p.id,
+              title: p.title,
+              department: p.department || 'COMPLIANCE_LEGAL',
+              versionTag: p.version_tag || p.versionTag || 'v1.0',
+            }))
+          );
+        }
+      })
+      .catch(() => {});
+  }, [instrument.id]);
 
   const formatJurisdiction = (code: string) => {
     switch (code) {
@@ -180,24 +202,6 @@ export function InstrumentDetailPage({
   const visibleRequirements = showAllRequirements
     ? keyRequirements
     : keyRequirements.slice(0, 3);
-
-  // Policies list
-  const defaultPolicies = instrument.policies || [
-    {
-      id: 'pol-1',
-      code: 'POL-COMP-01',
-      title: 'Enterprise Regulatory Compliance & Supervisory Engagement Policy',
-      status: 'ACTIVE',
-      mappedObligationsCount: Math.min(totalObligationsCount, 8),
-    },
-    {
-      id: 'pol-2',
-      code: 'POL-OPS-03',
-      title: 'Operational Risk, Consumer Protection & Product Disclosure Manual',
-      status: 'UNDER_REVIEW',
-      mappedObligationsCount: Math.min(totalObligationsCount, 5),
-    },
-  ];
 
   return (
     <div className="space-y-6">
@@ -475,7 +479,7 @@ export function InstrumentDetailPage({
                 }`}
               >
                 <FileCheck2 className="w-3.5 h-3.5" />
-                <span>Policies ({defaultPolicies.length})</span>
+                <span>Policies ({linkedPolicies.length})</span>
               </button>
             </div>
 
@@ -569,33 +573,37 @@ export function InstrumentDetailPage({
             {/* Tab 3: Linked Policies */}
             {activeCollabTab === 'policies' && (
               <div className="p-5 space-y-3">
-                <p className="text-xs text-slate-600">
-                  Internal operational policies mapped to this statutory instrument:
-                </p>
-                <div className="space-y-2">
-                  {defaultPolicies.map((pol) => (
-                    <div
-                      key={pol.id}
-                      className="p-3 bg-slate-50 border border-slate-200/80 rounded-lg flex items-center justify-between gap-3 text-xs"
-                    >
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-[10px] font-bold text-slate-600 bg-white border border-slate-200 px-1.5 py-0.5 rounded">
-                            {pol.code}
+                {linkedPolicies.length > 0 ? (
+                  <>
+                    <p className="text-xs text-slate-600">
+                      Uploaded internal operational policies available for concordance evaluation:
+                    </p>
+                    <div className="space-y-2">
+                      {linkedPolicies.map((pol) => (
+                        <Link
+                          key={pol.id}
+                          href="/gap"
+                          className="p-3 bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 rounded-lg flex items-center justify-between gap-3 text-xs transition-colors"
+                        >
+                          <div className="space-y-0.5">
+                            <span className="font-medium text-slate-900">{pol.title}</span>
+                            <p className="font-mono text-[11px] text-slate-500">
+                              {pol.department.replace(/_/g, ' ')} · {pol.versionTag}
+                            </p>
+                          </div>
+                          <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-700 font-medium">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            Active
                           </span>
-                          <span className="font-medium text-slate-900">{pol.title}</span>
-                        </div>
-                        <p className="text-[11px] text-slate-500">
-                          {pol.mappedObligationsCount} statutory obligations satisfied
-                        </p>
-                      </div>
-                      <span className="inline-flex items-center gap-1.5 text-[11px] text-slate-700 font-medium">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        {pol.status.replace(/_/g, ' ')}
-                      </span>
+                        </Link>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-slate-500 text-center py-4">
+                    No internal policies uploaded yet. Open Gap Analysis to upload an internal policy manual and evaluate concordance against this regulation.
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -724,16 +732,16 @@ export function InstrumentDetailPage({
                 <span className="text-slate-500">Enactment Year</span>
                 <span className="font-mono text-slate-900">{instrument.year}</span>
               </div>
-              <div className="py-2.5 flex items-center justify-between">
+              <div className="py-2.5 flex items-center justify-between gap-2">
                 <span className="text-slate-500">Publication Date</span>
-                <span className="font-mono text-slate-900">
-                  {instrument.publicationDate || 'Gazette Verified'}
+                <span className="font-mono text-slate-900 text-right">
+                  {instrument.publicationDate || 'Not explicitly specified in source text'}
                 </span>
               </div>
-              <div className="py-2.5 flex items-center justify-between">
+              <div className="py-2.5 flex items-center justify-between gap-2">
                 <span className="text-slate-500">Effective Date</span>
-                <span className="font-mono text-slate-900">
-                  {instrument.effectiveDate || 'In Force'}
+                <span className="font-mono text-slate-900 text-right">
+                  {instrument.effectiveDate || 'Not explicitly specified in source text'}
                 </span>
               </div>
               <div className="py-2.5 flex items-center justify-between">

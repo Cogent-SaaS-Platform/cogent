@@ -418,7 +418,15 @@ export function GapAnalysisDetailView({
                             checked={isDone}
                             onChange={() => {
                               action.completed = !isDone;
-                              setWorkflowStatus(action.completed ? 'Review Pending' : 'Review Pending');
+                              setWorkflowStatus((prev) => prev);
+                              fetch('/api/gap-matrix/evaluations', {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  evaluationId: analysis.id,
+                                  toggleActionItemId: action.id,
+                                }),
+                              }).catch(() => {});
                             }}
                             className="w-4 h-4 rounded border-slate-300 text-slate-900 focus:ring-0 cursor-pointer"
                           />
@@ -582,7 +590,18 @@ export function GapAnalysisDetailView({
               <label className="text-[11px] text-slate-400 font-medium">Status</label>
               <select
                 value={workflowStatus}
-                onChange={(e) => setWorkflowStatus(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setWorkflowStatus(val);
+                  fetch('/api/gap-matrix/evaluations', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      evaluationId: analysis.id,
+                      status: val === 'Completed' ? 'COMPLETED' : 'IN_PROGRESS',
+                    }),
+                  }).catch(() => {});
+                }}
                 className="w-full px-3 py-1.5 text-xs font-medium text-slate-800 bg-slate-50 border border-slate-200 rounded-lg outline-none cursor-pointer focus:bg-white"
               >
                 <option value="Review Pending">• Review Pending</option>
@@ -683,18 +702,13 @@ export function GapAnalysisDetailView({
                     ₦{(analysis.totalPenaltyNaira / 1_000_000).toFixed(1)}M
                   </span>
                   <span className="text-[10px] text-slate-400 block mt-0.5">
-                    Deterministic liability hedged via remediation
+                    Explicit statutory pecuniary penalty recorded in source text
                   </span>
                 </>
               ) : (
-                <>
-                  <span className="font-mono text-sm font-semibold text-slate-700">
-                    ₦0.00
-                  </span>
-                  <span className="text-[10px] text-slate-400 block mt-0.5">
-                    No statutory pecuniary fine specified in evaluated clauses
-                  </span>
-                </>
+                <span className="font-mono text-xs text-slate-600 block mt-0.5">
+                  Not explicitly specified in source text
+                </span>
               )}
             </div>
           </div>

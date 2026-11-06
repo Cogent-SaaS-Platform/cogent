@@ -691,7 +691,7 @@ export default function SettingsPage() {
                     <label className="block text-xs font-bold text-[#0B0F1A]">
                       Corporate RC Number
                     </label>
-                    <span className="text-[10px] font-semibold text-[#059669] bg-[#ECFDF5] px-2 py-0.5 rounded-full border border-[#A7F3D0]">
+                    <span className="text-xs text-slate-400 font-normal">
                       Optional
                     </span>
                   </div>
@@ -934,17 +934,20 @@ export default function SettingsPage() {
                 <h3 className="text-xs font-bold text-[#0B0F1A]">Active Institutional Sessions</h3>
                 <div className="flex items-center justify-between p-3.5 rounded-xl bg-[#F5F6FA] border border-[#DDE3EE]">
                   <div className="flex items-center gap-3">
-                    <Laptop className="w-5 h-5 text-[#2A4BFF]" />
+                    <Laptop className="w-5 h-5 text-slate-700" />
                     <div>
                       <span className="text-xs font-bold text-[#0B0F1A] block">
-                        Windows 11 · Chrome (Lagos, Nigeria)
+                        Current Authenticated Browser Session
                       </span>
                       <span className="text-[10px] text-[#8D99AE]">
-                        Current session · IP: 102.89.44.12
+                        Verified via Clerk TLS Session Enclave ({userTimezone})
                       </span>
                     </div>
                   </div>
-                  <span className="text-[11px] font-bold text-[#059669]">Active Now</span>
+                  <span className="inline-flex items-center gap-1.5 text-xs text-slate-700">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    Active Now
+                  </span>
                 </div>
               </div>
             </form>
@@ -1187,9 +1190,10 @@ export default function SettingsPage() {
                     Pre-Vetting Allowance
                   </span>
                   <span className="text-lg font-black text-[#0B0F1A] font-mono">
-                    {subscriptionData?.marketingScanQuota === -1
+                    {telemetryData?.usage.marketingCampaigns.isUnlimited ||
+                    subscriptionData?.marketingScanQuota === -1
                       ? 'UNLIMITED'
-                      : `${subscriptionData?.marketingScanQuota ?? 50} / month`}
+                      : `${telemetryData?.usage.marketingCampaigns.limit ?? 25} / month`}
                   </span>
                   <span className="text-[11px] text-[#64748B] block">
                     Resets on next billing cycle
@@ -1248,8 +1252,9 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0]">
-                    VERIFIED
+                  <span className="inline-flex items-center gap-1.5 text-xs text-slate-700 font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    Verified
                   </span>
                 </div>
               </div>
@@ -1368,7 +1373,8 @@ export default function SettingsPage() {
                             {item.amount}
                           </td>
                           <td className="p-3.5">
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0]">
+                            <span className="inline-flex items-center gap-1.5 text-xs text-slate-700 font-medium">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                               {item.status.toUpperCase()}
                             </span>
                           </td>
@@ -1398,83 +1404,85 @@ export default function SettingsPage() {
             ─────────────────────────────────────────────────────────────────── */}
         {activeTab === 'plan' && (
           <div className="space-y-8 animate-in fade-in duration-200">
-            {/* Developer / Founder Test Mode Switcher Bench */}
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs">
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700">
-                    Developer &amp; Founder Sandbox Bench
-                  </span>
+            {/* Developer / Founder Test Mode Switcher Bench (Non-Production Only) */}
+            {process.env.NODE_ENV !== 'production' && (
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700">
+                      Developer &amp; Founder Sandbox Bench
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Instantly switch workspace entitlement tier in 1-click to test quota gates, upgrade popovers, and read-only mode.
+                  </p>
                 </div>
-                <p className="text-[11px] text-slate-500">
-                  Instantly switch workspace entitlement tier in 1-click to test quota gates, upgrade popovers, and read-only mode.
-                </p>
-              </div>
 
-              <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-                <button
-                  type="button"
-                  disabled={isSwitchingTier}
-                  onClick={() => handleDevSwitchTier('TRIAL', false)}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
-                    telemetryData?.effectiveTier === 'TRIAL' && !telemetryData?.isReadOnly
-                      ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  Trial (Active)
-                </button>
-                <button
-                  type="button"
-                  disabled={isSwitchingTier}
-                  onClick={() => handleDevSwitchTier('TRIAL', true)}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
-                    telemetryData?.effectiveTier === 'TRIAL' && telemetryData?.isReadOnly
-                      ? 'bg-rose-900 text-white border-rose-900 shadow-xs'
-                      : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50'
-                  }`}
-                >
-                  Trial (Expired)
-                </button>
-                <button
-                  type="button"
-                  disabled={isSwitchingTier}
-                  onClick={() => handleDevSwitchTier('STARTER')}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
-                    telemetryData?.effectiveTier === 'STARTER'
-                      ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  Starter
-                </button>
-                <button
-                  type="button"
-                  disabled={isSwitchingTier}
-                  onClick={() => handleDevSwitchTier('PRO')}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
-                    telemetryData?.effectiveTier === 'PRO'
-                      ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  Pro Tier
-                </button>
-                <button
-                  type="button"
-                  disabled={isSwitchingTier}
-                  onClick={() => handleDevSwitchTier('ENTERPRISE')}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
-                    telemetryData?.effectiveTier === 'ENTERPRISE'
-                      ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  Enterprise
-                </button>
+                <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    disabled={isSwitchingTier}
+                    onClick={() => handleDevSwitchTier('TRIAL', false)}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
+                      telemetryData?.effectiveTier === 'TRIAL' && !telemetryData?.isReadOnly
+                        ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    Trial (Active)
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSwitchingTier}
+                    onClick={() => handleDevSwitchTier('TRIAL', true)}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
+                      telemetryData?.effectiveTier === 'TRIAL' && telemetryData?.isReadOnly
+                        ? 'bg-rose-900 text-white border-rose-900 shadow-xs'
+                        : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50'
+                    }`}
+                  >
+                    Trial (Expired)
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSwitchingTier}
+                    onClick={() => handleDevSwitchTier('STARTER')}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
+                      telemetryData?.effectiveTier === 'STARTER'
+                        ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    Starter
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSwitchingTier}
+                    onClick={() => handleDevSwitchTier('PRO')}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
+                      telemetryData?.effectiveTier === 'PRO'
+                        ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    Pro Tier
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSwitchingTier}
+                    onClick={() => handleDevSwitchTier('ENTERPRISE')}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
+                      telemetryData?.effectiveTier === 'ENTERPRISE'
+                        ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    Enterprise
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Tier Switch Toast */}
             {tierSwitchToast && (

@@ -3,10 +3,7 @@
  * Combines pgvector cosine similarity (768d via gemini-embedding-2) and PostgreSQL full-text search (tsvector)
  * using Reciprocal Rank Fusion (RRF) for high-recall regulatory clause discovery.
  *
- * Adheres to:
- * - docs/PILLAR_1_MARKETING_SHIELD.md Stage 3
- * - docs/AI_ENGINE.md Section 2
- * - docs/BACKLOG.md Task 5.2
+ * Strictly queries live relational database records (zero static seed fallbacks).
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
@@ -14,7 +11,6 @@ import { AiEngine } from '@/shared/ai-engine';
 import { createClient } from '@/shared/db';
 import { RegulatorCode } from '@/shared/types';
 import { logger } from '@/shared/logger';
-import { REGULATORY_INSTRUMENTS_SEED } from '@/shared/db/regulatoryCorpusData';
 
 export interface RetrievedStatutoryClause {
   clauseId: string;
@@ -79,7 +75,7 @@ export class HybridRetrievalService {
   }
 
   /**
-   * Performs hybrid retrieval over verified Nigerian regulatory clauses
+   * Performs hybrid retrieval over verified Nigerian regulatory clauses in the live database.
    */
   public async retrieveRelevantClauses(
     copyText: string,
@@ -92,16 +88,17 @@ export class HybridRetrievalService {
     const sparseWeight = options.sparseWeight ?? 0.35;
     const rrfK = options.rrfK ?? 60;
 
-    // 1. Generate 768d vector embedding using gemini-embedding-2
+    // 1. Generate 768d vector embedding
     let embedding: number[] = [];
     try {
       embedding = await this.aiEngine.generateEmbedding(copyText);
     } catch (embErr) {
-      logger.warn({ err: String(embErr) }, 'Embedding generation failed or timed out, relying on FTS keyword search');
+      logger.warn({ err: String(embErr) }, 'Embedding generation unavailable, relying on FTS and relational clause lookup');
     }
-    const embeddingHash = embedding.length > 0
-      ? AiEngine.hashContent(JSON.stringify(embedding.slice(0, 10)))
-      : AiEngine.hashContent(copyText);
+    const embeddingHash =
+      embedding.length > 0
+        ? AiEngine.hashContent(JSON.stringify(embedding.slice(0, 10)))
+        : AiEngine.hashContent(copyText);
 
     // 2. Query vector cosine similarity and full-text search in parallel
     const [vectorResult, ftsResult] = await Promise.allSettled([
@@ -132,12 +129,12 @@ export class HybridRetrievalService {
 
     if (vectorResult.status === 'rejected' || (vectorResult.status === 'fulfilled' && vectorResult.value.error)) {
       const err = vectorResult.status === 'rejected' ? vectorResult.reason : vectorResult.value.error;
-      logger.warn({ err }, 'Vector match RPC reported issue, relying on FTS fallback');
+      logger.warn({ err }, 'Vector match RPC reported issue, relying on FTS and relational lookup');
     }
 
     if (ftsResult.status === 'rejected' || (ftsResult.status === 'fulfilled' && ftsResult.value.error)) {
       const err = ftsResult.status === 'rejected' ? ftsResult.reason : ftsResult.value.error;
-      logger.warn({ err }, 'FTS match RPC reported issue, relying on vector fallback');
+      logger.warn({ err }, 'FTS match RPC reported issue, relying on vector and relational lookup');
     }
 
     // 3. Reciprocal Rank Fusion (RRF)
@@ -153,7 +150,6 @@ export class HybridRetrievalService {
       }
     >();
 
-    // Process Dense Vector Rankings
     vectorMatches.forEach((match, index) => {
       const rank = index + 1;
       const score = denseWeight * (1 / (rrfK + rank));
@@ -165,7 +161,6 @@ export class HybridRetrievalService {
       });
     });
 
-    // Process Sparse FTS Rankings
     ftsMatches.forEach((match, index) => {
       const rank = index + 1;
       const ftsScore = sparseWeight * (1 / (rrfK + rank));
@@ -185,7 +180,6 @@ export class HybridRetrievalService {
       }
     });
 
-    // 4. Sort by RRF score descending and take top limit
     const sortedFused = Array.from(fusedMap.values())
       .sort((a, b) => b.rrfScore - a.rrfScore)
       .slice(0, limit);
@@ -213,8 +207,9 @@ export class HybridRetrievalService {
       };
     });
 
+    // 4. Direct live relational lookup if RPC functions returned empty (e.g., strict regulator filter or sparse keywords)
     if (clauses.length === 0) {
-      clauses = this.getFallbackClauses(copyText, limit, options.filterRegulator);
+      clauses = await this.retrieveLiveRelationalClauses(copyText, limit, options.filterRegulator);
     }
 
     const latencyMs = Math.round(performance.now() - startTime);
@@ -240,103 +235,102 @@ export class HybridRetrievalService {
   }
 
   /**
-   * High-recall statutory fallback matching against verified regulatory corpus seed data
-   * Activated during network latency spikes, offline execution, or CI environments.
+   * Queries live `regulatory_clauses` joined to binding `regulatory_instruments` in PostgreSQL.
+   * Never uses static seed arrays.
    */
-  private getFallbackClauses(
+  private async retrieveLiveRelationalClauses(
     copyText: string,
     limit: number,
     filterRegulator?: RegulatorCode
-  ): RetrievedStatutoryClause[] {
-    const lowerCopy = copyText.toLowerCase();
-    const keywords = lowerCopy
-      .replace(/[^\w\s]/g, ' ')
-      .split(/\s+/)
-      .filter((w) => w.length > 3);
+  ): Promise<RetrievedStatutoryClause[]> {
+    try {
+      const { data: rows, error } = await this.dbClient
+        .from('regulatory_clauses')
+        .select(`
+          id,
+          section_reference,
+          section_heading,
+          clause_text,
+          regulatory_document_versions!inner (
+            regulatory_instruments!inner (
+              title,
+              short_name,
+              is_binding,
+              regulatory_bodies!inner (
+                code
+              )
+            )
+          )
+        `)
+        .eq('regulatory_document_versions.regulatory_instruments.is_binding', true)
+        .limit(120);
 
-    const candidates: Array<{
-      clause: RetrievedStatutoryClause;
-      matchScore: number;
-    }> = [];
-
-    for (const instrument of REGULATORY_INSTRUMENTS_SEED) {
-      if (filterRegulator && instrument.body_code !== filterRegulator) continue;
-
-      for (const version of instrument.versions) {
-        for (const clause of version.clauses) {
-          const lowerText = `${clause.section_heading} ${clause.clause_text}`.toLowerCase();
-          let score = 0;
-
-          for (const kw of keywords) {
-            if (lowerText.includes(kw)) {
-              score += 1;
-            }
-          }
-
-          // Check for obligation prohibited terms match
-          for (const obl of clause.obligations) {
-            for (const pt of obl.prohibited_terms) {
-              if (lowerCopy.includes(pt.exact_pattern.toLowerCase())) {
-                score += 5;
-              }
-            }
-          }
-
-          if (score > 0) {
-            candidates.push({
-              clause: {
-                clauseId: `seed_${instrument.body_code}_${clause.section_reference.replace(/\s+/g, '_')}`,
-                sectionReference: clause.section_reference,
-                sectionHeading: clause.section_heading,
-                clauseText: clause.clause_text,
-                similarity: 0.85,
-                ftsRank: score,
-                rrfScore: Number((score / 10 + 0.01).toFixed(6)),
-                regulatorCode: instrument.body_code,
-                instrumentTitle: instrument.title,
-                instrumentShortName: instrument.short_name,
-                retrievalSource: 'FTS_ONLY',
-              },
-              matchScore: score,
-            });
-          }
+      if (error || !rows || rows.length === 0) {
+        if (error) {
+          logger.error({ error }, 'Failed querying live regulatory_clauses in retrieveLiveRelationalClauses');
         }
+        return [];
       }
-    }
 
-    // Sort descending by score
-    candidates.sort((a, b) => b.matchScore - a.matchScore);
+      const keywords = copyText
+        .toLowerCase()
+        .replace(/[^\w\s]/g, ' ')
+        .split(/\s+/)
+        .filter((w) => w.length > 3);
 
-    // If still no candidates found, fallback to baseline clauses matching filter
-    if (candidates.length === 0) {
-      for (const instrument of REGULATORY_INSTRUMENTS_SEED) {
-        if (filterRegulator && instrument.body_code !== filterRegulator) continue;
-        for (const version of instrument.versions) {
-          for (const clause of version.clauses) {
-            candidates.push({
-              clause: {
-                clauseId: `seed_${instrument.body_code}_${clause.section_reference.replace(/\s+/g, '_')}`,
-                sectionReference: clause.section_reference,
-                sectionHeading: clause.section_heading,
-                clauseText: clause.clause_text,
-                similarity: 0.5,
-                ftsRank: 1,
-                rrfScore: 0.05,
-                regulatorCode: instrument.body_code,
-                instrumentTitle: instrument.title,
-                instrumentShortName: instrument.short_name,
-                retrievalSource: 'FTS_ONLY',
-              },
-              matchScore: 1,
-            });
-            if (candidates.length >= limit) break;
-          }
-          if (candidates.length >= limit) break;
+      interface JoinedClauseRow {
+        id: string;
+        section_reference: string;
+        section_heading: string | null;
+        clause_text: string;
+        regulatory_document_versions?: {
+          regulatory_instruments?: {
+            title?: string;
+            short_name?: string;
+            is_binding?: boolean;
+            regulatory_bodies?: {
+              code?: string;
+            } | null;
+          } | null;
+        } | null;
+      }
+
+      const scored: Array<{ clause: RetrievedStatutoryClause; score: number }> = [];
+
+      for (const rawRow of rows as unknown as JoinedClauseRow[]) {
+        const inst = rawRow.regulatory_document_versions?.regulatory_instruments;
+        const regCode = (inst?.regulatory_bodies?.code || 'CBN') as RegulatorCode;
+        if (filterRegulator && regCode !== filterRegulator) continue;
+
+        const corpus = `${rawRow.section_heading || ''} ${rawRow.clause_text || ''}`.toLowerCase();
+        let score = 1;
+        for (const kw of keywords) {
+          if (corpus.includes(kw)) score += 2;
         }
-        if (candidates.length >= limit) break;
-      }
-    }
 
-    return candidates.slice(0, limit).map((c) => c.clause);
+        scored.push({
+          score,
+          clause: {
+            clauseId: rawRow.id,
+            sectionReference: rawRow.section_reference,
+            sectionHeading: rawRow.section_heading || rawRow.section_reference,
+            clauseText: rawRow.clause_text,
+            similarity: 0,
+            ftsRank: score,
+            rrfScore: Number((score / (60 + score)).toFixed(6)),
+            regulatorCode: regCode,
+            instrumentTitle: inst?.title || regCode,
+            instrumentShortName: inst?.short_name || regCode,
+            retrievalSource: 'FTS_ONLY',
+          },
+        });
+      }
+
+      scored.sort((a, b) => b.score - a.score);
+      return scored.slice(0, limit).map((s) => s.clause);
+    } catch (err) {
+      logger.error({ err }, 'Unexpected error in retrieveLiveRelationalClauses');
+      return [];
+    }
   }
 }

@@ -20,12 +20,12 @@ CREATE TABLE IF NOT EXISTS tenant_subscriptions (
   paystack_customer_code TEXT,
   paystack_subscription_code TEXT,
   paystack_plan_code TEXT,
-  tier TEXT NOT NULL CHECK (tier IN ('STARTER', 'PRO', 'ENTERPRISE')) DEFAULT 'STARTER',
+  tier TEXT NOT NULL CHECK (tier IN ('TRIAL', 'STARTER', 'PRO', 'ENTERPRISE')) DEFAULT 'STARTER',
   status subscription_status_enum NOT NULL DEFAULT 'trialing',
-  trial_ends_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '14 days'),
+  trial_ends_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '7 days'),
   grace_period_ends_at TIMESTAMPTZ,
   current_period_start TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  current_period_end TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '14 days'),
+  current_period_end TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '7 days'),
   cancel_at_period_end BOOLEAN NOT NULL DEFAULT FALSE,
   marketing_scan_quota INT NOT NULL DEFAULT 50, -- -1 represents unlimited
   policy_document_quota INT NOT NULL DEFAULT 3, -- -1 represents unlimited

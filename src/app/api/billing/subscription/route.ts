@@ -26,7 +26,7 @@ export async function GET(req?: NextRequest): Promise<NextResponse> {
     const tenantCtx = await getTenantContext({ allowDevFallback: true });
     let { organizationId, subscription, dbClient } = tenantCtx;
 
-    if (req) {
+    if (req && process.env.NODE_ENV !== 'production') {
       try {
         const url = new URL(req.url);
         const queryOrgId = url.searchParams.get('orgId');

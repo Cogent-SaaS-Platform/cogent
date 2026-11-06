@@ -171,6 +171,7 @@ export interface RadarCircularPresentationCard {
   workflowStatus?: string;
   assignee?: { id: string; name: string; avatar?: string } | null;
   topics?: string[];
+  topicKey?: string;
   impactedAreas?: string[];
   severityMatrix?: any;
   synthesisStatus?: 'PENDING_SYNTHESIS' | 'SYNTHESIZED' | 'FAILED';

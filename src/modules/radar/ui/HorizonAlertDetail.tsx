@@ -410,7 +410,7 @@ export function HorizonAlertDetail({
             onClick={handleResynthesize}
             disabled={isResynthesizing}
             className="h-8 px-2.5 rounded-md border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-medium flex items-center gap-1.5 transition-colors disabled:opacity-50"
-            title="Re-run real-time AI synthesis against authentic document text"
+            title="Re-run structured statutory synthesis against captured document text"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isResynthesizing ? 'animate-spin text-slate-900' : ''}`} />
             <span className="hidden sm:inline">{isResynthesizing ? 'Synthesizing...' : 'Re-synthesize'}</span>

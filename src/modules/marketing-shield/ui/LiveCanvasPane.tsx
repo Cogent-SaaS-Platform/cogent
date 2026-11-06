@@ -1,23 +1,16 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import {
   FileText,
   Check,
   AlertTriangle,
   Scale,
   Download,
-  Bold,
-  Italic,
-  Link as LinkIcon,
   Layers,
   ArrowRight,
   ShieldCheck,
-  ShieldAlert,
-  Clock,
   RefreshCw,
-  ExternalLink,
-  ChevronRight,
 } from 'lucide-react';
 import {
   MarketingCampaign,
@@ -25,7 +18,7 @@ import {
   StructuredFinding,
   PRODUCT_CATEGORIES_CATALOG,
 } from '../types';
-import { ProductCategoryCode, MarketingChannel } from '@/shared/types';
+import { PlanTier } from '@/lib/plans';
 
 interface LiveCanvasPaneProps {
   campaign: MarketingCampaign;
@@ -35,6 +28,14 @@ interface LiveCanvasPaneProps {
   onCanvasChange: (newText: string) => void;
   onClaimStatusChange: (claimId: string, newStatus: 'APPROVED' | 'REJECTED') => Promise<void>;
   onExportDossierClick: () => void;
+  onUpgradeRequired?: (modalState: {
+    featureName?: string;
+    requiredPlan?: PlanTier;
+    reason?: string;
+    isReadOnly?: boolean;
+    currentUsage?: number;
+    maxAllowed?: number;
+  }) => void;
 }
 
 export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
@@ -45,32 +46,90 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
   onCanvasChange,
   onClaimStatusChange,
   onExportDossierClick,
+  onUpgradeRequired,
 }) => {
   const [activeTab, setActiveTab] = useState<'canvas' | 'claims' | 'dossier'>('canvas');
 
-  // Selection & Aurora Floating Menu State
+  // Selection & Inline Rewrite Menu State
   const [selectedText, setSelectedText] = useState<string>('');
   const [selectionRange, setSelectionRange] = useState<{ start: number; end: number } | null>(null);
   const [toolbarPos, setToolbarPos] = useState<{ top: number; left: number } | null>(null);
   const [isAiMenuOpen, setIsAiMenuOpen] = useState(false);
   const [aiCustomPrompt, setAiCustomPrompt] = useState('');
+  const [lastRewriteInstruction, setLastRewriteInstruction] = useState<string>(
+    'Make compliant with flagged regulatory rules.'
+  );
   const [isGeneratingRewrite, setIsGeneratingRewrite] = useState(false);
+  const [rewriteError, setRewriteError] = useState<string | null>(null);
   const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
   const [highlightAnimation, setHighlightAnimation] = useState(false);
-
-  // Popover state for clicked findings
-  const [inspectedFinding, setInspectedFinding] = useState<StructuredFinding | null>(null);
-  const [findingPopoverPos, setFindingPopoverPos] = useState<{ top: number; left: number } | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
 
-  // Character and SMS segment calculation
   const charCount = canvasContent.length;
   const wordCount = canvasContent.trim() ? canvasContent.trim().split(/\s+/).length : 0;
   const smsSegments = Math.ceil(charCount / 160) || 1;
 
-  // Handle Text Selection for Aurora Toolbar
+  // Compute inline red/amber violation segments inside canvasContent
+  const highlightedCopySegments = useMemo(() => {
+    if (!canvasContent || findings.length === 0) return null;
+
+    interface MatchSpan {
+      start: number;
+      end: number;
+      finding: StructuredFinding;
+    }
+
+    const spans: MatchSpan[] = [];
+    const lowerCopy = canvasContent.toLowerCase();
+
+    for (const f of findings) {
+      const needle = f.claimElement?.trim();
+      if (!needle || needle.length < 2) continue;
+      const idx = lowerCopy.indexOf(needle.toLowerCase());
+      if (idx !== -1) {
+        spans.push({
+          start: idx,
+          end: idx + needle.length,
+          finding: f,
+        });
+      }
+    }
+
+    if (spans.length === 0) return null;
+
+    spans.sort((a, b) => a.start - b.start);
+    const nonOverlapping: MatchSpan[] = [];
+    let cursor = 0;
+    for (const sp of spans) {
+      if (sp.start >= cursor) {
+        nonOverlapping.push(sp);
+        cursor = sp.end;
+      }
+    }
+
+    const parts: Array<{
+      text: string;
+      finding?: StructuredFinding;
+    }> = [];
+    let pos = 0;
+    for (const sp of nonOverlapping) {
+      if (sp.start > pos) {
+        parts.push({ text: canvasContent.slice(pos, sp.start) });
+      }
+      parts.push({
+        text: canvasContent.slice(sp.start, sp.end),
+        finding: sp.finding,
+      });
+      pos = sp.end;
+    }
+    if (pos < canvasContent.length) {
+      parts.push({ text: canvasContent.slice(pos) });
+    }
+    return parts;
+  }, [canvasContent, findings]);
+
   const handleSelectText = () => {
     const el = textareaRef.current;
     if (!el) return;
@@ -82,8 +141,8 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
       const text = el.value.substring(start, end);
       setSelectedText(text);
       setSelectionRange({ start, end });
+      setRewriteError(null);
 
-      // Calculate approximate position relative to editor container
       if (editorContainerRef.current) {
         const containerRect = editorContainerRef.current.getBoundingClientRect();
         setToolbarPos({
@@ -92,7 +151,7 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
         });
       }
     } else {
-      if (!isAiMenuOpen && !aiSuggestion) {
+      if (!isAiMenuOpen && !aiSuggestion && !rewriteError) {
         setSelectedText('');
         setSelectionRange(null);
         setToolbarPos(null);
@@ -100,12 +159,32 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
     }
   };
 
-  // Aurora Inline Action Execution
+  const selectFindingInEditor = (finding: StructuredFinding) => {
+    const needle = finding.claimElement;
+    if (!needle) return;
+    const idx = canvasContent.toLowerCase().indexOf(needle.toLowerCase());
+    if (idx === -1) return;
+
+    setSelectedText(canvasContent.slice(idx, idx + needle.length));
+    setSelectionRange({ start: idx, end: idx + needle.length });
+    setToolbarPos({ top: 10, left: 40 });
+    setIsAiMenuOpen(true);
+    setAiSuggestion(null);
+    setRewriteError(null);
+
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+      textareaRef.current.setSelectionRange(idx, idx + needle.length);
+    }
+  };
+
   const handleExecuteRewrite = async (instruction: string) => {
     if (!selectedText) return;
     try {
       setIsGeneratingRewrite(true);
+      setRewriteError(null);
       setAiSuggestion(null);
+      setLastRewriteInstruction(instruction);
 
       const res = await fetch(`/api/marketing/campaigns/${campaign.id}/inline-edit`, {
         method: 'POST',
@@ -119,19 +198,32 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
       });
 
       const data = await res.json();
-      if (data.success && data.suggestion) {
-        setAiSuggestion(data.suggestion);
-      } else {
-        setAiSuggestion(selectedText);
+
+      if (res.status === 402 || res.status === 403) {
+        setIsAiMenuOpen(false);
+        onUpgradeRequired?.({
+          featureName: 'Inline Statutory Copy Rewrite',
+          requiredPlan: (data.requiredPlan as PlanTier) || 'PRO',
+          reason: data.error,
+          isReadOnly: !!data.isReadOnly,
+          currentUsage: data.currentUsage,
+          maxAllowed: data.maxAllowed,
+        });
+        return;
       }
-    } catch (err) {
-      console.error('Rewrite failed:', err);
+
+      if (!res.ok || !data.success || !data.suggestion) {
+        throw new Error(data.error || 'Inline statutory rewrite failed. Please retry.');
+      }
+
+      setAiSuggestion(data.suggestion);
+    } catch (err: unknown) {
+      setRewriteError(err instanceof Error ? err.message : 'Inline rewrite failed. Please retry.');
     } finally {
       setIsGeneratingRewrite(false);
     }
   };
 
-  // Accept Suggestion with Purple Fade Animation (Aurora Ref Video 2 00:12)
   const handleAcceptRewrite = () => {
     if (!aiSuggestion || !selectionRange) return;
 
@@ -143,8 +235,8 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
     setHighlightAnimation(true);
     setTimeout(() => setHighlightAnimation(false), 1200);
 
-    // Reset Aurora menu
     setAiSuggestion(null);
+    setRewriteError(null);
     setIsAiMenuOpen(false);
     setSelectedText('');
     setSelectionRange(null);
@@ -153,6 +245,7 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
 
   const handleDiscardRewrite = () => {
     setAiSuggestion(null);
+    setRewriteError(null);
     setIsAiMenuOpen(false);
     setSelectedText('');
     setSelectionRange(null);
@@ -172,7 +265,7 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            1. Live Copy & Creative Canvas
+            1. Live Copy &amp; Creative Canvas
           </button>
           <button
             onClick={() => setActiveTab('claims')}
@@ -192,24 +285,25 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            3. Pre-Clearance Dossier & Audit
+            3. Pre-Clearance Dossier &amp; Audit
           </button>
         </div>
 
-        {/* Action Button */}
         <button
           onClick={onExportDossierClick}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-colors cursor-pointer shadow-2xs"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-semibold text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 transition-colors cursor-pointer"
         >
           <Download className="h-3.5 w-3.5 text-slate-600" />
           <span>Export ARCON Pack</span>
         </button>
       </div>
 
-      {/* TAB 1: LIVE CANVAS & AURORA INLINE EDITOR */}
+      {/* TAB 1: LIVE CANVAS & INLINE EDITOR */}
       {activeTab === 'canvas' && (
-        <div className="flex-1 flex flex-col overflow-y-auto p-4 space-y-4" ref={editorContainerRef}>
-          {/* Metadata Strip (Ref Video 2 Aurora Header 00:01) */}
+        <div
+          className="flex-1 flex flex-col overflow-y-auto p-4 space-y-4"
+          ref={editorContainerRef}
+        >
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-2.5 flex flex-wrap items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-3">
               <div>
@@ -217,7 +311,8 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
                   Category:
                 </span>
                 <span className="font-semibold text-slate-800">
-                  {PRODUCT_CATEGORIES_CATALOG[campaign.productCategory]?.label || campaign.productCategory}
+                  {PRODUCT_CATEGORIES_CATALOG[campaign.productCategory]?.label ||
+                    campaign.productCategory}
                 </span>
               </div>
               <span className="text-slate-300">•</span>
@@ -225,16 +320,17 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mr-1.5">
                   Channel:
                 </span>
-                <span className="font-semibold text-slate-800">{campaign.channel}</span>
+                <span className="font-mono text-xs text-slate-600">{campaign.channel}</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-3 text-slate-500 font-mono text-[11px]">
+            <div className="flex items-center gap-3 text-slate-600 font-mono text-xs">
               <span>{wordCount} words</span>
               <span>•</span>
               <span>
                 {charCount} chars
-                {campaign.channel === 'SMS_BLAST' && ` (${smsSegments} SMS ${smsSegments > 1 ? 'segments' : 'segment'})`}
+                {campaign.channel === 'SMS_BLAST' &&
+                  ` (${smsSegments} SMS ${smsSegments > 1 ? 'segments' : 'segment'})`}
               </span>
             </div>
           </div>
@@ -244,136 +340,226 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
             <div className="border border-slate-200 rounded-lg p-3 bg-slate-50 space-y-2">
               <div className="flex items-center justify-between text-[11px] font-semibold text-slate-700">
                 <span className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                  Attached Creative Flyer (OCR & Visual Prominence Audited)
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  Attached Campaign Asset
                 </span>
-                <span className="font-mono text-slate-500">{campaign.attachedAssetType}</span>
+                <span className="font-mono text-xs text-slate-600">
+                  {campaign.attachedAssetType}
+                </span>
               </div>
-              <div className="flex items-center gap-4">
-                <img
-                  src={campaign.attachedAssetUrl}
-                  alt="Campaign Asset"
-                  className="max-h-28 rounded border border-slate-200 object-contain bg-white"
-                />
-                <div className="text-xs text-slate-600 space-y-1">
-                  <p className="font-medium text-slate-800">Visual Prominence Assessment:</p>
-                  <p className="text-[11px] text-slate-500">
-                    Mandatory risk warnings and license attribution must occupy at least 10% of image height with high-contrast text under ARCON Code Article 24.
-                  </p>
+              {campaign.attachedAssetType === 'IMAGE' ? (
+                <div className="flex items-center gap-4">
+                  <img
+                    src={campaign.attachedAssetUrl}
+                    alt="Campaign Asset"
+                    className="max-h-28 rounded border border-slate-200 object-contain bg-white"
+                  />
+                  <div className="text-xs text-slate-600 space-y-1">
+                    <p className="font-medium text-slate-800">Visual Prominence Assessment:</p>
+                    <p className="text-[11px] text-slate-500">
+                      Mandatory risk warnings and license attribution must remain legible with high-contrast text under ARCON Code 2022 Article 24.
+                    </p>
+                  </div>
                 </div>
+              ) : (
+                <div className="font-mono text-xs text-slate-600 break-all">
+                  {campaign.attachedAssetUrl}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Inline Red/Amber Violation Highlight Preview */}
+          {highlightedCopySegments && (
+            <div className="border border-slate-200 rounded-lg p-3 bg-slate-50/70 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                  Inline Violation Highlights (Click Highlighted Claim to Remediate)
+                </span>
+                <div className="flex items-center gap-3 text-[11px] text-slate-600">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                    Blocking
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    Warning
+                  </span>
+                </div>
+              </div>
+              <div className="p-3 rounded bg-white border border-slate-200 text-xs text-slate-800 leading-relaxed whitespace-pre-wrap">
+                {highlightedCopySegments.map((seg, idx) => {
+                  if (!seg.finding) {
+                    return <React.Fragment key={idx}>{seg.text}</React.Fragment>;
+                  }
+                  const isBlocking = seg.finding.severity === 'BLOCKING_ISSUE';
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => selectFindingInEditor(seg.finding!)}
+                      title={`${seg.finding.regulatoryRule} (${seg.finding.statutoryCitation}): Click to remediate`}
+                      className={`px-1 py-0.5 rounded font-medium underline underline-offset-2 cursor-pointer transition-colors ${
+                        isBlocking
+                          ? 'bg-rose-50 text-rose-800 decoration-rose-500 hover:bg-rose-100'
+                          : 'bg-amber-50 text-amber-900 decoration-amber-500 hover:bg-amber-100'
+                      }`}
+                    >
+                      {seg.text}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* Interactive Rich Copy Canvas */}
-          <div className="relative flex-1 flex flex-col min-h-[320px]">
-            {/* Aurora Floating Selection Toolbar (Ref Video 2 00:02) */}
+          {/* Interactive Copy Canvas */}
+          <div className="relative flex-1 flex flex-col min-h-[280px]">
+            {/* Floating Selection Toolbar */}
             {toolbarPos && selectedText && !isAiMenuOpen && !aiSuggestion && (
               <div
                 style={{ top: toolbarPos.top, left: toolbarPos.left }}
-                className="absolute z-20 flex items-center gap-1 bg-slate-900 text-white rounded-md px-2 py-1 shadow-lg text-xs animate-in fade-in zoom-in-95 duration-100"
+                className="absolute z-20 flex items-center gap-1 bg-slate-900 text-white rounded-md px-2 py-1 shadow-lg text-xs"
               >
                 <button
                   type="button"
                   onClick={() => setIsAiMenuOpen(true)}
-                  className="inline-flex items-center gap-1 font-semibold text-purple-300 hover:text-white px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                  className="inline-flex items-center gap-1.5 font-semibold text-white hover:text-slate-200 px-1.5 py-0.5 rounded cursor-pointer transition-colors"
                 >
-                  <ShieldCheck className="h-3 w-3" />
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
                   <span>Ask AI</span>
                 </button>
               </div>
             )}
 
-            {/* Aurora "EDIT SELECTION" Popover Menu (Ref Video 2 00:04) */}
+            {/* "EDIT SELECTION" Popover Menu */}
             {toolbarPos && isAiMenuOpen && !aiSuggestion && (
               <div
                 style={{ top: toolbarPos.top + 32, left: Math.max(10, toolbarPos.left - 40) }}
-                className="absolute z-30 w-80 bg-white border border-slate-200 rounded-lg shadow-xl p-3 text-xs space-y-2.5 animate-in fade-in zoom-in-95 duration-150"
+                className="absolute z-30 w-80 bg-white border border-slate-200 rounded-lg shadow-xl p-3 text-xs space-y-2.5"
               >
                 <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
-                    <ShieldCheck className="h-3 w-3 text-purple-600" />
-                    <span>Edit Selection with Cogent</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                    <Scale className="h-3 w-3 text-slate-700" />
+                    <span>Pre-Cleared Selection Rewrite</span>
                   </span>
                   <button
-                    onClick={() => setIsAiMenuOpen(false)}
+                    onClick={handleDiscardRewrite}
                     className="text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
                   >
                     ✕
                   </button>
                 </div>
+
+                {rewriteError && (
+                  <div className="bg-rose-50 text-rose-700 border border-rose-200 p-2 rounded text-[11px] space-y-1.5">
+                    <div className="flex items-start gap-1.5">
+                      <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                      <span>{rewriteError}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleExecuteRewrite(lastRewriteInstruction)}
+                      disabled={isGeneratingRewrite}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 text-[11px] font-medium cursor-pointer"
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                      <span>Retry</span>
+                    </button>
+                  </div>
+                )}
 
                 <div className="space-y-1">
                   <input
                     type="text"
                     value={aiCustomPrompt}
                     onChange={(e) => setAiCustomPrompt(e.target.value)}
-                    placeholder="Tell Cogent how to edit the selection..."
+                    placeholder="Specify custom compliance edit instruction..."
                     className="w-full px-2.5 py-1.5 rounded border border-slate-200 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-900"
                   />
                   {aiCustomPrompt && (
                     <button
                       onClick={() => handleExecuteRewrite(aiCustomPrompt)}
                       disabled={isGeneratingRewrite}
-                      className="w-full mt-1 px-2.5 py-1 rounded bg-slate-900 text-white text-[11px] font-semibold hover:bg-slate-800 transition-colors cursor-pointer"
+                      className="w-full mt-1 px-2.5 py-1 rounded bg-slate-900 text-white text-[11px] font-semibold hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-50"
                     >
-                      {isGeneratingRewrite ? 'Rewriting...' : 'Apply Instruction'}
+                      {isGeneratingRewrite ? 'Generating...' : 'Apply Instruction'}
                     </button>
                   )}
                 </div>
 
                 <div className="space-y-1 pt-1 border-t border-slate-100">
-                  <div className="text-[10px] font-semibold text-slate-600 uppercase tracking-wider">
-                    Quick Compliance Actions
+                  <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+                    Statutory Rewrite Actions
                   </div>
                   <div className="flex flex-col gap-1">
                     <button
                       type="button"
-                      onClick={() => handleExecuteRewrite('Make 100% compliant with CBN and ARCON guarantee prohibitions.')}
-                      className="text-left px-2 py-1 rounded hover:bg-slate-100 text-[11px] text-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+                      disabled={isGeneratingRewrite}
+                      onClick={() =>
+                        handleExecuteRewrite(
+                          'Make compliant with CBN, FCCPC, and ARCON statutory prohibitions.'
+                        )
+                      }
+                      className="text-left px-2 py-1.5 rounded hover:bg-slate-100 text-[11px] text-slate-700 flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-50"
                     >
-                      <span>🛡️</span>
-                      <span>Make compliant with flagged regulation</span>
+                      <ShieldCheck className="h-3.5 w-3.5 text-slate-600 shrink-0" />
+                      <span>Make compliant</span>
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleExecuteRewrite('Add mandatory statutory disclosure (APR and regulatory license).')}
-                      className="text-left px-2 py-1 rounded hover:bg-slate-100 text-[11px] text-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+                      disabled={isGeneratingRewrite}
+                      onClick={() =>
+                        handleExecuteRewrite(
+                          'Add mandatory statutory disclosure (APR terms and regulatory license attribution).'
+                        )
+                      }
+                      className="text-left px-2 py-1.5 rounded hover:bg-slate-100 text-[11px] text-slate-700 flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-50"
                     >
-                      <span>➕</span>
-                      <span>Add mandatory statutory disclosure</span>
+                      <Scale className="h-3.5 w-3.5 text-slate-600 shrink-0" />
+                      <span>Add mandatory disclosure</span>
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleExecuteRewrite('Make more persuasive and conversion-friendly while strictly staying compliant.')}
-                      className="text-left px-2 py-1 rounded hover:bg-slate-100 text-[11px] text-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+                      disabled={isGeneratingRewrite}
+                      onClick={() =>
+                        handleExecuteRewrite(
+                          'Make more persuasive and conversion-oriented while preserving regulatory compliance.'
+                        )
+                      }
+                      className="text-left px-2 py-1.5 rounded hover:bg-slate-100 text-[11px] text-slate-700 flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-50"
                     >
-                      <span>✨</span>
+                      <FileText className="h-3.5 w-3.5 text-slate-600 shrink-0" />
                       <span>Make more persuasive</span>
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleExecuteRewrite('Make it shorter to fit within standard 160-character SMS limit.')}
-                      className="text-left px-2 py-1 rounded hover:bg-slate-100 text-[11px] text-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+                      disabled={isGeneratingRewrite}
+                      onClick={() =>
+                        handleExecuteRewrite(
+                          'Make shorter to fit within a standard 160-character SMS segment.'
+                        )
+                      }
+                      className="text-left px-2 py-1.5 rounded hover:bg-slate-100 text-[11px] text-slate-700 flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-50"
                     >
-                      <span>✂️</span>
-                      <span>Make it shorter (fit SMS limit)</span>
+                      <Layers className="h-3.5 w-3.5 text-slate-600 shrink-0" />
+                      <span>Make shorter</span>
                     </button>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Aurora "COGENT SUGGESTION" Card (Ref Video 2 00:06 - 00:11) */}
+            {/* Real-Time Rewrite Suggestion Popover (`Accept` / `Try again` / `Discard`) */}
             {toolbarPos && aiSuggestion && (
               <div
                 style={{ top: toolbarPos.top + 32, left: Math.max(10, toolbarPos.left - 40) }}
-                className="absolute z-30 w-88 bg-white border border-purple-200 rounded-lg shadow-xl p-3 text-xs space-y-2.5 animate-in fade-in zoom-in-95 duration-150"
+                className="absolute z-30 w-96 bg-white border border-slate-200 rounded-lg shadow-xl p-3 text-xs space-y-2.5"
               >
-                <div className="flex items-center justify-between border-b border-purple-100 pb-1.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700 flex items-center gap-1">
-                    <ShieldCheck className="h-3 w-3 text-purple-600" />
-                    <span>Cogent Compliant Suggestion</span>
+                <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                    <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                    <span>Pre-Cleared Remediation Suggestion</span>
                   </span>
                   <button
                     onClick={handleDiscardRewrite}
@@ -383,39 +569,49 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
                   </button>
                 </div>
 
-                <div className="p-2.5 rounded bg-purple-50/60 border border-purple-100 text-slate-800 font-medium leading-relaxed">
+                <div className="p-2.5 rounded bg-slate-50 border border-slate-200 text-slate-900 font-medium leading-relaxed">
                   &ldquo;{aiSuggestion}&rdquo;
                 </div>
 
-                <div className="flex items-center justify-between gap-2 pt-1 border-t border-purple-100">
-                  <button
-                    type="button"
-                    onClick={handleDiscardRewrite}
-                    className="px-2.5 py-1 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 text-[11px] font-medium cursor-pointer"
-                  >
-                    Discard
-                  </button>
+                <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={handleDiscardRewrite}
+                      className="px-2.5 py-1 rounded bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 text-[11px] font-medium cursor-pointer"
+                    >
+                      Discard
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isGeneratingRewrite}
+                      onClick={() => handleExecuteRewrite(lastRewriteInstruction)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 text-[11px] font-medium cursor-pointer disabled:opacity-50"
+                    >
+                      <RefreshCw className={`h-3 w-3 ${isGeneratingRewrite ? 'animate-spin' : ''}`} />
+                      <span>Try again</span>
+                    </button>
+                  </div>
                   <button
                     type="button"
                     onClick={handleAcceptRewrite}
-                    className="inline-flex items-center gap-1 px-3 py-1 rounded bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-semibold shadow-xs cursor-pointer"
+                    className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-medium shadow-xs cursor-pointer"
                   >
                     <Check className="h-3 w-3" />
-                    <span>Accept (Swap Inline)</span>
+                    <span>Accept</span>
                   </button>
                 </div>
               </div>
             )}
 
-            {/* Textarea Editor with smooth transition */}
             <textarea
               ref={textareaRef}
               value={canvasContent}
               onChange={(e) => onCanvasChange(e.target.value)}
               onSelect={handleSelectText}
-              placeholder="Paste or write your marketing copy here... Highlight any sentence to trigger Ask AI."
-              className={`w-full flex-1 min-h-[300px] p-4 rounded-lg border border-slate-200 bg-white text-slate-900 text-sm leading-relaxed focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 font-sans resize-none transition-all duration-300 ${
-                highlightAnimation ? 'bg-purple-50 ring-2 ring-purple-300' : ''
+              placeholder="Paste or write your marketing copy here... Highlight any sentence to open Pre-Cleared Selection Rewrite."
+              className={`w-full flex-1 min-h-[260px] p-4 rounded-lg border border-slate-200 bg-white text-slate-900 text-sm leading-relaxed focus:outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900 font-sans resize-none transition-all duration-300 ${
+                highlightAnimation ? 'bg-emerald-50/50 ring-2 ring-emerald-300' : ''
               }`}
             />
           </div>
@@ -430,14 +626,22 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
                 {findings.map((f) => (
                   <button
                     key={f.id}
-                    onClick={() => onCanvasChange(canvasContent.replace(f.claimElement, f.suggestedRewrite))}
+                    onClick={() =>
+                      onCanvasChange(canvasContent.replace(f.claimElement, f.suggestedRewrite))
+                    }
                     className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-white border border-slate-200 hover:border-slate-400 text-xs text-slate-800 transition-all cursor-pointer shadow-2xs"
                     title={`Click to replace "${f.claimElement}" with compliant wording`}
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                    <span className="font-mono text-slate-600">&ldquo;{f.claimElement}&rdquo;</span>
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        f.severity === 'BLOCKING_ISSUE' ? 'bg-rose-500' : 'bg-amber-500'
+                      }`}
+                    />
+                    <span className="font-mono text-xs text-slate-600">
+                      &ldquo;{f.claimElement}&rdquo;
+                    </span>
                     <ArrowRight className="h-3 w-3 text-slate-400" />
-                    <span className="font-medium text-emerald-700">Apply Fix</span>
+                    <span className="font-medium text-slate-900">Apply Fix</span>
                   </button>
                 ))}
               </div>
@@ -464,7 +668,7 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
             <div className="p-8 text-center rounded-lg border border-dashed border-slate-200 bg-slate-50">
               <p className="text-xs font-semibold text-slate-700">Zero isolated claims extracted yet</p>
               <p className="text-xs text-slate-500 mt-1">
-                Paste copy into the canvas or chat with the Copilot to extract and evaluate claims.
+                Paste copy into the canvas or evaluate with the Copilot to extract and register claims.
               </p>
             </div>
           ) : (
@@ -476,12 +680,16 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-bold text-slate-700">{claim.code}</span>
-                      <span className="font-mono text-xs text-slate-500">{claim.statutoryCitation}</span>
+                      <span className="font-mono text-xs text-slate-600 font-semibold">
+                        {claim.code}
+                      </span>
+                      <span className="font-mono text-xs text-slate-600">
+                        {claim.statutoryCitation}
+                      </span>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1 text-xs text-slate-700">
+                    <div className="flex items-center gap-3">
+                      <span className="inline-flex items-center gap-1.5 text-xs text-slate-700">
                         <span
                           className={`w-1.5 h-1.5 rounded-full ${
                             claim.verdict === 'BLOCKING_ISSUE'
@@ -494,11 +702,11 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
                         {claim.verdict === 'BLOCKING_ISSUE'
                           ? 'Blocking Issue'
                           : claim.verdict === 'WARNING'
-                          ? 'Warning / Disclosure'
-                          : 'Compliant'}
+                          ? 'Review Recommended'
+                          : 'No Issue Detected'}
                       </span>
 
-                      <span className="font-mono text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                      <span className="font-mono text-xs text-slate-600">
                         {claim.reviewStatus}
                       </span>
                     </div>
@@ -516,31 +724,34 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
 
                   {claim.suggestedRewrite && (
                     <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-3">
-                      <div className="text-xs text-emerald-800 font-medium">
-                        Compliant rewrite: &ldquo;{claim.suggestedRewrite}&rdquo;
+                      <div className="text-xs text-slate-800 font-medium">
+                        Pre-cleared rewrite: &ldquo;{claim.suggestedRewrite}&rdquo;
                       </div>
                       <button
-                        onClick={() => onCanvasChange(canvasContent.replace(claim.claimText, claim.suggestedRewrite!))}
-                        className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-semibold shrink-0 cursor-pointer transition-colors"
+                        onClick={() =>
+                          onCanvasChange(
+                            canvasContent.replace(claim.claimText, claim.suggestedRewrite!)
+                          )
+                        }
+                        className="px-2 py-1 rounded bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 text-[11px] font-medium shrink-0 cursor-pointer transition-colors"
                       >
                         Apply to Canvas
                       </button>
                     </div>
                   )}
 
-                  {/* Sign-off Actions */}
                   <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
                     <button
                       onClick={() => onClaimStatusChange(claim.id, 'REJECTED')}
-                      className="px-2.5 py-1 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-medium cursor-pointer"
+                      className="px-2.5 py-1 rounded bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 text-xs font-medium cursor-pointer"
                     >
                       Reject Claim
                     </button>
                     <button
                       onClick={() => onClaimStatusChange(claim.id, 'APPROVED')}
-                      className="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium cursor-pointer"
+                      className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium shadow-xs cursor-pointer"
                     >
-                      ✓ Approve Claim
+                      Approve Claim
                     </button>
                   </div>
                 </div>
@@ -565,7 +776,7 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
               </div>
               <button
                 onClick={onExportDossierClick}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold cursor-pointer shadow-xs"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium cursor-pointer shadow-xs"
               >
                 <Download className="h-3.5 w-3.5" />
                 <span>Export Official Dossier (PDF)</span>
@@ -579,11 +790,11 @@ export const LiveCanvasPane: React.FC<LiveCanvasPaneProps> = ({
               </div>
               <div className="flex justify-between py-1 border-b border-slate-100">
                 <span className="text-slate-500">Supervisory Status</span>
-                <span className="font-mono font-semibold text-slate-900">{campaign.status}</span>
+                <span className="font-mono text-xs text-slate-600">{campaign.status}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-slate-100">
                 <span className="text-slate-500">Statutory Infractions Count</span>
-                <span className="font-mono font-semibold text-slate-900">{findings.length} findings</span>
+                <span className="font-mono text-xs text-slate-600">{findings.length} findings</span>
               </div>
               <div className="flex justify-between py-1">
                 <span className="text-slate-500">Designated CCO Reviewer</span>

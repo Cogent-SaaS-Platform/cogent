@@ -74,11 +74,14 @@ export function FiveWDecisionDrawer({
     }
   };
 
-  const formattedPenalty = new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    maximumFractionDigits: 0,
-  }).format(item.statutoryPenaltyNaira);
+  const formattedPenalty =
+    item.statutoryPenaltyNaira > 0
+      ? new Intl.NumberFormat('en-NG', {
+          style: 'currency',
+          currency: 'NGN',
+          maximumFractionDigits: 0,
+        }).format(item.statutoryPenaltyNaira)
+      : 'Not explicitly specified in source text';
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden bg-black/50 backdrop-blur-sm flex justify-end transition-opacity duration-300 font-sans">
@@ -108,24 +111,26 @@ export function FiveWDecisionDrawer({
             </button>
           </div>
 
-          {/* Key Metric Pills */}
-          <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-[#DDE3EE]">
-            <div className="bg-white p-3 rounded-xl border border-[#DDE3EE] shadow-xs">
-              <span className="text-[11px] text-[#4B5565] font-semibold block mb-0.5">Statutory Fine Exposure</span>
-              <span className={`text-base font-bold font-mono ${item.statutoryPenaltyNaira > 0 ? 'text-red-700' : 'text-emerald-700'}`}>
+          {/* Key Metric Strip — Monochrome per AGENTS.md */}
+          <div className="bg-white border border-slate-200 rounded-lg grid grid-cols-3 divide-x divide-slate-200 mt-4">
+            <div className="p-3">
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-0.5">Statutory Fine Exposure</span>
+              <span className="text-xs font-bold font-mono text-slate-900 block">
                 {formattedPenalty}
               </span>
             </div>
-            <div className="bg-white p-3 rounded-xl border border-[#DDE3EE] shadow-xs">
-              <span className="text-[11px] text-[#4B5565] font-semibold block mb-0.5">Responsible Role</span>
-              <span className="text-sm font-bold text-[#0B0F1A] truncate block">
+            <div className="p-3">
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-0.5">Responsible Role</span>
+              <span className="text-xs font-bold text-slate-900 truncate block">
                 {item.responsibleRole || 'Chief Compliance Officer'}
               </span>
             </div>
-            <div className="bg-white p-3 rounded-xl border border-[#DDE3EE] shadow-xs">
-              <span className="text-[11px] text-[#4B5565] font-semibold block mb-0.5">Remediation Window</span>
-              <span className="text-sm font-bold text-amber-800 block">
-                {item.statutoryRemediationTimelineDays || 30} Days
+            <div className="p-3">
+              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-0.5">Remediation Window</span>
+              <span className="text-xs font-bold font-mono text-slate-900 block">
+                {item.statutoryRemediationTimelineDays
+                  ? `${item.statutoryRemediationTimelineDays} Days`
+                  : 'Not explicitly specified in source text'}
               </span>
             </div>
           </div>

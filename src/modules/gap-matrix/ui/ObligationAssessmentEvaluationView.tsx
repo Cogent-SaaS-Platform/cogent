@@ -10,17 +10,12 @@ import {
   Copy,
   Check,
   CheckCircle,
-  AlertCircle,
   Plus,
   Scale,
   ShieldCheck,
   Star,
   ExternalLink,
-  MoreVertical,
-  Layers,
-  Send,
   User,
-  Clock,
   Trash2,
   Edit2,
   X,
@@ -63,6 +58,8 @@ interface ObligationAssessmentEvaluationViewProps {
   analysisName: string;
   obligation: ObligationGapInspectorItem;
   policyTitle?: string;
+  initialAuditLogs?: Array<{ id: string; action: string; performedBy?: string; timestamp: string; details?: any }>;
+  initialComments?: Array<{ id: string; authorName?: string; author?: string; authorRole?: string; role?: string; timestamp?: string; time?: string; content?: string; text?: string }>;
   onBack: () => void;
   onNavigateToAnalysisList?: () => void;
   onNavigateToDetail?: () => void;
@@ -74,6 +71,8 @@ export function ObligationAssessmentEvaluationView({
   analysisName,
   obligation,
   policyTitle = 'Internal Compliance Manual',
+  initialAuditLogs = [],
+  initialComments = [],
   onBack,
   onNavigateToAnalysisList,
   onNavigateToDetail,
@@ -86,48 +85,34 @@ export function ObligationAssessmentEvaluationView({
   const [isStarred, setIsStarred] = useState(Boolean(obligation.isStarred));
   const [statusUpdateMessage, setStatusUpdateMessage] = useState<string | null>(null);
 
-  // Criteria state
+  // Criteria state (strictly grounded in real obligation criteriaEvaluations)
   const defaultCriteria: CriterionEvaluationResult[] = useMemo(() => {
     if (obligation.criteriaEvaluations && obligation.criteriaEvaluations.length > 0) {
       return obligation.criteriaEvaluations;
     }
-    const oblTitle = obligation.obligationTitle || obligation.regulatoryClauseReference || 'Statutory Obligation';
+    const oblTitle =
+      obligation.obligationTitle || obligation.regulatoryClauseReference || 'Statutory Obligation';
     return [
       {
         id: `crit-${obligation.id}-1`,
-        criterionText: `Internal operating manual explicitly mandates compliance with ${oblTitle}.`,
+        criterionText: oblTitle,
         criterionType: 'Core Criteria',
         status: obligation.complianceStatus === 'ADEQUATELY_MET' ? 'MET' : 'NOT_MET',
-        aiReason: obligation.complianceStatus === 'ADEQUATELY_MET'
-          ? 'Internal policies establish clear operational controls matching this requirement.'
-          : 'Internal policy manual contains no explicit operational guidelines for this requirement.',
-        matchedPolicySections: obligation.matchedPolicySection ? [
-          {
-            policyId: '',
-            policyTitle,
-            sectionNumber: obligation.matchedPolicySection,
-            sectionTitle: obligation.matchedPolicySection,
-            verbatimPolicyExcerpt: obligation.matchedPolicyText || 'Procedural alignment established in internal policy manual.',
-          }
-        ] : [],
-      },
-      {
-        id: `crit-${obligation.id}-2`,
-        criterionText: `Operational review thresholds and supervisory escalation mechanisms are established.`,
-        criterionType: 'Core Criteria',
-        status: obligation.complianceStatus !== 'CRITICAL_GAP' ? 'MET' : 'NOT_MET',
-        aiReason: obligation.complianceStatus !== 'CRITICAL_GAP'
-          ? 'Supervisory escalation thresholds are documented in internal compliance directives.'
-          : 'Missing concrete supervisory escalation mechanisms or designated operational officers.',
-        matchedPolicySections: [],
-      },
-      {
-        id: `crit-${obligation.id}-3`,
-        criterionText: `Inspection-ready audit trails and immutable logs are archived for supervisory verification.`,
-        criterionType: 'Best Practice',
-        status: obligation.complianceStatus === 'ADEQUATELY_MET' ? 'MET' : 'NOT_MET',
-        aiReason: 'Retention and audit logging procedures are maintained across operational ledgers.',
-        matchedPolicySections: [],
+        aiReason:
+          obligation.derivedInsight ||
+          'Not explicitly specified in source text — link internal policy section evidence or re-run concordance evaluation.',
+        matchedPolicySections: obligation.matchedPolicySection
+          ? [
+              {
+                policyId: '',
+                policyTitle,
+                sectionNumber: obligation.matchedPolicySection,
+                sectionTitle: obligation.matchedPolicySection,
+                verbatimPolicyExcerpt:
+                  obligation.matchedPolicyText || 'Not explicitly specified in source text',
+              },
+            ]
+          : [],
       },
     ];
   }, [obligation, policyTitle]);
@@ -143,29 +128,28 @@ export function ObligationAssessmentEvaluationView({
 
   // Action Items state
   const [actionItems, setActionItems] = useState<Array<{ id: string; title: string; completed: boolean }>>(
-    (obligation.actionItems && obligation.actionItems.length > 0)
+    obligation.actionItems && obligation.actionItems.length > 0
       ? obligation.actionItems.map((a, idx) => ({ id: a.id || String(idx), title: a.title, completed: Boolean(a.completed) }))
-      : [
-          {
-            id: 'act-1',
-            title: `Incorporate statutory mandate ${obligation.obligationCode || 'OBL'} into manual`,
-            completed: obligation.complianceStatus === 'ADEQUATELY_MET',
-          },
-        ]
+      : []
   );
   const [isAddingActionItem, setIsAddingActionItem] = useState(false);
   const [newActionItemTitle, setNewActionItemTitle] = useState('');
 
-  // Comments state
-  const [comments, setComments] = useState<Array<{ id: string; author: string; role: string; time: string; text: string }>>([
-    {
-      id: 'c1',
-      author: 'Compliance Officer',
-      role: 'Reviewer',
-      time: 'Recently',
-      text: `Autonomous concordance evaluation completed for ${obligation.obligationCode || 'obligation'}. Reviewer verification in progress.`,
-    },
-  ]);
+  // Comments & Audit Logs state (strictly DB-backed)
+  const [comments, setComments] = useState<Array<{ id: string; author: string; role: string; time: string; text: string }>>(
+    initialComments.map((c, idx) => ({
+      id: c.id || String(idx),
+      author: c.authorName || c.author || 'Authorized Compliance Officer',
+      role: c.authorRole || c.role || 'Reviewer',
+      time: c.timestamp
+        ? new Date(c.timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+        : c.time || '',
+      text: c.content || c.text || '',
+    }))
+  );
+  const [auditLogs, setAuditLogs] = useState<
+    Array<{ id: string; action: string; performedBy?: string; timestamp: string; details?: any }>
+  >(initialAuditLogs);
   const [newCommentText, setNewCommentText] = useState('');
   const [activeTab, setActiveTab] = useState<'COMMENTS' | 'AUDIT_LOGS'>('COMMENTS');
 
@@ -176,15 +160,33 @@ export function ObligationAssessmentEvaluationView({
   useEffect(() => {
     setCurrentStatus(obligation.complianceStatus);
     setCriteria(defaultCriteria);
-  }, [obligation, defaultCriteria]);
+    setActionItems(
+      obligation.actionItems && obligation.actionItems.length > 0
+        ? obligation.actionItems.map((a, idx) => ({ id: a.id || String(idx), title: a.title, completed: Boolean(a.completed) }))
+        : []
+    );
+    setAuditLogs(initialAuditLogs);
+    setComments(
+      initialComments.map((c, idx) => ({
+        id: c.id || String(idx),
+        author: c.authorName || c.author || 'Authorized Compliance Officer',
+        role: c.authorRole || c.role || 'Reviewer',
+        time: c.timestamp
+          ? new Date(c.timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+          : c.time || '',
+        text: c.content || c.text || '',
+      }))
+    );
+  }, [obligation, defaultCriteria, initialAuditLogs, initialComments]);
 
   // Compute Core criteria fulfillment count
   const coreCriteria = criteria.filter((c) => c.criterionType === 'Core Criteria');
-  const totalCoreCount = coreCriteria.length || 1;
-  const metCoreCount = coreCriteria.filter((c) => c.status === 'MET').length;
+  const rollupBasis = coreCriteria.length > 0 ? coreCriteria : criteria;
+  const totalCoreCount = rollupBasis.length || 1;
+  const metCoreCount = rollupBasis.filter((c) => c.status === 'MET').length;
   const corePct = Math.round((metCoreCount / totalCoreCount) * 100);
 
-  // 1. Toggle / Override Criterion Verdict (Ref Video 03:30 & 03:44)
+  // 1. Toggle / Override Criterion Verdict
   const handleToggleCriterionStatus = async (idx: number, targetStatus?: 'MET' | 'NOT_MET') => {
     const currentVal = criteria[idx].status;
     const nextVal = targetStatus || (currentVal === 'MET' ? 'NOT_MET' : 'MET');
@@ -195,10 +197,10 @@ export function ObligationAssessmentEvaluationView({
     setCriteria(updatedList);
     setActiveOverrideDropdownIdx(null);
 
-    // Deterministic Roll-Up Math
     const updatedCore = updatedList.filter((c) => c.criterionType === 'Core Criteria');
-    const updatedTotalCore = updatedCore.length || 1;
-    const updatedMetCore = updatedCore.filter((c) => c.status === 'MET').length;
+    const basis = updatedCore.length > 0 ? updatedCore : updatedList;
+    const updatedTotalCore = basis.length || 1;
+    const updatedMetCore = basis.filter((c) => c.status === 'MET').length;
 
     let derivedStatus: ComplianceStatus = 'CRITICAL_GAP';
     if (updatedMetCore === updatedTotalCore) {
@@ -217,9 +219,8 @@ export function ObligationAssessmentEvaluationView({
     setStatusUpdateMessage(`Criterion marked as ${nextVal === 'MET' ? 'Met ✓' : 'Not Met ✕'}. Obligation recalculated to ${derivedStatus}.`);
     setTimeout(() => setStatusUpdateMessage(null), 3000);
 
-    // Persist to backend API
     try {
-      await fetch('/api/gap-matrix/evaluations', {
+      const res = await fetch('/api/gap-matrix/evaluations', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -230,6 +231,10 @@ export function ObligationAssessmentEvaluationView({
           complianceStatus: derivedStatus,
         }),
       });
+      const json = await res.json().catch(() => ({}));
+      if (json.success && Array.isArray(json.data?.auditLogs)) {
+        setAuditLogs(json.data.auditLogs);
+      }
     } catch (err) {
       console.error('Failed to persist criterion override:', err);
     }
@@ -267,10 +272,10 @@ export function ObligationAssessmentEvaluationView({
     setNewSectionInput('');
     setNewNotesInput('');
 
-    // Recompute roll-up
     const updatedCore = updatedList.filter((c) => c.criterionType === 'Core Criteria');
-    const updatedTotalCore = updatedCore.length || 1;
-    const updatedMetCore = updatedCore.filter((c) => c.status === 'MET').length;
+    const basis = updatedCore.length > 0 ? updatedCore : updatedList;
+    const updatedTotalCore = basis.length || 1;
+    const updatedMetCore = basis.filter((c) => c.status === 'MET').length;
 
     let derivedStatus: ComplianceStatus = 'CRITICAL_GAP';
     if (updatedMetCore === updatedTotalCore) derivedStatus = 'ADEQUATELY_MET';
@@ -283,7 +288,7 @@ export function ObligationAssessmentEvaluationView({
     setTimeout(() => setStatusUpdateMessage(null), 3000);
 
     try {
-      await fetch('/api/gap-matrix/evaluations', {
+      const res = await fetch('/api/gap-matrix/evaluations', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -296,6 +301,10 @@ export function ObligationAssessmentEvaluationView({
           complianceStatus: derivedStatus,
         }),
       });
+      const json = await res.json().catch(() => ({}));
+      if (json.success && Array.isArray(json.data?.auditLogs)) {
+        setAuditLogs(json.data.auditLogs);
+      }
     } catch (err) {
       console.error('Failed saving policy evidence:', err);
     }
@@ -330,7 +339,7 @@ export function ObligationAssessmentEvaluationView({
     setIsAddingActionItem(false);
 
     try {
-      await fetch('/api/gap-matrix/evaluations', {
+      const res = await fetch('/api/gap-matrix/evaluations', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -342,31 +351,82 @@ export function ObligationAssessmentEvaluationView({
           },
         }),
       });
+      const json = await res.json().catch(() => ({}));
+      if (json.success && Array.isArray(json.data?.actionItems)) {
+        setActionItems(
+          json.data.actionItems.map((a: any, idx: number) => ({
+            id: a.id || String(idx),
+            title: a.title,
+            completed: Boolean(a.completed),
+          }))
+        );
+      }
+      if (json.success && Array.isArray(json.data?.auditLogs)) {
+        setAuditLogs(json.data.auditLogs);
+      }
     } catch (err) {
       console.error('Failed saving action item:', err);
     }
   };
 
-  const handleToggleActionItem = (id: string) => {
+  const handleToggleActionItem = async (id: string) => {
     setActionItems((prev) =>
       prev.map((it) => (it.id === id ? { ...it, completed: !it.completed } : it))
     );
+    try {
+      const res = await fetch('/api/gap-matrix/evaluations', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          evaluationId: obligation.evaluationId,
+          itemId: obligation.id,
+          toggleActionItemId: id,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json.success && Array.isArray(json.data?.auditLogs)) {
+        setAuditLogs(json.data.auditLogs);
+      }
+    } catch (err) {
+      console.error('Failed toggling action item:', err);
+    }
   };
 
-  // 5. Add Comment
-  const handlePostComment = () => {
+  // 5. Add Comment (persisted to DB)
+  const handlePostComment = async () => {
     if (!newCommentText.trim()) return;
-    setComments((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        author: 'Authorized Compliance Officer',
-        role: 'Reviewer',
-        time: 'Just now',
-        text: newCommentText.trim(),
-      },
-    ]);
+    const content = newCommentText.trim();
+    const optimistic = {
+      id: crypto.randomUUID(),
+      author: 'Authorized Compliance Officer',
+      role: 'Reviewer',
+      time: 'Just now',
+      text: content,
+    };
+    setComments((prev) => [optimistic, ...prev]);
     setNewCommentText('');
+
+    try {
+      const res = await fetch('/api/gap-matrix/evaluations', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          evaluationId: obligation.evaluationId,
+          itemId: obligation.id,
+          newComment: {
+            content,
+            authorName: 'Authorized Compliance Officer',
+            authorRole: 'Reviewer',
+          },
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (json.success && Array.isArray(json.data?.auditLogs)) {
+        setAuditLogs(json.data.auditLogs);
+      }
+    } catch (err) {
+      console.error('Failed persisting comment:', err);
+    }
   };
 
   const handleCopyClause = () => {
@@ -387,12 +447,12 @@ export function ObligationAssessmentEvaluationView({
   };
 
   const fullTitle = obligation.obligationTitle || obligation.regulatoryClauseReference || 'Statutory Compliance Obligation';
-  const fullCode = obligation.obligationCode || 'OBL-CBN-001';
+  const fullCode = obligation.obligationCode || obligation.regulatoryClauseReference || 'OBL';
   const fullDescription = obligation.obligationDescription || obligation.whatHappened;
 
   return (
     <div className="space-y-6">
-      {/* 1. Top Breadcrumb Trail (Ref Video 03:21) */}
+      {/* 1. Top Breadcrumb Trail */}
       <div className="flex items-center justify-between pb-3 border-b border-slate-200">
         <div className="flex items-center gap-2 min-w-0">
           <button
@@ -469,9 +529,8 @@ export function ObligationAssessmentEvaluationView({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column (8 cols / ~70%) */}
         <div className="lg:col-span-8 space-y-6">
-          {/* Statutory Obligation Header Block (Untruncated) */}
+          {/* Statutory Obligation Header Block */}
           <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-2xs space-y-3.5">
-            {/* Top Subtitle Metadata */}
             <div className="flex items-center gap-2 text-xs font-mono text-slate-500">
               <span className="font-bold text-slate-800">{fullCode}</span>
               <span>•</span>
@@ -480,17 +539,14 @@ export function ObligationAssessmentEvaluationView({
               <span>{obligation.policyApplicability || 'Policy Applicable'}</span>
             </div>
 
-            {/* Untruncated Obligation Title */}
             <h1 className="text-xl font-bold text-slate-900 tracking-tight leading-snug">
               {fullTitle}
             </h1>
 
-            {/* Complete Plain-English / Verbatim Paragraph */}
             <p className="text-xs text-slate-700 leading-relaxed font-sans">
               {fullDescription}
             </p>
 
-            {/* Document Source Regulation Pill */}
             <div className="pt-1 flex flex-wrap items-center gap-2">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700">
                 <BookOpen className="w-3.5 h-3.5 text-slate-500 shrink-0" />
@@ -501,19 +557,18 @@ export function ObligationAssessmentEvaluationView({
 
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-xs font-mono font-medium">
                 <span className="text-slate-400">Section:</span>
-                <span>{obligation.sourceSectionRef || 'Section 1.0'}</span>
+                <span>{obligation.sourceSectionRef || 'Not explicitly specified in source text'}</span>
               </div>
             </div>
           </div>
 
-          {/* Assessment Coverage Summary Bar (Ref Video 03:23) */}
+          {/* Assessment Coverage Summary Bar */}
           <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-2xs flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <span className="text-xs font-semibold text-slate-700">Assessment coverage</span>
-              {/* 6px Status Dot per AGENTS.md */}
               <span className="inline-flex items-center gap-1.5 text-xs text-slate-800 font-medium px-2 py-0.5 rounded bg-slate-100">
                 <span
-                  className={`w-2 h-2 rounded-full ${
+                  className={`w-1.5 h-1.5 rounded-full ${
                     currentStatus === 'ADEQUATELY_MET'
                       ? 'bg-emerald-500'
                       : currentStatus === 'PARTIALLY_MET'
@@ -532,7 +587,6 @@ export function ObligationAssessmentEvaluationView({
               <Scale className="w-3.5 h-3.5 text-slate-400" />
             </div>
 
-            {/* Dynamic Core Criteria Math (e.g. 2/3 Core criteria fulfilled) */}
             <div className="flex items-center gap-3">
               <div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden flex">
                 <div
@@ -556,11 +610,11 @@ export function ObligationAssessmentEvaluationView({
               Assessment Criteria ({criteria.length})
             </h2>
             <span className="text-[11px] text-slate-400">
-              Hover verdict badge to manually override
+              Click verdict badge to manually override
             </span>
           </div>
 
-          {/* Criterion-by-Criterion Evaluation Cards (The Core Engine — Ref Video 03:24 – 03:45) */}
+          {/* Criterion-by-Criterion Evaluation Cards */}
           <div className="space-y-4">
             {criteria.map((crit, idx) => {
               const isMet = crit.status === 'MET';
@@ -572,7 +626,6 @@ export function ObligationAssessmentEvaluationView({
                   key={crit.id || idx}
                   className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs transition-all"
                 >
-                  {/* Collapsed / Header Row */}
                   <div className="p-4 flex items-start justify-between gap-4 bg-white hover:bg-slate-50/60 transition-colors">
                     <div
                       onClick={() => setExpandedCriteria((prev) => ({ ...prev, [idx]: !isExpanded }))}
@@ -589,7 +642,6 @@ export function ObligationAssessmentEvaluationView({
                       </div>
                     </div>
 
-                    {/* Interactive Verdict Badge with Human Override Dropdown */}
                     <div className="flex items-center gap-2 shrink-0 relative">
                       <div className="relative">
                         <button
@@ -607,7 +659,6 @@ export function ObligationAssessmentEvaluationView({
                           <ChevronDown className="w-3 h-3 opacity-50" />
                         </button>
 
-                        {/* Override Dropdown (Ref Video 03:30 & 03:44) */}
                         {isOverrideOpen && (
                           <div className="absolute right-0 top-8 z-30 w-36 bg-white border border-slate-200 rounded-xl shadow-lg py-1 text-xs animate-in fade-in duration-150">
                             <button
@@ -640,10 +691,9 @@ export function ObligationAssessmentEvaluationView({
                     </div>
                   </div>
 
-                  {/* Expanded Body (Ref Video 03:26 - 03:45) */}
                   {isExpanded && (
                     <div className="px-5 pb-5 pt-2 border-t border-slate-100 bg-slate-50/40 space-y-4">
-                      {/* 1. AI Reason Box */}
+                      {/* 1. Concordance Rationale Box */}
                       <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-1">
                         <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 uppercase tracking-wider">
                           <Scale className="w-3.5 h-3.5 text-slate-500" />
@@ -678,7 +728,6 @@ export function ObligationAssessmentEvaluationView({
                           </button>
                         </div>
 
-                        {/* List of matched sections from the user's actual policy */}
                         {crit.matchedPolicySections && crit.matchedPolicySections.length > 0 ? (
                           <div className="pl-6 space-y-2 text-xs">
                             {crit.matchedPolicySections.map((sec, sIdx) => (
@@ -725,7 +774,6 @@ export function ObligationAssessmentEvaluationView({
                         )}
                       </div>
 
-                      {/* Inline + Add Section Form */}
                       {addingEvidenceIdx === idx && (
                         <div className="p-3.5 bg-white border border-slate-300 rounded-lg space-y-3 animate-in fade-in duration-150">
                           <span className="text-xs font-semibold text-slate-900 block">
@@ -770,7 +818,7 @@ export function ObligationAssessmentEvaluationView({
             })}
           </div>
 
-          {/* Cogent Remediation Booster: Draft Policy Remediation Language */}
+          {/* Draft Policy Remediation Language */}
           {currentStatus !== 'ADEQUATELY_MET' && (
             <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs space-y-3">
               <div className="flex items-center justify-between">
@@ -819,7 +867,7 @@ export function ObligationAssessmentEvaluationView({
                     : 'border-transparent text-slate-500 hover:text-slate-800'
                 }`}
               >
-                Audit Logs (1)
+                Audit Logs ({auditLogs.length})
               </button>
             </div>
 
@@ -858,38 +906,65 @@ export function ObligationAssessmentEvaluationView({
                 </>
               ) : (
                 <div className="space-y-2 text-xs font-mono text-slate-600">
-                  <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
-                    <div className="flex items-center justify-between text-[11px] text-slate-400">
-                      <span>AUTOMATED_CONCORDANCE_RUN</span>
-                      <span>{new Date().toISOString().slice(0, 10)}</span>
+                  {auditLogs.length === 0 ? (
+                    <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-slate-500 font-sans">
+                      No audit log entries recorded yet for this obligation.
                     </div>
-                    <p className="text-slate-800 font-sans">
-                      Obligation {fullCode} evaluated against {policyTitle}. Met criteria: {metCoreCount}/{totalCoreCount}.
-                    </p>
-                  </div>
+                  ) : (
+                    auditLogs.map((log, idx) => (
+                      <div key={log.id || idx} className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
+                        <div className="flex items-center justify-between text-[11px] text-slate-400">
+                          <span>{log.action}</span>
+                          <span>{log.timestamp ? new Date(log.timestamp).toISOString().replace('T', ' ').slice(0, 19) : ''}</span>
+                        </div>
+                        <p className="text-slate-800 font-sans">
+                          {typeof log.details === 'string'
+                            ? log.details
+                            : log.details
+                            ? JSON.stringify(log.details)
+                            : `${log.performedBy ? `${log.performedBy} — ` : ''}Obligation ${fullCode} (${metCoreCount}/${totalCoreCount} core criteria fulfilled).`}
+                        </p>
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Right Action & Context Rail (4 cols / ~30% — Ref Video 03:22 - 03:54) */}
+        {/* Right Action & Context Rail */}
         <div className="lg:col-span-4 space-y-6">
-          {/* Actions Card */}
           <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs space-y-4">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
               Actions
             </span>
 
-            {/* Review Status Selector */}
             <div className="space-y-1.5">
               <label className="text-[11px] text-slate-500 block">Review status</label>
               <select
                 value={currentStatus}
-                onChange={(e) => {
+                onChange={async (e) => {
                   const s = e.target.value as ComplianceStatus;
                   setCurrentStatus(s);
                   if (onStatusChange) onStatusChange(obligation.id, s);
+                  try {
+                    const res = await fetch('/api/gap-matrix/evaluations', {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        evaluationId: obligation.evaluationId,
+                        itemId: obligation.id,
+                        complianceStatus: s,
+                      }),
+                    });
+                    const json = await res.json().catch(() => ({}));
+                    if (json.success && Array.isArray(json.data?.auditLogs)) {
+                      setAuditLogs(json.data.auditLogs);
+                    }
+                  } catch (err) {
+                    console.error('Failed to persist review status:', err);
+                  }
                 }}
                 className="w-full text-xs p-2 bg-slate-50 border border-slate-200 rounded-lg outline-none cursor-pointer font-medium"
               >
@@ -899,7 +974,6 @@ export function ObligationAssessmentEvaluationView({
               </select>
             </div>
 
-            {/* Assignee Selector */}
             <div className="space-y-1.5">
               <label className="text-[11px] text-slate-500 block">Assignee</label>
               <div className="flex items-center gap-2 p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700">
@@ -908,7 +982,6 @@ export function ObligationAssessmentEvaluationView({
               </div>
             </div>
 
-            {/* Share & Export Buttons */}
             <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
               <button
                 type="button"
@@ -927,7 +1000,6 @@ export function ObligationAssessmentEvaluationView({
             </div>
           </div>
 
-          {/* Mapped Policies Card */}
           <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs space-y-3">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">
               Mapped Policies
@@ -940,7 +1012,6 @@ export function ObligationAssessmentEvaluationView({
             </div>
           </div>
 
-          {/* Action Items Card (Ref Video 03:23) */}
           <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs space-y-3.5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block">

@@ -93,8 +93,11 @@ export function ExecutiveDashboard({
 
   // Cascade Simulator State
   const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
-  const [simulatorCircularId, setSimulatorCircularId] = useState('b20fb350-262a-409c-a7bc-9807604da6ec');
-  const [simulatorCircularName, setSimulatorCircularName] = useState('PSM/DIR/CON/CWS/08/014 - Contactless Payment Limits');
+  const [simulatorCircularId, setSimulatorCircularId] = useState('');
+  const [simulatorCircularName, setSimulatorCircularName] = useState('');
+  const [availableCirculars, setAvailableCirculars] = useState<
+    Array<{ id: string; circularNumber: string; subject: string }>
+  >([]);
   const [isSimulating, setIsSimulating] = useState(false);
   const [cascadeResult, setCascadeResult] = useState<{
     gapCascade?: {
@@ -149,6 +152,29 @@ export function ExecutiveDashboard({
       if (execRes.ok) {
         const json = await execRes.json();
         setData(json.data);
+      }
+
+      // 3. Populate live circulars for Cascade Simulator if not yet loaded
+      if (availableCirculars.length === 0) {
+        const circRes = await fetch('/api/radar/circulars?limit=15');
+        if (circRes.ok) {
+          const circJson = await circRes.json();
+          const list = Array.isArray(circJson.circulars)
+            ? circJson.circulars
+            : Array.isArray(circJson.data)
+            ? circJson.data
+            : [];
+          const mapped = list.map((c: any) => ({
+            id: c.id,
+            circularNumber: c.circularNumber || c.circular_number || 'CIR',
+            subject: c.subject || c.title || 'Directive',
+          }));
+          setAvailableCirculars(mapped);
+          if (mapped.length > 0 && !simulatorCircularId) {
+            setSimulatorCircularId(mapped[0].id);
+            setSimulatorCircularName(`${mapped[0].circularNumber} — ${mapped[0].subject}`);
+          }
+        }
       }
     } catch (err) {
       console.warn('Failed loading overview data from API; retaining current telemetry state', err);
@@ -272,16 +298,17 @@ export function ExecutiveDashboard({
       {/* 2. Upcoming Deadlines Interactive Timeline (Zango Style) */}
       <UpcomingDeadlinesTimeline
         deadlines={dashboardData?.upcomingDeadlines}
+        allDeadlines={dashboardData?.allUpcomingDeadlines}
         gates={data?.urgentGates}
         onRefresh={fetchOverview}
         onInspectDeadline={(item) => router.push(item.targetUrl)}
         onInspectGate={(gate) =>
           handleNavigate(
             gate.sourcePillar === 'radar'
-              ? `/insight?search=${encodeURIComponent(gate.regulatorCode || gate.title)}`
+              ? `/insight?alertId=${encodeURIComponent(gate.id)}`
               : gate.sourcePillar === 'gap-matrix'
-              ? `/gap?gate=${encodeURIComponent(gate.id)}`
-              : `/marketing?gate=${encodeURIComponent(gate.id)}`,
+              ? `/gap/${encodeURIComponent(gate.id)}`
+              : `/marketing`,
             gate.linkContext.targetPillar,
             gate.linkContext
           )
@@ -347,18 +374,15 @@ export function ExecutiveDashboard({
                   }}
                   className="w-full bg-[#F5F6FA] border border-[#DDE3EE] rounded-xl px-3 py-2 text-xs text-[#0B0F1A] focus:outline-none focus:border-[#2A4BFF]"
                 >
-                  <option value="b20fb350-262a-409c-a7bc-9807604da6ec">
-                    CBN PSM/DIR/CON/CWS/08/014 — Operational Directive on Contactless Payments
-                  </option>
-                  <option value="d56e2659-4f9e-4ef8-b264-af73a0d60de5">
-                    SEC CIR/VASP/2026/009 — Directive on Virtual Assets & Investment Guarantees
-                  </option>
-                  <option value="cbn-cpf-2026-consumer">
-                    CBN DIR/CON/2026/04 — Digital Lending APR Transparency & Fee Cap
-                  </option>
-                  <option value="arcon-asp-2026-promo">
-                    ARCON DIR/2026/01 — Advertising Vetting & Direct Identification
-                  </option>
+                  {availableCirculars.length > 0 ? (
+                    availableCirculars.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.circularNumber} — {c.subject}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">No ingested circulars available</option>
+                  )}
                 </select>
               </div>
 

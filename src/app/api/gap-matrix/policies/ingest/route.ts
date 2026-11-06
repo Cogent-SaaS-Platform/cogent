@@ -3,13 +3,24 @@ import { PolicyIngestionService } from '@/modules/gap-matrix/services/policyInge
 import { getTenantContext } from '@/shared/auth';
 import { OrgDepartment } from '@/shared/types';
 import { logger } from '@/shared/logger';
+import { verifyEntitlement } from '@/lib/plans';
 
 export async function POST(req: NextRequest) {
   try {
     const contentType = req.headers.get('content-type') || '';
-    const tenantCtx = await getTenantContext();
+    const tenantCtx = await getTenantContext({ allowDevFallback: true });
+
+    const entitlement = await verifyEntitlement(
+      tenantCtx.dbClient,
+      tenantCtx.organizationId,
+      'POLICY_UPLOAD'
+    );
+    if (!entitlement.allowed) {
+      return NextResponse.json(entitlement.errorPayload, { status: entitlement.statusCode });
+    }
+
     const policyIngestionService = new PolicyIngestionService({ dbClient: tenantCtx.dbClient });
-    
+
     const organizationId = tenantCtx.organizationId;
     let title = 'Company Compliance Manual';
     let department = 'COMPLIANCE_LEGAL';
@@ -17,7 +28,6 @@ export async function POST(req: NextRequest) {
     let rawText = '';
     let fileBuffer: Buffer | undefined;
     let mimeType = 'text/plain';
-
     let versionTag = '1.0';
 
     if (contentType.includes('multipart/form-data')) {

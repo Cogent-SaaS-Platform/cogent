@@ -90,13 +90,14 @@ export function AuditDefensePackModal({
     window.print();
   };
 
-  const formattedExposure = dossier
-    ? new Intl.NumberFormat('en-NG', {
-        style: 'currency',
-        currency: 'NGN',
-        maximumFractionDigits: 0,
-      }).format(dossier.totalPotentialPenaltyNaira)
-    : '₦0';
+  const formattedExposure =
+    dossier && dossier.totalPotentialPenaltyNaira > 0
+      ? new Intl.NumberFormat('en-NG', {
+          style: 'currency',
+          currency: 'NGN',
+          maximumFractionDigits: 0,
+        }).format(dossier.totalPotentialPenaltyNaira)
+      : 'Not specified';
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
@@ -368,10 +369,10 @@ export function AuditDefensePackModal({
                               </span>
                             )}
                           </td>
-                          <td className="p-3 font-mono text-xs text-slate-900 font-bold">
+                          <td className="p-3 font-mono text-xs text-slate-600">
                             {item.statutoryPenaltyNaira > 0
                               ? `₦${(item.statutoryPenaltyNaira / 1_000_000).toFixed(1)}M`
-                              : '₦0'}
+                              : 'Not explicitly specified in source text'}
                           </td>
                           <td className="p-3 text-slate-600">{item.responsibleRole || 'Chief Compliance Officer'}</td>
                         </tr>
@@ -405,11 +406,14 @@ export function AuditDefensePackModal({
                             Remediation #{idx + 1}: {item.regulatoryClauseReference}
                           </span>
                           <span className="font-mono text-xs text-slate-600">
-                            Cure Window: {item.statutoryRemediationTimelineDays || 30} Days
+                            Cure Window:{' '}
+                            {item.statutoryRemediationTimelineDays
+                              ? `${item.statutoryRemediationTimelineDays} Days`
+                              : 'Not explicitly specified in source text'}
                           </span>
                         </div>
                         <div className="text-slate-600">
-                          <strong className="text-slate-900">Owner:</strong> {item.responsibleRole || 'Chief Compliance Officer'} &bull; <strong className="text-slate-900">Citation:</strong> <span className="font-mono text-xs text-slate-600">{item.statutoryLegalCitation || 'BOFIA 2020'}</span>
+                          <strong className="text-slate-900">Owner:</strong> {item.responsibleRole || 'Chief Compliance Officer'} &bull; <strong className="text-slate-900">Citation:</strong> <span className="font-mono text-xs text-slate-600">{item.statutoryLegalCitation || 'Not explicitly specified in source text'}</span>
                         </div>
                         <div className="p-3 rounded bg-slate-50 border border-slate-200 text-slate-900 font-mono text-[11px] leading-relaxed">
                           &ldquo;{replacement}&rdquo;

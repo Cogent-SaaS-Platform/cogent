@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/shared/auth';
+import { createAdminClient } from '@/shared/db';
 import { logger } from '@/shared/logger';
 import { ObligationUserOverride } from '@/shared/types';
 
@@ -8,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
   try {
     const tenantCtx = await getTenantContext({ allowDevFallback: true });
-    const db = tenantCtx.dbClient;
+    const db = createAdminClient();
     const organizationId = tenantCtx.organizationId;
     const userId = tenantCtx.userId;
 
@@ -25,14 +26,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    logger.info(
-      { organizationId, userId, obligationId, status: override.status },
-      'Saving obligation user override'
-    );
-
-    // Save or update in database if table exists; fallback to logging if seed obligation
-    try {
-      await (db as any).from('obligation_user_overrides').upsert({
+    const nowIso = new Date().toISOString();
+    const { error: dbErr } = await (db as any).from('obligation_user_overrides').upsert(
+      {
         organization_id: organizationId,
         obligation_id: obligationId,
         status: override.status,
@@ -40,12 +36,18 @@ export async function POST(req: NextRequest) {
         internal_sop_citation: override.internalSopCitation || null,
         assigned_owner: override.assignedOwner || null,
         verified_criteria_ids: override.verifiedCriteriaIds || [],
-        updated_by: userId,
-        updated_at: new Date().toISOString(),
-      });
-    } catch (dbErr) {
-      // Non-blocking fallback for seeded/mocked environments
-      logger.info({ dbErr }, 'Logged override for seeded obligation');
+        updated_by: userId || null,
+        updated_at: nowIso,
+      },
+      { onConflict: 'organization_id,obligation_id' }
+    );
+
+    if (dbErr) {
+      logger.error({ error: dbErr.message, obligationId }, 'Failed persisting obligation override');
+      return NextResponse.json(
+        { success: false, error: `Failed saving obligation override: ${dbErr.message}` },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
@@ -55,7 +57,7 @@ export async function POST(req: NextRequest) {
         obligationId,
         override: {
           ...override,
-          lastReviewedAt: new Date().toISOString(),
+          lastReviewedAt: nowIso,
         },
       },
     });

@@ -18,7 +18,9 @@ export async function POST(
   try {
     const { id: obligationId } = await params;
     const db = createAdminClient();
-    const tenantCtx = await getTenantContext({ allowDevFallback: true });
+    const tenantCtx = await getTenantContext({
+      allowDevFallback: process.env.NODE_ENV !== 'production',
+    });
 
     // Enforce Pro entitlement for adding criteria
     const entitlement = await verifyEntitlement(db, tenantCtx.organizationId, 'EDIT_OBLIGATION_CRITERIA');
@@ -41,7 +43,7 @@ export async function POST(
 
     if (isUuid) {
       // 1. Insert into relational table
-      await ((db as any).from('obligation_assessment_criteria')).insert({
+      const { error: insertErr } = await ((db as any).from('obligation_assessment_criteria')).insert({
         id: newCriterionId,
         obligation_id: obligationId,
         criterion_type: criterionType,
@@ -50,6 +52,14 @@ export async function POST(
         is_mandatory: criterionType === 'Core Criteria',
         order_index: 99,
       });
+
+      if (insertErr) {
+        logger.error({ error: insertErr.message, obligationId }, 'Failed inserting obligation criterion');
+        return NextResponse.json(
+          { success: false, error: `Database error inserting criterion: ${insertErr.message}` },
+          { status: 500 }
+        );
+      }
 
       // 2. Also sync to JSONB on regulatory_obligations
       const { data: obl } = await (db.from('regulatory_obligations') as any)
@@ -74,8 +84,21 @@ export async function POST(
           .update({ assessment_criteria: updatedCriteria })
           .eq('id', obligationId);
 
-        // Record audit log
+        // Record audit log in both instrument JSONB and tenant audit_logs table
         try {
+          await (db.from('audit_logs') as any).insert({
+            organization_id: tenantCtx.organizationId,
+            actor_id: tenantCtx.userId,
+            action: 'OBLIGATION_CRITERION_ADDED',
+            resource_type: 'regulatory_obligation',
+            resource_id: obligationId,
+            metadata: {
+              criterionId: newCriterionId,
+              criterionType,
+              criterionText,
+            },
+          });
+
           const { data: clause } = await (db.from('regulatory_clauses') as any)
             .select('document_version_id')
             .eq('id', obl.clause_id)
@@ -109,7 +132,9 @@ export async function POST(
                 .eq('id', ver.instrument_id);
             }
           }
-        } catch {}
+        } catch (auditErr: unknown) {
+          logger.warn({ err: String(auditErr), obligationId }, 'Failed recording audit log for new criterion');
+        }
       }
     }
 

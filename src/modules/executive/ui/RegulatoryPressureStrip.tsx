@@ -33,7 +33,7 @@ export function RegulatoryPressureStrip({
   trendingTopics = [],
   impactedPolicies = [],
   totalAlerts90d,
-  trendPercentage = '↑24%',
+  trendPercentage = '→ 0%',
   totalImpactedSections,
   onSelectTopic,
   onSelectPolicy,
@@ -41,7 +41,7 @@ export function RegulatoryPressureStrip({
   const router = useRouter();
 
   // Compute total alerts count from props or telemetry
-  const alertsCount = totalAlerts90d ?? telemetry?.radar?.activeCirculars ?? 86;
+  const alertsCount = totalAlerts90d ?? telemetry?.radar?.activeCirculars ?? 0;
 
   // Compute total impacted sections
   const impactedSectionsCount =
@@ -50,12 +50,13 @@ export function RegulatoryPressureStrip({
     impactedPolicies.reduce((sum, p) => sum + (p.alertCount || 0), 0);
 
   const handleTopicClick = (topic: any) => {
-    if (onSelectTopic) {
-      onSelectTopic(topic.name);
-    } else if (topic.filterUrl) {
+    const keyOrName = topic.topicKey || topic.name;
+    if (topic.filterUrl && !onSelectTopic) {
       router.push(topic.filterUrl);
+    } else if (onSelectTopic) {
+      onSelectTopic(keyOrName);
     } else {
-      router.push(`/insight?topic=${encodeURIComponent(topic.name)}`);
+      router.push(`/insight?topic=${encodeURIComponent(keyOrName)}`);
     }
   };
 

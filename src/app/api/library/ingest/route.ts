@@ -10,7 +10,7 @@ import { uploadDocument, getPresignedDownloadUrl } from '@/shared/storage';
 import { verifyEntitlement } from '@/lib/plans';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60; // 60 seconds max duration for deep AI extraction
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   try {
@@ -219,7 +219,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // RUN BACKEND AI EXTRACTION PIPELINE
+    // RUN STRUCTURED STATUTORY EXTRACTION PIPELINE
     const extractionService = new RegulatoryExtractionService();
     const extractedData = await extractionService.extractRegulationAndObligations({
       cleanText,
@@ -240,7 +240,14 @@ export async function POST(req: NextRequest) {
       capturedText: cleanText,
       owner: 'Chief Compliance Officer',
       organizationId: tenantCtx.organizationId,
+      userId: tenantCtx.userId,
     });
+
+    const pubDate = extractedData.publicationDate || null;
+    const effDate = extractedData.entryIntoForceDate || null;
+    const enactedYear = pubDate
+      ? new Date(pubDate).getFullYear() || new Date().getFullYear()
+      : new Date().getFullYear();
 
     return NextResponse.json({
       success: true,
@@ -251,13 +258,35 @@ export async function POST(req: NextRequest) {
       obligationsCount: persisted.obligationsCount,
       instrument: {
         id: persisted.instrumentId,
-        title: documentTitle,
-        regulator: regulatorCode,
+        shortTitle:
+          documentTitle.length > 90 ? `${documentTitle.slice(0, 87)}...` : documentTitle,
+        fullTitle: documentTitle,
+        officialCitation:
+          extractedData.officialReferenceCode || `${regulatorCode} (${enactedYear})`,
+        regulator: regulatorCode as any,
+        regulatorName: regulatorCode,
+        instrumentType: (extractedData.instrumentType as any) || 'SUBSIDIARY_REGULATION',
+        domain: (extractedData.domain as any) || 'FINTECH_PAYMENTS',
+        jurisdiction: 'NG',
+        classification:
+          extractedData.instrumentType === 'PRIMARY_ACT'
+            ? 'PRIMARY_LEGISLATION'
+            : 'SUBSIDIARY_REGULATION',
+        year: enactedYear,
+        sectionsCount: persisted.sectionsCount,
+        totalObligationsCount: persisted.obligationsCount,
+        status: 'ACTIVE_LAW',
+        description: extractedData.overview,
         overview: extractedData.overview,
         scope: extractedData.scope,
         keyRequirementAreas: extractedData.keyRequirementAreas,
-        sectionsCount: persisted.sectionsCount,
-        obligationsCount: persisted.obligationsCount,
+        activeVersionId: persisted.versionId,
+        publicationDate: pubDate,
+        effectiveDate: effDate,
+        sourceFileUrl: sourceFileUrl || sourceUrl || null,
+        isStarred: false,
+        owner: 'Chief Compliance Officer',
+        capturedText: cleanText,
       },
     });
   } catch (err: any) {

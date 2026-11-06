@@ -42,7 +42,7 @@ export interface GapAnalysisSummaryItem {
 
 /**
  * GET /api/gap-matrix/evaluations
- * Returns real evaluations for the authenticated tenant (Zero fake seeds).
+ * Returns live tenant-scoped evaluations from Supabase (zero fake seeds or invented penalties).
  */
 export async function GET(req: NextRequest) {
   try {
@@ -52,11 +52,14 @@ export async function GET(req: NextRequest) {
     const evaluationId = searchParams.get('id');
 
     if (!dbClient) {
-      return NextResponse.json({ success: true, data: evaluationId ? null : [] });
+      return NextResponse.json(
+        { success: false, error: 'Database client unavailable' },
+        { status: 500 }
+      );
     }
 
     // ──────────────────────────────────────────────────────────────────────────
-    // 1. Single Evaluation Detail by ID
+    // 1. Single Evaluation Detail by ID (strictly tenant-scoped)
     // ──────────────────────────────────────────────────────────────────────────
     if (evaluationId) {
       const { data: evalRow, error: evalErr } = await (dbClient.from('gap_evaluations') as any)
@@ -82,22 +85,32 @@ export async function GET(req: NextRequest) {
           metadata
         `)
         .eq('id', evaluationId)
+        .eq('organization_id', organizationId)
         .maybeSingle();
 
-      if (evalErr || !evalRow) {
+      if (evalErr) {
+        logger.error({ error: evalErr.message, evaluationId }, 'Database error fetching gap evaluation');
+        return NextResponse.json({ success: false, error: evalErr.message }, { status: 500 });
+      }
+
+      if (!evalRow) {
         return NextResponse.json(
           { success: false, error: 'Gap analysis not found' },
           { status: 404 }
         );
       }
 
-      // Fetch items for this evaluation
-      const { data: dbItems } = await (dbClient.from('gap_matrix_items') as any)
+      const { data: dbItems, error: itemsErr } = await (dbClient.from('gap_matrix_items') as any)
         .select('*')
         .eq('evaluation_id', evaluationId)
+        .eq('organization_id', organizationId)
         .order('created_at', { ascending: true });
 
-      // Fetch regulation titles for display
+      if (itemsErr) {
+        logger.error({ error: itemsErr.message, evaluationId }, 'Database error fetching gap matrix items');
+        return NextResponse.json({ success: false, error: itemsErr.message }, { status: 500 });
+      }
+
       const regIds = Array.isArray(evalRow.regulation_ids) ? evalRow.regulation_ids : [];
       let regTitle = 'Statutory Regulatory Framework';
       let regShort = 'Regulations';
@@ -114,7 +127,6 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // Fetch policy titles for display
       const polIds = Array.isArray(evalRow.policy_ids) ? evalRow.policy_ids : [];
       let policyTitle = 'Internal Policy Manual';
       let policyDept = 'COMPLIANCE_LEGAL';
@@ -123,6 +135,7 @@ export async function GET(req: NextRequest) {
       if (polIds.length > 0) {
         const { data: pols } = await (dbClient.from('policy_documents') as any)
           .select('id, title, department, version_tag')
+          .eq('organization_id', organizationId)
           .in('id', polIds);
         if (pols && pols.length > 0) {
           policyTitle = pols.map((p: any) => p.title).join(', ');
@@ -137,7 +150,7 @@ export async function GET(req: NextRequest) {
         regulatoryClauseId: it.regulatory_clause_id,
         obligationId: it.obligation_id || null,
         obligationTitle: it.obligation_title || it.obligation_code || 'Statutory Compliance Directive',
-        obligationCode: it.obligation_code || 'OBL-CBN-001',
+        obligationCode: it.obligation_code || 'OBL',
         obligationDescription: it.obligation_description || it.what_has_changed || it.what_happened,
         regulatoryClauseReference: it.obligation_title || it.obligation_code || 'Statutory Compliance Directive',
         ruleType: it.rule_type || 'Prescriptive',
@@ -146,11 +159,15 @@ export async function GET(req: NextRequest) {
         complianceStatus: it.compliance_status as ComplianceStatus,
         statutoryPenaltyNaira: Number(it.statutory_penalty_naira) || 0,
         matchedPolicySection: (() => {
-          const firstMet = (it.criteria_evaluations || []).find((c: any) => c.status === 'MET' && c.matchedPolicySections?.length > 0);
+          const firstMet = (it.criteria_evaluations || []).find(
+            (c: any) => c.status === 'MET' && c.matchedPolicySections?.length > 0
+          );
           return firstMet?.matchedPolicySections?.[0]?.sectionTitle || null;
         })(),
         matchedPolicyText: (() => {
-          const firstMet = (it.criteria_evaluations || []).find((c: any) => c.status === 'MET' && c.matchedPolicySections?.length > 0);
+          const firstMet = (it.criteria_evaluations || []).find(
+            (c: any) => c.status === 'MET' && c.matchedPolicySections?.length > 0
+          );
           return firstMet?.matchedPolicySections?.[0]?.verbatimPolicyExcerpt || null;
         })(),
         suggestedStatus: it.compliance_status as ComplianceStatus,
@@ -164,49 +181,62 @@ export async function GET(req: NextRequest) {
         actionItems: it.action_items || [],
         suggestedActionItem: it.suggested_action_item,
         regulationTitle: it.regulation_title || regTitle,
-        sourceSectionRef: it.source_section_ref || 'Section 1.0',
+        sourceSectionRef: it.source_section_ref || 'Not explicitly specified in source text',
         responsibleRole: it.responsible_role || 'Chief Compliance Officer',
-        statutoryRemediationTimelineDays: it.remediation_timeline_days || 14,
+        statutoryRemediationTimelineDays:
+          typeof it.remediation_timeline_days === 'number' ? it.remediation_timeline_days : undefined,
       }));
 
-      const totalPenalty = items.reduce((sum: number, item: any) => sum + (Number(item.statutoryPenaltyNaira) || 0), 0);
-      const adequateCount = evalRow.adequately_met_count ?? items.filter((i: any) => i.complianceStatus === 'ADEQUATELY_MET').length;
-      const partialCount = evalRow.partially_met_count ?? items.filter((i: any) => i.complianceStatus === 'PARTIALLY_MET').length;
-      const gapCount = evalRow.critical_gaps_count ?? items.filter((i: any) => i.complianceStatus === 'CRITICAL_GAP').length;
+      const totalPenalty = items.reduce(
+        (sum: number, item: any) => sum + (Number(item.statutoryPenaltyNaira) || 0),
+        0
+      );
+      const adequateCount =
+        evalRow.adequately_met_count ?? items.filter((i: any) => i.complianceStatus === 'ADEQUATELY_MET').length;
+      const partialCount =
+        evalRow.partially_met_count ?? items.filter((i: any) => i.complianceStatus === 'PARTIALLY_MET').length;
+      const gapCount =
+        evalRow.critical_gaps_count ?? items.filter((i: any) => i.complianceStatus === 'CRITICAL_GAP').length;
+
+      const evaluationSummary = {
+        id: evalRow.id,
+        analysisName:
+          evalRow.analysis_name ||
+          (evalRow.metadata as any)?.analysisName ||
+          `${regShort} vs ${policyTitle}`,
+        regulationTitle: regTitle,
+        regulationShortName: regShort,
+        regulatorCode,
+        benchmarkDocumentVersionId: evalRow.benchmark_document_version_id,
+        policyId: evalRow.policy_id,
+        policyTitle,
+        department: policyDept,
+        versionTag: policyVersion,
+        regulationIds: regIds,
+        policyIds: polIds,
+        scope: evalRow.scope || (evalRow.metadata as any)?.scope || 'COMPLETE_REGULATORY_REVIEW',
+        status: evalRow.status || 'IN_PROGRESS',
+        overallCompliancePercentage: Number(evalRow.overall_compliance_percentage) || 0,
+        obligationsAssessedCount: items.length,
+        reviewPendingCount: partialCount + gapCount,
+        closedCount: adequateCount,
+        adequateCount,
+        partialCount,
+        gapCount,
+        totalPenaltyNaira: totalPenalty,
+        actionPlan: evalRow.action_plan || [],
+        auditLogs: evalRow.audit_logs || [],
+        comments: evalRow.comments || [],
+        createdByName: evalRow.created_by_name || 'Authorized Compliance Officer',
+        createdAt: evalRow.created_at,
+        lastModifiedAt: evalRow.created_at,
+      };
 
       return NextResponse.json({
         success: true,
         data: {
-          evaluation: {
-            id: evalRow.id,
-            analysisName: evalRow.analysis_name || (evalRow.metadata as any)?.analysisName || `${regShort} vs ${policyTitle}`,
-            regulationTitle: regTitle,
-            regulationShortName: regShort,
-            regulatorCode,
-            benchmarkDocumentVersionId: evalRow.benchmark_document_version_id,
-            policyId: evalRow.policy_id,
-            policyTitle,
-            department: policyDept,
-            versionTag: policyVersion,
-            regulationIds: regIds,
-            policyIds: polIds,
-            scope: evalRow.scope || (evalRow.metadata as any)?.scope || 'COMPLETE_REGULATORY_REVIEW',
-            status: evalRow.status || 'IN_PROGRESS',
-            overallCompliancePercentage: Number(evalRow.overall_compliance_percentage) || 0,
-            obligationsAssessedCount: items.length,
-            reviewPendingCount: partialCount + gapCount,
-            closedCount: adequateCount,
-            adequateCount,
-            partialCount,
-            gapCount,
-            totalPenaltyNaira: totalPenalty,
-            actionPlan: evalRow.action_plan || [],
-            auditLogs: evalRow.audit_logs || [],
-            comments: evalRow.comments || [],
-            createdByName: evalRow.created_by_name || 'Authorized Compliance Officer',
-            createdAt: evalRow.created_at,
-            lastModifiedAt: evalRow.created_at,
-          },
+          evaluation: evaluationSummary,
+          summary: evaluationSummary,
           items,
         },
       });
@@ -218,6 +248,8 @@ export async function GET(req: NextRequest) {
     const { data: evalRows, error: rowsErr } = await (dbClient.from('gap_evaluations') as any)
       .select(`
         id,
+        benchmark_document_version_id,
+        policy_id,
         analysis_name,
         regulation_ids,
         policy_ids,
@@ -228,6 +260,8 @@ export async function GET(req: NextRequest) {
         partially_met_count,
         adequately_met_count,
         action_plan,
+        audit_logs,
+        comments,
         created_by_name,
         created_at,
         metadata
@@ -237,15 +271,34 @@ export async function GET(req: NextRequest) {
 
     if (rowsErr) {
       logger.error({ error: rowsErr.message }, 'Failed retrieving gap evaluations from DB');
-      return NextResponse.json({ success: true, data: [] });
+      return NextResponse.json({ success: false, error: rowsErr.message }, { status: 500 });
     }
 
-    // Collect all regulation and policy IDs to resolve titles in bulk
+    const evalIds = (evalRows || []).map((r: any) => r.id);
+    const penaltySumMap = new Map<string, number>();
+
+    if (evalIds.length > 0) {
+      const { data: itemPenalties } = await (dbClient.from('gap_matrix_items') as any)
+        .select('evaluation_id, statutory_penalty_naira, compliance_status')
+        .eq('organization_id', organizationId)
+        .in('evaluation_id', evalIds);
+
+      for (const ip of itemPenalties || []) {
+        if (ip.compliance_status !== 'ADEQUATELY_MET') {
+          const amt = Number(ip.statutory_penalty_naira) || 0;
+          if (amt > 0) {
+            penaltySumMap.set(ip.evaluation_id, (penaltySumMap.get(ip.evaluation_id) || 0) + amt);
+          }
+        }
+      }
+    }
+
     const allRegIds = new Set<string>();
     const allPolIds = new Set<string>();
     for (const row of evalRows || []) {
       if (Array.isArray(row.regulation_ids)) row.regulation_ids.forEach((id: string) => allRegIds.add(id));
       if (Array.isArray(row.policy_ids)) row.policy_ids.forEach((id: string) => allPolIds.add(id));
+      if (row.policy_id) allPolIds.add(row.policy_id);
     }
 
     const regMap = new Map<string, { title: string; shortName: string; regulatorCode: RegulatorCode }>();
@@ -266,6 +319,7 @@ export async function GET(req: NextRequest) {
     if (allPolIds.size > 0) {
       const { data: pols } = await (dbClient.from('policy_documents') as any)
         .select('id, title, department, version_tag')
+        .eq('organization_id', organizationId)
         .in('id', Array.from(allPolIds));
       for (const p of pols || []) {
         polMap.set(p.id, {
@@ -278,18 +332,25 @@ export async function GET(req: NextRequest) {
 
     const list: GapAnalysisSummaryItem[] = (evalRows || []).map((row: any) => {
       const rowRegIds = Array.isArray(row.regulation_ids) ? row.regulation_ids : [];
-      const rowPolIds = Array.isArray(row.policy_ids) ? row.policy_ids : [];
+      const rowPolIds =
+        Array.isArray(row.policy_ids) && row.policy_ids.length > 0
+          ? row.policy_ids
+          : row.policy_id
+          ? [row.policy_id]
+          : [];
 
       const firstReg = rowRegIds[0] ? regMap.get(rowRegIds[0]) : null;
       const firstPol = rowPolIds[0] ? polMap.get(rowPolIds[0]) : null;
 
-      const regShort = rowRegIds.length > 1
-        ? `${rowRegIds.length} Regulations (${firstReg?.shortName || 'Multiple'})`
-        : (firstReg?.shortName || 'Regulatory Instrument');
+      const regShort =
+        rowRegIds.length > 1
+          ? `${rowRegIds.length} Regulations (${firstReg?.shortName || 'Multiple'})`
+          : firstReg?.shortName || 'Regulatory Instrument';
 
-      const policyTitle = rowPolIds.length > 1
-        ? `${rowPolIds.length} Policies (${firstPol?.title || 'Multiple'})`
-        : (firstPol?.title || 'Internal Policy');
+      const policyTitle =
+        rowPolIds.length > 1
+          ? `${rowPolIds.length} Policies (${firstPol?.title || 'Multiple'})`
+          : firstPol?.title || 'Internal Policy';
 
       const adequate = Number(row.adequately_met_count) || 0;
       const partial = Number(row.partially_met_count) || 0;
@@ -298,11 +359,12 @@ export async function GET(req: NextRequest) {
 
       return {
         id: row.id,
-        analysisName: row.analysis_name || (row.metadata as any)?.analysisName || `${regShort} vs ${policyTitle}`,
+        analysisName:
+          row.analysis_name || (row.metadata as any)?.analysisName || `${regShort} vs ${policyTitle}`,
         regulationTitle: firstReg?.title || 'Statutory Regulation',
         regulationShortName: regShort,
         regulatorCode: firstReg?.regulatorCode || 'CBN',
-        benchmarkDocumentVersionId: '',
+        benchmarkDocumentVersionId: row.benchmark_document_version_id || '',
         policyId: rowPolIds[0] || '',
         policyTitle,
         department: firstPol?.department || 'COMPLIANCE_LEGAL',
@@ -311,17 +373,20 @@ export async function GET(req: NextRequest) {
         policyIds: rowPolIds,
         scope: row.scope || (row.metadata as any)?.scope || 'COMPLETE_REGULATORY_REVIEW',
         status: row.status || 'IN_PROGRESS',
-        overallCompliancePercentage: Number(row.overall_compliance_percentage) || Math.round(((adequate * 100 + partial * 50) / total)),
-        obligationsAssessedCount: total,
+        overallCompliancePercentage:
+          row.overall_compliance_percentage !== null && row.overall_compliance_percentage !== undefined
+            ? Number(row.overall_compliance_percentage)
+            : Math.round(((adequate * 100 + partial * 50) / total)),
+        obligationsAssessedCount: adequate + partial + gap,
         reviewPendingCount: partial + gap,
         closedCount: adequate,
         adequateCount: adequate,
         partialCount: partial,
         gapCount: gap,
-        totalPenaltyNaira: gap * 10000000 + partial * 5000000,
+        totalPenaltyNaira: penaltySumMap.get(row.id) || 0,
         actionPlan: row.action_plan || [],
-        auditLogs: [],
-        comments: [],
+        auditLogs: row.audit_logs || [],
+        comments: row.comments || [],
         createdByName: row.created_by_name || 'Authorized Compliance Officer',
         createdAt: row.created_at,
         lastModifiedAt: row.created_at,
@@ -362,12 +427,10 @@ export async function POST(req: NextRequest) {
       createdByName,
     } = body;
 
-    // Support both multi-select array inputs and legacy single inputs
     let effectiveRegIds: string[] = [];
     if (Array.isArray(regulationIds) && regulationIds.length > 0) {
       effectiveRegIds = regulationIds;
     } else if (benchmarkDocumentVersionId) {
-      // Find instrument id for this version
       const { data: ver } = await (dbClient.from('regulatory_document_versions') as any)
         .select('instrument_id')
         .eq('id', benchmarkDocumentVersionId)
@@ -391,7 +454,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Enforce Gap Analysis quota and multi-regulation/policy entitlement (Pro or Enterprise)
     const isMulti = effectiveRegIds.length > 1 || effectivePolicyIds.length > 1;
     const entitlement = await verifyEntitlement(dbClient, organizationId, 'GAP_ANALYSIS_RUN', {
       regulationCount: effectiveRegIds.length,
@@ -406,7 +468,7 @@ export async function POST(req: NextRequest) {
     const result = await multiService.runMultiConcordance({
       organizationId,
       userId,
-      analysisName: analysisName?.trim() || 'Comprehensive Statutory Gap Analysis',
+      analysisName: analysisName?.trim() || 'Statutory Gap Concordance Analysis',
       regulationIds: effectiveRegIds,
       policyIds: effectivePolicyIds,
       scope,
@@ -429,7 +491,7 @@ export async function POST(req: NextRequest) {
 
 /**
  * PATCH /api/gap-matrix/evaluations
- * Records human reviewer overrides on criteria verdicts or action items
+ * Records human reviewer overrides on criteria verdicts, action items, or analysis-level comments/status
  */
 export async function PATCH(req: NextRequest) {
   try {
@@ -444,32 +506,108 @@ export async function PATCH(req: NextRequest) {
       criterionIndex,
       criterionStatus,
       complianceStatus,
-      reviewerNotes,
       matchedPolicySection,
       matchedPolicyText,
       draftReplacementLanguage,
       newActionItem,
+      toggleActionItemId,
       newComment,
+      status: evaluationWorkflowStatus,
     } = body;
 
-    if (!itemId) {
-      return NextResponse.json({ success: false, error: 'itemId is required' }, { status: 400 });
+    // ──────────────────────────────────────────────────────────────────────────
+    // A. Analysis-level update (comment, workflow status, or action plan toggle without itemId)
+    // ──────────────────────────────────────────────────────────────────────────
+    if (!itemId && evaluationId) {
+      const { data: currentEval, error: evalFetchErr } = await (dbClient.from('gap_evaluations') as any)
+        .select('id, status, action_plan, audit_logs, comments')
+        .eq('id', evaluationId)
+        .eq('organization_id', organizationId)
+        .maybeSingle();
+
+      if (evalFetchErr || !currentEval) {
+        return NextResponse.json({ success: false, error: 'Evaluation not found' }, { status: 404 });
+      }
+
+      const currentComments = Array.isArray(currentEval.comments) ? [...currentEval.comments] : [];
+      const currentAuditLogs = Array.isArray(currentEval.audit_logs) ? [...currentEval.audit_logs] : [];
+      let currentActionPlan = Array.isArray(currentEval.action_plan) ? [...currentEval.action_plan] : [];
+      let nextStatus = currentEval.status;
+
+      if (newComment && newComment.content) {
+        currentComments.unshift({
+          id: crypto.randomUUID(),
+          timestamp: new Date().toISOString(),
+          authorName: newComment.authorName || 'Authorized Compliance Officer',
+          authorRole: newComment.authorRole || 'Reviewer',
+          content: newComment.content,
+        });
+      }
+
+      if (evaluationWorkflowStatus) {
+        nextStatus = evaluationWorkflowStatus;
+        currentAuditLogs.unshift({
+          id: crypto.randomUUID(),
+          timestamp: new Date().toISOString(),
+          action: `Analysis workflow status updated to ${evaluationWorkflowStatus}`,
+          performedBy: 'Authorized Compliance Officer',
+        });
+      }
+
+      if (toggleActionItemId) {
+        currentActionPlan = currentActionPlan.map((act: any) =>
+          act.id === toggleActionItemId ? { ...act, completed: !act.completed } : act
+        );
+      }
+
+      const { error: evalUpdErr } = await (dbClient.from('gap_evaluations') as any)
+        .update({
+          status: nextStatus,
+          comments: currentComments,
+          audit_logs: currentAuditLogs,
+          action_plan: currentActionPlan,
+        })
+        .eq('id', evaluationId)
+        .eq('organization_id', organizationId);
+
+      if (evalUpdErr) {
+        logger.error({ error: evalUpdErr.message }, 'Failed updating gap evaluation metadata');
+        return NextResponse.json({ success: false, error: evalUpdErr.message }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          evaluationId,
+          status: nextStatus,
+          comments: currentComments,
+          auditLogs: currentAuditLogs,
+          actionPlan: currentActionPlan,
+        },
+      });
     }
 
-    // 1. Fetch current item
+    if (!itemId) {
+      return NextResponse.json({ success: false, error: 'itemId or evaluationId is required' }, { status: 400 });
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // B. Item-level criterion override, evidence link, or action item update
+    // ──────────────────────────────────────────────────────────────────────────
     const { data: item, error: fetchErr } = await (dbClient.from('gap_matrix_items') as any)
       .select('*')
       .eq('id', itemId)
+      .eq('organization_id', organizationId)
       .maybeSingle();
 
     if (fetchErr || !item) {
       return NextResponse.json({ success: false, error: 'Item not found' }, { status: 404 });
     }
 
-    let updatedCriteria = Array.isArray(item.criteria_evaluations) ? [...item.criteria_evaluations] : [];
+    const updatedCriteria = Array.isArray(item.criteria_evaluations) ? [...item.criteria_evaluations] : [];
     let updatedActionItems = Array.isArray(item.action_items) ? [...item.action_items] : [];
+    let didMutateCriteria = false;
 
-    // Handle Criterion Status Toggle (Human Override)
     if (criterionStatus && (criterionId || criterionIndex !== undefined)) {
       const idx = criterionIndex !== undefined ? criterionIndex : updatedCriteria.findIndex((c) => c.id === criterionId);
       if (idx >= 0 && updatedCriteria[idx]) {
@@ -478,10 +616,10 @@ export async function PATCH(req: NextRequest) {
           status: criterionStatus,
           humanOverride: true,
         };
+        didMutateCriteria = true;
       }
     }
 
-    // Handle adding linked policy evidence to criterion
     if (matchedPolicySection && (criterionIndex !== undefined || criterionId)) {
       const idx = criterionIndex !== undefined ? criterionIndex : updatedCriteria.findIndex((c) => c.id === criterionId);
       if (idx >= 0 && updatedCriteria[idx]) {
@@ -499,40 +637,49 @@ export async function PATCH(req: NextRequest) {
           status: 'MET',
           humanOverride: true,
         };
+        didMutateCriteria = true;
       }
     }
 
-    // Recalculate Obligation Compliance Status from Criteria
-    let derivedObligationStatus: ComplianceStatus = complianceStatus || item.compliance_status;
     const coreCriteria = updatedCriteria.filter((c: any) => c.criterionType === 'Core Criteria');
-    const totalCore = coreCriteria.length || 1;
-    const metCore = coreCriteria.filter((c: any) => c.status === 'MET').length;
+    const rollupBasis = coreCriteria.length > 0 ? coreCriteria : updatedCriteria;
+    const totalCore = rollupBasis.length || 1;
+    const metCore = rollupBasis.filter((c: any) => c.status === 'MET').length;
 
-    if (metCore === totalCore) {
-      derivedObligationStatus = 'ADEQUATELY_MET';
-    } else if (metCore > 0) {
-      derivedObligationStatus = 'PARTIALLY_MET';
-    } else {
-      derivedObligationStatus = 'CRITICAL_GAP';
+    let derivedObligationStatus: ComplianceStatus = item.compliance_status;
+    if (didMutateCriteria && rollupBasis.length > 0) {
+      if (metCore === totalCore) {
+        derivedObligationStatus = 'ADEQUATELY_MET';
+      } else if (metCore > 0) {
+        derivedObligationStatus = 'PARTIALLY_MET';
+      } else {
+        derivedObligationStatus = 'CRITICAL_GAP';
+      }
+    } else if (complianceStatus) {
+      derivedObligationStatus = complianceStatus;
     }
 
-    // Handle adding a new action item
     if (newActionItem) {
       updatedActionItems.push({
         id: crypto.randomUUID(),
         title: newActionItem.title || 'Remediation task',
         policyTitle: newActionItem.policyTitle || 'Internal Policy',
         policyId: newActionItem.policyId,
-        assigneeName: newActionItem.assigneeName || 'Compliance Officer',
+        assigneeName: newActionItem.assigneeName || 'Authorized Compliance Officer',
         assigneeRole: newActionItem.assigneeRole || 'Chief Compliance Officer',
         linkedObligationCode: item.obligation_code || 'OBL',
         linkedObligationId: item.obligation_id,
         completed: false,
-        dueDate: newActionItem.dueDate || new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10),
+        ...(newActionItem.dueDate ? { dueDate: newActionItem.dueDate } : {}),
       });
     }
 
-    // Update item in DB
+    if (toggleActionItemId) {
+      updatedActionItems = updatedActionItems.map((act: any) =>
+        act.id === toggleActionItemId ? { ...act, completed: !act.completed } : act
+      );
+    }
+
     const itemUpdatePayload: any = {
       compliance_status: derivedObligationStatus,
       criteria_evaluations: updatedCriteria,
@@ -542,14 +689,25 @@ export async function PATCH(req: NextRequest) {
       itemUpdatePayload.draft_remediation_clause = draftReplacementLanguage;
     }
 
-    await (dbClient.from('gap_matrix_items') as any).update(itemUpdatePayload).eq('id', itemId);
+    const { error: itemUpdErr } = await (dbClient.from('gap_matrix_items') as any)
+      .update(itemUpdatePayload)
+      .eq('id', itemId)
+      .eq('organization_id', organizationId);
 
-    // Recalculate parent evaluation counts
+    if (itemUpdErr) {
+      logger.error({ error: itemUpdErr.message }, 'Failed updating gap_matrix_items row');
+      return NextResponse.json({ success: false, error: itemUpdErr.message }, { status: 500 });
+    }
+
     const evalId = evaluationId || item.evaluation_id;
+    let currentAuditLogs: any[] = [];
+    let currentComments: any[] = [];
+
     if (evalId) {
       const { data: allItems } = await (dbClient.from('gap_matrix_items') as any)
         .select('compliance_status, action_items')
-        .eq('evaluation_id', evalId);
+        .eq('evaluation_id', evalId)
+        .eq('organization_id', organizationId);
 
       if (allItems && allItems.length > 0) {
         const adequate = allItems.filter((i: any) => i.compliance_status === 'ADEQUATELY_MET').length;
@@ -558,7 +716,6 @@ export async function PATCH(req: NextRequest) {
         const total = allItems.length;
         const pct = Math.round(((adequate * 100 + partial * 50) / total));
 
-        // Compile combined action plan
         const allActions: any[] = [];
         for (const it of allItems) {
           if (Array.isArray(it.action_items)) {
@@ -569,12 +726,16 @@ export async function PATCH(req: NextRequest) {
         const auditEntry = {
           id: crypto.randomUUID(),
           timestamp: new Date().toISOString(),
-          action: `Criterion status override on ${item.obligation_code || 'obligation'}: now ${criterionStatus || derivedObligationStatus}`,
-          performedBy: 'Compliance Reviewer',
+          action: criterionStatus
+            ? `Criterion override on ${item.obligation_code || 'obligation'}: marked ${criterionStatus} (${metCore}/${totalCore} Core fulfilled -> ${derivedObligationStatus})`
+            : newActionItem
+            ? `Added remediation action item on ${item.obligation_code || 'obligation'}: "${newActionItem.title}"`
+            : `Updated obligation ${item.obligation_code || 'obligation'} status to ${derivedObligationStatus}`,
+          performedBy: 'Authorized Compliance Officer',
           details: {
             itemId,
             obligationCode: item.obligation_code,
-            criterionStatus,
+            criterionStatus: criterionStatus || null,
             derivedObligationStatus,
             coreCriteriaFulfilled: `${metCore}/${totalCore}`,
           },
@@ -583,34 +744,67 @@ export async function PATCH(req: NextRequest) {
         const { data: currentEval } = await (dbClient.from('gap_evaluations') as any)
           .select('audit_logs, comments')
           .eq('id', evalId)
+          .eq('organization_id', organizationId)
           .maybeSingle();
 
-        const currentAuditLogs = Array.isArray(currentEval?.audit_logs) ? currentEval.audit_logs : [];
+        currentAuditLogs = Array.isArray(currentEval?.audit_logs) ? [...currentEval.audit_logs] : [];
         currentAuditLogs.unshift(auditEntry);
 
-        let currentComments = Array.isArray(currentEval?.comments) ? currentEval.comments : [];
+        currentComments = Array.isArray(currentEval?.comments) ? [...currentEval.comments] : [];
         if (newComment && newComment.content) {
           currentComments.unshift({
             id: crypto.randomUUID(),
             timestamp: new Date().toISOString(),
-            authorName: newComment.authorName || 'Compliance Officer',
+            authorName: newComment.authorName || 'Authorized Compliance Officer',
             authorRole: newComment.authorRole || 'Reviewer',
             content: newComment.content,
+            itemId,
           });
         }
 
-        await (dbClient.from('gap_evaluations') as any).update({
-          adequately_met_count: adequate,
-          partially_met_count: partial,
-          critical_gaps_count: gap,
-          overall_compliance_percentage: pct,
-          action_plan: allActions,
-          audit_logs: currentAuditLogs,
-          comments: currentComments,
-          status: adequate === total ? 'COMPLETED' : 'IN_PROGRESS',
-        }).eq('id', evalId);
+        await (dbClient.from('gap_evaluations') as any)
+          .update({
+            adequately_met_count: adequate,
+            partially_met_count: partial,
+            critical_gaps_count: gap,
+            overall_compliance_percentage: pct,
+            action_plan: allActions,
+            audit_logs: currentAuditLogs,
+            comments: currentComments,
+            status: adequate === total ? 'COMPLETED' : 'IN_PROGRESS',
+          })
+          .eq('id', evalId)
+          .eq('organization_id', organizationId);
       }
     }
+
+    // Record tamper-evident entry in global audit_logs table
+    await (dbClient.from('audit_logs') as any).insert({
+      organization_id: organizationId,
+      user_id: userId || null,
+      action: 'GAP_CRITERION_OVERRIDE',
+      entity_type: 'gap_matrix_items',
+      entity_id: itemId,
+      sha256_input_hash: AuditService.computeSha256({
+        evaluationId: evalId,
+        itemId,
+        criterionIndex,
+        criterionStatus,
+        previousStatus: item.compliance_status,
+      }),
+      sha256_output_hash: AuditService.computeSha256({
+        itemId,
+        derivedObligationStatus,
+        coreCriteriaFulfilled: `${metCore}/${totalCore}`,
+      }),
+      metadata: {
+        evaluationId: evalId,
+        obligationCode: item.obligation_code,
+        criterionStatus: criterionStatus || null,
+        derivedObligationStatus,
+        coreCriteriaFulfilled: `${metCore}/${totalCore}`,
+      },
+    });
 
     return NextResponse.json({
       success: true,
@@ -621,6 +815,8 @@ export async function PATCH(req: NextRequest) {
         criteriaEvaluations: updatedCriteria,
         actionItems: updatedActionItems,
         coreCriteriaFulfilled: `${metCore}/${totalCore}`,
+        auditLogs: currentAuditLogs,
+        comments: currentComments,
       },
     });
   } catch (error: unknown) {
@@ -632,7 +828,7 @@ export async function PATCH(req: NextRequest) {
 
 /**
  * DELETE /api/gap-matrix/evaluations?id=<id>
- * Deletes a gap analysis evaluation and all its child matrix items.
+ * Deletes a tenant-owned gap analysis evaluation and its child matrix items.
  */
 export async function DELETE(req: NextRequest) {
   try {
@@ -649,10 +845,21 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Database unavailable' }, { status: 500 });
     }
 
-    // 1. Delete child matrix items
-    await (dbClient.from('gap_matrix_items') as any).delete().eq('evaluation_id', evaluationId);
+    const { data: existing } = await (dbClient.from('gap_evaluations') as any)
+      .select('id')
+      .eq('id', evaluationId)
+      .eq('organization_id', organizationId)
+      .maybeSingle();
 
-    // 2. Delete parent evaluation
+    if (!existing) {
+      return NextResponse.json({ success: false, error: 'Evaluation not found' }, { status: 404 });
+    }
+
+    await (dbClient.from('gap_matrix_items') as any)
+      .delete()
+      .eq('evaluation_id', evaluationId)
+      .eq('organization_id', organizationId);
+
     const { error: delErr } = await (dbClient.from('gap_evaluations') as any)
       .delete()
       .eq('id', evaluationId)
@@ -674,4 +881,3 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
-

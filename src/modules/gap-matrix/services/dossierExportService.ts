@@ -101,8 +101,8 @@ export class DossierExportService {
       department: 'COMPLIANCE_LEGAL',
       organizationName,
       benchmarkTitle: evaluationResult.benchmarkTitle,
-      benchmarkReferenceCode: 'CBN/FPR/DIR/PUB/CIR/001/053',
-      issuingRegulator: 'Central Bank of Nigeria (CBN)',
+      benchmarkReferenceCode: evaluationResult.benchmarkDocumentVersionId || 'STATUTORY-BENCHMARK',
+      issuingRegulator: 'Supervisory Authority',
       overallCompliancePercentage: evaluationResult.overallCompliancePercentage,
       criticalGapsCount: evaluationResult.criticalGapsCount,
       partiallyMetCount: evaluationResult.partiallyMetCount,
@@ -134,6 +134,21 @@ export class DossierExportService {
    * Generates official publication-grade HTML string for the audit defense dossier
    */
   public generateHtmlDossier(dossier: AuditDefenseDossier): string {
+    return this.renderToHtml(dossier);
+  }
+
+  /**
+   * Compatibility aliases for Bank Examiner Dossier generation
+   */
+  public generateBankExaminerDossier(options: GenerateDossierOptions): AuditDefenseDossier {
+    return this.generateDossier(options);
+  }
+
+  public exportDossierToMarkdown(dossier: AuditDefenseDossier): string {
+    return this.renderToMarkdown(dossier);
+  }
+
+  public exportDossierToHtml(dossier: AuditDefenseDossier): string {
     return this.renderToHtml(dossier);
   }
 
@@ -208,11 +223,11 @@ export class DossierExportService {
 
 | 5-W Framework Pillar | Operational Evaluation & Examiner Defense |
 | :--- | :--- |
-| **1. What Happened?** | ${item.whatHappened} |
-| **2. What to Know?** | ${item.whatToKnow} |
-| **3. What Has Changed?** | ${item.whatHasChanged} |
-| **4. What to Do?** | ${item.whatToDo} |
-| **5. Derived Insight** | ${item.derivedInsight} |
+| **1. What Happened?** | ${item.whatHappened || ''} |
+| **2. What to Know?** | ${item.whatToKnow || ''} |
+| **3. What Has Changed?** | ${item.whatHasChanged || ''} |
+| **4. What to Do?** | ${item.whatToDo || ''} |
+| **5. Derived Insight** | ${item.derivedInsight || 'Adherence to statutory mandate required.'} |
 
 ${replacementWording ? `**Draft Replacement Policy Language (Board-Ready):**\n> "${replacementWording}"\n` : ''}
 ---`;
@@ -877,8 +892,11 @@ ${itemsMarkdown}
 </html>`;
   }
 
-  private escapeHtml(text: string): string {
-    return text
+  private escapeHtml(text?: string | null): string {
+    if (text === undefined || text === null) {
+      return '';
+    }
+    return String(text)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')

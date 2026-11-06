@@ -16,6 +16,18 @@ import { AlertCircle, RefreshCw } from 'lucide-react';
 
 type LibraryViewMode = 'hub' | 'instrument' | 'obligations' | 'viewer';
 
+const TOPIC_TO_UI_DOMAIN: Record<string, string> = {
+  aml_cft: 'AML_CFT',
+  data_privacy: 'DATA_PRIVACY_AI',
+  consumer_protection: 'CONSUMER_PROTECTION',
+  digital_lending: 'DIGITAL_LENDING',
+  payments_rails: 'FINTECH_PAYMENTS',
+  cybersecurity: 'DATA_PRIVACY_AI',
+  capital_liquidity: 'CAPITAL_MARKETS',
+  crypto_vasp: 'CRYPTO_VASP',
+  corporate_governance: 'FINTECH_PAYMENTS',
+};
+
 export default function RegulatoryLibraryPage() {
   const [viewMode, setViewMode] = useState<LibraryViewMode>('hub');
   const [instruments, setInstruments] = useState<RegulatoryInstrumentPresentation[]>([]);
@@ -37,18 +49,64 @@ export default function RegulatoryLibraryPage() {
   const [isIngestModalOpen, setIsIngestModalOpen] = useState(false);
   const [urlCircularId, setUrlCircularId] = useState<string | undefined>(undefined);
 
-  // Check URL params on mount
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const sp = new URLSearchParams(window.location.search);
-      const view = sp.get('view');
-      const cId = sp.get('circularId');
-      if (cId) setUrlCircularId(cId);
-      if (view === 'obligations' || cId) {
-        setViewMode('obligations');
+  // 2. Fetch Sections & Decomposed Obligations for an Instrument
+  const fetchClausesForInstrument = useCallback(async (inst: RegulatoryInstrumentPresentation) => {
+    setIsLoadingSections(true);
+    try {
+      const res = await fetch(`/api/library/${encodeURIComponent(inst.id)}/obligations`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+
+      if (data.success && data.sections) {
+        setSections(data.sections);
+      } else {
+        setSections([]);
       }
+    } catch (err) {
+      console.error('Failed to load obligations for instrument', err);
+      setSections([]);
+    } finally {
+      setIsLoadingSections(false);
     }
   }, []);
+
+  // Check URL params on mount (?instrumentId=, ?domain=, ?search=, ?view=, ?circularId=)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const sp = new URLSearchParams(window.location.search);
+    const view = sp.get('view');
+    const cId = sp.get('circularId');
+    const instId = sp.get('instrumentId');
+    const domParam = sp.get('domain');
+    const qParam = sp.get('search');
+
+    if (domParam) {
+      const mapped = TOPIC_TO_UI_DOMAIN[domParam.toLowerCase()] || domParam.toUpperCase();
+      setSelectedDomain(mapped);
+    }
+    if (qParam) {
+      setSearchQuery(qParam);
+    }
+    if (cId) {
+      setUrlCircularId(cId);
+    }
+
+    const targetInstrumentId = instId || cId;
+    if (targetInstrumentId) {
+      fetch(`/api/library/${encodeURIComponent(targetInstrumentId)}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.success && data.instrument) {
+            setActiveInstrument(data.instrument);
+            fetchClausesForInstrument(data.instrument);
+            setViewMode(view === 'obligations' ? 'obligations' : 'instrument');
+          }
+        })
+        .catch(() => {});
+    } else if (view === 'obligations') {
+      setViewMode('obligations');
+    }
+  }, [fetchClausesForInstrument]);
 
   // 1. Fetch Instruments from /api/library
   const fetchInstruments = useCallback(async () => {
@@ -65,7 +123,8 @@ export default function RegulatoryLibraryPage() {
         if (res.status === 401) {
           throw new Error('Your session token is refreshing. Please refresh your browser or re-authenticate.');
         }
-        throw new Error(`Failed to load statutory library: HTTP ${res.status}`);
+        const errPayload = await res.json().catch(() => null);
+        throw new Error(errPayload?.error || `Failed to load statutory library: HTTP ${res.status}`);
       }
       const data = await res.json();
       if (data.success) {
@@ -90,27 +149,6 @@ export default function RegulatoryLibraryPage() {
     }, 150);
     return () => clearTimeout(timer);
   }, [fetchInstruments]);
-
-  // 2. Fetch Sections & Decomposed Obligations for an Instrument
-  const fetchClausesForInstrument = useCallback(async (inst: RegulatoryInstrumentPresentation) => {
-    setIsLoadingSections(true);
-    try {
-      const res = await fetch(`/api/library/${encodeURIComponent(inst.id)}/obligations`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-
-      if (data.success && data.sections) {
-        setSections(data.sections);
-      } else {
-        setSections([]);
-      }
-    } catch (err) {
-      console.error('Failed to load obligations for instrument', err);
-      setSections([]);
-    } finally {
-      setIsLoadingSections(false);
-    }
-  }, []);
 
   // 3. Star Toggle for Instrument
   const handleToggleStarInstrument = async (instrumentId: string, e?: React.MouseEvent) => {
@@ -152,11 +190,19 @@ export default function RegulatoryLibraryPage() {
     }
   };
 
-  // 4. Select Instrument
+  // 4. Select Instrument (also fetches full detail with comments/auditLogs)
   const handleSelectInstrument = (inst: RegulatoryInstrumentPresentation) => {
     setActiveInstrument(inst);
     setViewMode('instrument');
     fetchClausesForInstrument(inst);
+    fetch(`/api/library/${encodeURIComponent(inst.id)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.success && data.instrument) {
+          setActiveInstrument(data.instrument);
+        }
+      })
+      .catch(() => {});
   };
 
   const handleViewDoc = (inst: RegulatoryInstrumentPresentation, e?: React.MouseEvent) => {
@@ -203,7 +249,6 @@ export default function RegulatoryLibraryPage() {
           </div>
         )}
 
-        {/* View Mode 1: Centralized Regulation Library Hub & Directory Table (01:20-01:30) */}
         {viewMode === 'hub' && (
           <div className="space-y-8">
             <RegulationLibraryHub
@@ -230,7 +275,6 @@ export default function RegulatoryLibraryPage() {
           </div>
         )}
 
-        {/* View Mode 2: Instrument Detail Page (01:31-01:55) */}
         {viewMode === 'instrument' && activeInstrument && (
           <InstrumentDetailPage
             instrument={activeInstrument}
@@ -249,7 +293,6 @@ export default function RegulatoryLibraryPage() {
           />
         )}
 
-        {/* View Mode 3: Statutory Obligations Register & 50/50 Split-Screen Workspace (01:56-02:30) */}
         {viewMode === 'obligations' && (
           <ObligationsRegisterView
             instrument={activeInstrument}
@@ -263,7 +306,6 @@ export default function RegulatoryLibraryPage() {
           />
         )}
 
-        {/* View Mode 4: Side-By-Side Regulatory Document Viewer */}
         {viewMode === 'viewer' && activeInstrument && (
           <SideBySideDocViewer
             instrument={activeInstrument}
@@ -272,7 +314,6 @@ export default function RegulatoryLibraryPage() {
           />
         )}
 
-        {/* Ingest Statutory Regulation Modal */}
         <IngestRegulationModal
           isOpen={isIngestModalOpen}
           onClose={() => setIsIngestModalOpen(false)}

@@ -588,36 +588,9 @@ export class CircularIngestionService {
                     },
                   });
                 } catch (synthErr) {
-                  logger.warn(
-                    { synthErr },
-                    'AI Role synthesis threw unexpected error during ingestion; applying domain-grounded fallback'
-                  );
-                  const fallbackBriefs = roleSynth.generateDeterministicFallback({
-                    circular: {
-                      id: circularId,
-                      circularNumber: metadata.circularNumber,
-                      regulatorCode: metadata.regulatorCode,
-                      subject: metadata.subject,
-                      summary: metadata.summary,
-                      statutoryDeadline: metadata.statutoryDeadline,
-                      rawText,
-                      sections,
-                      obligations: extractedAllObligations as any,
-                    },
-                    tenant: {
-                      organizationId: org.id,
-                      organizationName: org.name,
-                      matchedLicenses: evalResult.matchedLicenses,
-                      matchedRails: evalResult.matchedRails,
-                      applicabilityReason: evalResult.reason,
-                    },
-                  });
-
-                  await roleSynth.persistImpactAndActions(
-                    org.id,
-                    circularId,
-                    crypto.randomUUID(),
-                    fallbackBriefs
+                  logger.error(
+                    { error: synthErr instanceof Error ? synthErr.message : String(synthErr), circularId },
+                    'Role synthesis failed during circular ingestion; recorded for on-demand retry'
                   );
                 }
               } else {

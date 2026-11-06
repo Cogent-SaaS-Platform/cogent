@@ -68,8 +68,8 @@ describe('Epic 19: Unified Executive Dashboard & Overview (Task 19.1)', () => {
     expect(codes).toContain('NDIC');
 
     regulators.forEach((reg) => {
-      expect(reg.complianceRate).toBeGreaterThan(0);
-      expect(reg.activeInstrumentsCount).toBeGreaterThan(0);
+      expect(reg.complianceRate).toBeGreaterThanOrEqual(0);
+      expect(reg.activeInstrumentsCount).toBeGreaterThanOrEqual(0);
       expect(reg.keyStatute).toBeDefined();
     });
   });
@@ -91,26 +91,26 @@ describe('Epic 19: Unified Executive Dashboard & Overview (Task 19.1)', () => {
     });
   });
 
-  it('sorts urgent compliance gates chronologically and anchors to current future dates', () => {
+  it('sorts urgent compliance gates chronologically without fabricated fallback gates', () => {
     const gates = overview.urgentGates;
+    expect(Array.isArray(gates)).toBe(true);
 
-    expect(gates.length).toBeGreaterThanOrEqual(3);
     for (let i = 0; i < gates.length - 1; i++) {
       expect(gates[i].daysRemaining).toBeLessThanOrEqual(gates[i + 1].daysRemaining);
     }
 
     const todayIso = new Date().toISOString().split('T')[0];
     gates.forEach((gate) => {
+      expect(gate.id).not.toBe('gate_arcon_asp');
+      expect(gate.id).not.toBe('gate_nfiu_str');
       expect(gate.sourcePillar).toBeDefined();
       expect(['marketing', 'radar', 'gap-matrix']).toContain(gate.sourcePillar);
       expect(gate.actionRequired).toBeDefined();
-      expect(gate.deadlineDate).toBeDefined();
-      // Ensure deadline is not in the past or static dummy date
-      expect(gate.deadlineDate >= todayIso || gate.daysRemaining > 0).toBe(true);
+      expect(gate.deadlineDate >= todayIso || gate.daysRemaining >= 0).toBe(true);
     });
   });
 
-  it('dynamically computes and returns regulatory trending topics', () => {
+  it('dynamically computes and returns regulatory trending topics from live database', () => {
     const topics = overview.trendingTopics;
 
     expect(topics).toBeDefined();
@@ -118,44 +118,38 @@ describe('Epic 19: Unified Executive Dashboard & Overview (Task 19.1)', () => {
 
     topics!.forEach((topic) => {
       expect(topic.name).toBeDefined();
-      expect(topic.count).toBeGreaterThan(0);
+      expect(topic.count).toBeGreaterThanOrEqual(0);
       expect(topic.max).toBeGreaterThanOrEqual(topic.count);
       expect(['UP', 'DOWN', 'STABLE']).toContain(topic.trend);
       expect(topic.trendValue).toBeDefined();
     });
-
-    const topicNames = topics!.map((t) => t.name);
-    expect(topicNames.some((n) => n.includes('AML') || n.includes('Consumer') || n.includes('Data') || n.includes('Cyber'))).toBe(true);
   });
 
-  it('dynamically computes and returns most impacted policies', () => {
+  it('dynamically computes and returns tenant-isolated impacted policies', () => {
     const policies = overview.impactedPolicies;
 
     expect(policies).toBeDefined();
-    expect(policies!.length).toBeGreaterThanOrEqual(3);
+    expect(Array.isArray(policies)).toBe(true);
 
     policies!.forEach((pol) => {
       expect(pol.id).toBeDefined();
+      expect(pol.id).not.toBe('00000000-0000-0000-0000-000000000101');
       expect(pol.name).toBeDefined();
       expect(pol.regulators).toBeInstanceOf(Array);
       expect(pol.regulators.length).toBeGreaterThan(0);
-      expect(pol.alertCount).toBeGreaterThan(0);
+      expect(pol.alertCount).toBeGreaterThanOrEqual(0);
       expect(pol.ownerInitials).toBeDefined();
-      expect(pol.ownerInitials.length).toBeGreaterThanOrEqual(2);
     });
   });
 
-  it('provides a unified cross-pillar activity and cryptographic audit feed', () => {
+  it('provides a live cross-pillar activity and cryptographic audit feed without fabricated entries', () => {
     const feed = overview.recentActivities;
-
-    expect(feed.length).toBeGreaterThanOrEqual(3);
-    const pillarsInFeed = new Set(feed.map((f) => f.sourcePillar));
-    expect(pillarsInFeed.has('marketing')).toBe(true);
-    expect(pillarsInFeed.has('radar')).toBe(true);
-    expect(pillarsInFeed.has('gap-matrix')).toBe(true);
+    expect(Array.isArray(feed)).toBe(true);
 
     feed.forEach((item) => {
-      expect(item.id).toBeDefined();
+      expect(item.id).not.toBe('act_gm_1');
+      expect(item.id).not.toBe('act_rd_2');
+      expect(item.id).not.toBe('act_ms_3');
       expect(item.action).toBeDefined();
       expect(item.description).toBeDefined();
       expect(item.timestamp).toBeDefined();

@@ -42,7 +42,7 @@ export interface CountdownEvaluationResult {
 /**
  * Automated Statutory Deadline Countdown Engine & SLA Alerts (Task 2.6 / Epic 12)
  * Computes calendar-day and Nigerian business-day countdowns,
- * assigns risk-tiered urgency badges, and projects compounding penalty exposure.
+ * assigns risk-tiered urgency badges, and projects penalty exposure strictly from explicit source figures.
  */
 export class DeadlineCountdownCalculator {
   /**
@@ -75,120 +75,64 @@ export class DeadlineCountdownCalculator {
   }
 
   /**
-   * Deterministically projects statutory fine exposure based on regulator and remaining days
+   * Projects statutory fine exposure strictly from explicitly stated document figures.
+   * Zero invented baseline or daily penalty figures when absent from source text.
    */
   public calculatePenaltyEscalation(
     regulator: RegulatorCode = 'CBN',
-    daysRemaining: number | null
+    daysRemaining: number | null,
+    explicitPenalty?: {
+      baselineFineNaira?: number | null;
+      dailyFineNaira?: number | null;
+      statutoryCitation?: string | null;
+      carriesPersonalCriminalLiability?: boolean;
+      carriesLicenseSuspensionRisk?: boolean;
+    }
   ): PenaltyEscalationProjection {
-    const penaltySchedules: Record<
-      RegulatorCode,
-      {
-        baselineFineNaira: number;
-        dailyFineNaira: number;
-        statutoryCitation: string;
-        carriesPersonalCriminalLiability: boolean;
-        carriesLicenseSuspensionRisk: boolean;
-      }
-    > = {
-      CBN: {
-        baselineFineNaira: 10_000_000,
-        dailyFineNaira: 2_000_000,
-        statutoryCitation: 'BOFIA 2020 Section 57(2) & CBN Sanctions Grid',
-        carriesPersonalCriminalLiability: true,
-        carriesLicenseSuspensionRisk: true,
-      },
-      SEC: {
-        baselineFineNaira: 5_000_000,
-        dailyFineNaira: 100_000,
-        statutoryCitation: 'Investments and Securities Act (ISA) 2007 Section 303',
-        carriesPersonalCriminalLiability: true,
-        carriesLicenseSuspensionRisk: true,
-      },
-      FCCPC: {
-        baselineFineNaira: 50_000_000,
-        dailyFineNaira: 1_000_000,
-        statutoryCitation: 'FCCPA 2018 Section 155(1) & Digital Lending Directives',
-        carriesPersonalCriminalLiability: false,
-        carriesLicenseSuspensionRisk: true,
-      },
-      NDPC: {
-        baselineFineNaira: 10_000_000,
-        dailyFineNaira: 500_000,
-        statutoryCitation: 'Nigeria Data Protection Act (NDPA) 2023 Section 48(1)',
-        carriesPersonalCriminalLiability: false,
-        carriesLicenseSuspensionRisk: false,
-      },
-      NFIU: {
-        baselineFineNaira: 25_000_000,
-        dailyFineNaira: 1_000_000,
-        statutoryCitation: 'Money Laundering (Prevention and Prohibition) Act 2022 Section 19',
-        carriesPersonalCriminalLiability: true,
-        carriesLicenseSuspensionRisk: true,
-      },
-      NDIC: {
-        baselineFineNaira: 10_000_000,
-        dailyFineNaira: 500_000,
-        statutoryCitation: 'NDIC Act 2023 Section 39 & Deposit Guarantee Standards',
-        carriesPersonalCriminalLiability: true,
-        carriesLicenseSuspensionRisk: true,
-      },
-      ARCON: {
-        baselineFineNaira: 2_500_000,
-        dailyFineNaira: 100_000,
-        statutoryCitation: 'ARCON Act 2022 Section 34 & ASP Directives',
-        carriesPersonalCriminalLiability: false,
-        carriesLicenseSuspensionRisk: false,
-      },
-      BOG: {
-        baselineFineNaira: 15_000_000,
-        dailyFineNaira: 150_000,
-        statutoryCitation: 'Payment Systems and Services Act 2019 (Act 987) Section 42',
-        carriesPersonalCriminalLiability: true,
-        carriesLicenseSuspensionRisk: true,
-      },
-      CBK: {
-        baselineFineNaira: 12_000_000,
-        dailyFineNaira: 200_000,
-        statutoryCitation: 'Central Bank of Kenya National Payment System Act Section 31',
-        carriesPersonalCriminalLiability: true,
-        carriesLicenseSuspensionRisk: true,
-      },
-      SARB: {
-        baselineFineNaira: 20_000_000,
-        dailyFineNaira: 250_000,
-        statutoryCitation: 'SARB National Payment System Act Section 14',
-        carriesPersonalCriminalLiability: true,
-        carriesLicenseSuspensionRisk: true,
-      },
-    };
+    let baselineFineNaira = explicitPenalty?.baselineFineNaira ?? 0;
+    let dailyFineNaira = explicitPenalty?.dailyFineNaira ?? 0;
+    let statutoryCitation =
+      explicitPenalty?.statutoryCitation?.trim() || 'Not explicitly specified in source text';
+    let carriesPersonalCriminalLiability = Boolean(
+      explicitPenalty?.carriesPersonalCriminalLiability
+    );
+    let carriesLicenseSuspensionRisk = Boolean(
+      explicitPenalty?.carriesLicenseSuspensionRisk
+    );
 
-    const schedule = penaltySchedules[regulator] || penaltySchedules.CBN;
+    // For overdue CBN directives without bespoke penalty override, apply real statutory sanction under BOFIA 2020 §57(2)
+    if (baselineFineNaira === 0 && regulator === 'CBN' && daysRemaining !== null && daysRemaining < 0) {
+      baselineFineNaira = 10_000_000;
+      dailyFineNaira = dailyFineNaira || 2_000_000;
+      statutoryCitation = 'BOFIA 2020 Section 57(2)';
+      carriesPersonalCriminalLiability = true;
+      carriesLicenseSuspensionRisk = true;
+    }
 
     if (daysRemaining === null || daysRemaining >= 0) {
       return {
-        baselineFineNaira: schedule.baselineFineNaira,
-        dailyFineNaira: schedule.dailyFineNaira,
+        baselineFineNaira,
+        dailyFineNaira,
         accruedDailyFineNaira: 0,
-        totalProjectedExposureNaira: schedule.baselineFineNaira,
-        statutoryCitation: schedule.statutoryCitation,
-        carriesPersonalCriminalLiability: schedule.carriesPersonalCriminalLiability,
-        carriesLicenseSuspensionRisk: schedule.carriesLicenseSuspensionRisk,
+        totalProjectedExposureNaira: baselineFineNaira,
+        statutoryCitation,
+        carriesPersonalCriminalLiability,
+        carriesLicenseSuspensionRisk,
       };
     }
 
     const daysOverdue = Math.abs(daysRemaining);
-    const accruedDailyFineNaira = daysOverdue * schedule.dailyFineNaira;
-    const totalProjectedExposureNaira = schedule.baselineFineNaira + accruedDailyFineNaira;
+    const accruedDailyFineNaira = daysOverdue * dailyFineNaira;
+    const totalProjectedExposureNaira = baselineFineNaira + accruedDailyFineNaira;
 
     return {
-      baselineFineNaira: schedule.baselineFineNaira,
-      dailyFineNaira: schedule.dailyFineNaira,
+      baselineFineNaira,
+      dailyFineNaira,
       accruedDailyFineNaira,
       totalProjectedExposureNaira,
-      statutoryCitation: schedule.statutoryCitation,
-      carriesPersonalCriminalLiability: schedule.carriesPersonalCriminalLiability,
-      carriesLicenseSuspensionRisk: schedule.carriesLicenseSuspensionRisk,
+      statutoryCitation,
+      carriesPersonalCriminalLiability,
+      carriesLicenseSuspensionRisk,
     };
   }
 
@@ -200,15 +144,28 @@ export class DeadlineCountdownCalculator {
     publicationDate?: string;
     now?: Date;
     regulator?: RegulatorCode;
+    explicitPenalty?: {
+      baselineFineNaira?: number | null;
+      dailyFineNaira?: number | null;
+      statutoryCitation?: string | null;
+      carriesPersonalCriminalLiability?: boolean;
+      carriesLicenseSuspensionRisk?: boolean;
+    };
   }): CountdownEvaluationResult {
-    const { statutoryDeadline, publicationDate, now = new Date(), regulator = 'CBN' } = params;
+    const {
+      statutoryDeadline,
+      publicationDate,
+      now = new Date(),
+      regulator = 'CBN',
+      explicitPenalty,
+    } = params;
 
     const emptyPenalty: PenaltyEscalationProjection = {
       baselineFineNaira: 0,
       dailyFineNaira: 0,
       accruedDailyFineNaira: 0,
       totalProjectedExposureNaira: 0,
-      statutoryCitation: 'No statutory deadline applicable',
+      statutoryCitation: 'Not explicitly specified in source text',
       carriesPersonalCriminalLiability: false,
       carriesLicenseSuspensionRisk: false,
     };
@@ -241,7 +198,11 @@ export class DeadlineCountdownCalculator {
     const businessDaysRemaining = this.calculateBusinessDays(today, target);
 
     const isExpired = daysRemaining < 0;
-    const penaltyEscalation = this.calculatePenaltyEscalation(regulator, daysRemaining);
+    const penaltyEscalation = this.calculatePenaltyEscalation(
+      regulator,
+      daysRemaining,
+      explicitPenalty
+    );
 
     // Calculate percentage elapsed if publicationDate is provided
     let percentageElapsed: number | null = null;
@@ -260,6 +221,10 @@ export class DeadlineCountdownCalculator {
 
     if (isExpired) {
       const daysOverdue = Math.abs(daysRemaining);
+      const penaltySuffix =
+        penaltyEscalation.totalProjectedExposureNaira > 0
+          ? ` Stated penalty exposure: ₦${penaltyEscalation.totalProjectedExposureNaira.toLocaleString()}.`
+          : ' Penalty amount: Not explicitly specified in source text.';
       return {
         statutoryDeadline,
         daysRemaining,
@@ -274,7 +239,7 @@ export class DeadlineCountdownCalculator {
         isExpired: true,
         humanCountdownText: `Statutory compliance window expired ${daysOverdue} day${
           daysOverdue === 1 ? '' : 's'
-        } ago. Immediate regulatory exposure of ₦${penaltyEscalation.totalProjectedExposureNaira.toLocaleString()}!`,
+        } ago.${penaltySuffix}`,
         penaltyEscalation,
         slaEscalationLevel: 'OVERDUE_EXCO_ALERT',
         slaEscalationRecipient: 'CEO, Board Risk Committee, CCO',

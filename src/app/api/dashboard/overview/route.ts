@@ -3,6 +3,11 @@ import { getTenantContext } from '@/shared/auth';
 import { createAdminClient } from '@/shared/db';
 import { logger } from '@/shared/logger';
 import { RegulatorCode } from '@/shared/types';
+import {
+  TOPIC_TAXONOMY,
+  buildTopicClassificationText,
+  classifyTopic,
+} from '@/shared/taxonomy/regulatoryTopics';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,9 +16,9 @@ export interface DashboardDeadlineItem {
   sourceId: string;
   sourceModule: 'horizon' | 'library' | 'gap' | 'marketing';
   title: string;
-  shortLabel: string; // e.g. "CBN • AML/CFT" - strictly single regulator code
+  shortLabel: string;
   regulatorCode: RegulatorCode;
-  dueDate: string; // ISO date YYYY-MM-DD
+  dueDate: string;
   daysRemaining: number;
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL_EMERGENCY';
   summary: string;
@@ -26,7 +31,7 @@ export interface DashboardTrendingTopicItem {
   name: string;
   count: number;
   max: number;
-  delta: string; // e.g. "↑3", "→", "↓1"
+  delta: string;
   filterUrl: string;
   trend: 'UP' | 'DOWN' | 'STABLE';
 }
@@ -40,235 +45,126 @@ export interface DashboardImpactedPolicyItem {
   targetUrl: string;
 }
 
-const TOPIC_TAXONOMY = [
-  {
-    key: 'aml_cft',
-    name: 'AML/CFT & Sanctions',
-    keywords: [
-      'aml',
-      'cft',
-      'kyc',
-      'sanction',
-      'fatf',
-      'nigsac',
-      'ofac',
-      'str',
-      'money laundering',
-      'beneficial ownership',
-      'dcb finance',
-      'pep',
-      'unscrs',
-      'tier-3',
-      'watch-list',
-    ],
-  },
-  {
-    key: 'consumer_protection',
-    name: 'Consumer Protection & APR',
-    keywords: [
-      'consumer',
-      'apr',
-      'disclosure',
-      'fee',
-      'tariff',
-      'complaint',
-      'interest',
-      'fccpc',
-      'fair lending',
-      'dormant',
-      'unclaimed',
-      'charges',
-      'dud cheque',
-      'advertisement',
-      'airtime',
-      'failed',
-      'cash-related',
-      'cash disbursement',
-      'app fraud',
-      'push payment',
-    ],
-  },
-  {
-    key: 'data_privacy',
-    name: 'Data Privacy & NDPA 2023',
-    keywords: [
-      'data',
-      'privacy',
-      'ndpa',
-      'ndpc',
-      'personal data',
-      'consent',
-      'dpo',
-      'controller',
-      'cybersecurity',
-      'cloud',
-      'soc',
-      'threat intelligence',
-      'csat',
-      'data localisation',
-    ],
-  },
-  {
-    key: 'payments_rails',
-    name: 'Payments & Switching Rails',
-    keywords: [
-      'contactless',
-      'interchange',
-      'payment',
-      'pos',
-      'pssp',
-      'switching',
-      'rail',
-      'efems',
-      'nfem',
-      'bswitch',
-      'settlement',
-      'cash',
-      'atms',
-      'dmb',
-      'geo-fencing',
-      'geo-tagging',
-      'bvn',
-      'instant payment',
-      'iso 20022',
-      'cheque',
-      'nicpas',
-      'tms',
-      'ptsas',
-      'agent banking',
-      'foreign cards',
-    ],
-  },
-  {
-    key: 'digital_lending',
-    name: 'Digital Lending & Sub-Brokers',
-    keywords: [
-      'lending',
-      'loan',
-      'nano',
-      'credit',
-      'sub-broker',
-      'digital asset',
-      'vasp',
-      'crypto',
-      'arip',
-      'custody',
-      'cross-border',
-      'algorithmic',
-      'robo-advisory',
-      'virtual asset',
-      'stma',
-      'movable assets',
-    ],
-  },
-  {
-    key: 'corporate_governance',
-    name: 'Corporate Governance & CAMA',
-    keywords: [
-      'governance',
-      'cama',
-      'director',
-      'board',
-      'capital adequacy',
-      'mpc',
-      'sdf',
-      'prudential',
-      'bullion',
-      'balance of payments',
-      'inspection agent',
-      'bofia',
-      'audit',
-      'holding companies',
-      'ring-fencing',
-      'union bank',
-      'successors',
-      'sustainability',
-      'ifrs',
-      't+1 settlement',
-      'nnmra',
-      'non-interest',
-    ],
-  },
-];
-
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const tenantCtx = await getTenantContext({ allowDevFallback: true });
     const queryOrgId = searchParams.get('organizationId');
-    const organizationId = tenantCtx.isDevFallback && queryOrgId ? queryOrgId : tenantCtx.organizationId;
+    const organizationId =
+      tenantCtx.isDevFallback && queryOrgId ? queryOrgId : tenantCtx.organizationId;
     const db = createAdminClient();
 
     // 1. Fetch Real Radar Circulars (Alerts)
-    const { data: circularsData, count: totalCircularsCount } = await (db
-      .from('radar_circulars') as any)
-      .select(
-        'id, circular_number, subject, summary, statutory_deadline, issuance_date, created_at, important_dates, other_dates, priority, doc_type, executive_summary',
-        { count: 'exact' }
-      );
+    const { data: circularsData, count: totalCircularsCount } = await (
+      db.from('radar_circulars') as any
+    ).select(
+      'id, circular_number, subject, summary, statutory_deadline, issuance_date, created_at, important_dates, other_dates, priority, doc_type, executive_summary, topics, raw_text',
+      { count: 'exact' }
+    );
 
     const circulars: any[] = circularsData || [];
-    const totalAlerts90d = totalCircularsCount ?? circulars.length;
+    const totalAlertsCount = totalCircularsCount ?? circulars.length;
 
-    // 2. Fetch Real Regulatory Instruments (Regulation Library)
-    const { data: instrumentsData } = await (db.from('regulatory_instruments') as any).select(`
-      id,
-      title,
-      short_name,
-      domain,
-      entry_into_force_date,
-      publication_date,
-      regulatory_bodies (
-        code,
-        name
-      )
-    `);
+    // 2. Fetch Real Binding Regulatory Instruments (Global + Tenant Custom)
+    const { data: instrumentsData } = await (db.from('regulatory_instruments') as any)
+      .select(`
+        id,
+        title,
+        short_name,
+        domain,
+        is_binding,
+        organization_id,
+        entry_into_force_date,
+        publication_date,
+        regulatory_bodies (
+          code,
+          name
+        )
+      `)
+      .eq('is_binding', true)
+      .or(`organization_id.is.null,organization_id.eq.${organizationId}`);
+
     const instruments = instrumentsData || [];
 
-    // 3. Compute Real Trending Topics Partition (sum of counts === totalAlerts90d)
+    // 3. Fetch Tenant Gap Evaluations (strictly tenant-scoped)
+    const { data: gapEvalsData } = await (db.from('gap_evaluations') as any)
+      .select(
+        'id, organization_id, analysis_name, policy_ids, critical_gaps_count, partially_met_count, regulation_ids, action_plan, created_at'
+      )
+      .eq('organization_id', organizationId)
+      .order('created_at', { ascending: false });
+
+    const gapEvals: any[] = gapEvalsData || [];
+
+    // 4. Fetch Tenant Custom Deadlines (strictly tenant-scoped)
+    const { data: customDeadlinesData } = await (db.from('compliance_deadlines') as any)
+      .select('*')
+      .eq('organization_id', organizationId)
+      .eq('is_completed', false)
+      .order('due_date', { ascending: true });
+
+    const customDeadlines: any[] = customDeadlinesData || [];
+
+    // 5. Compute Real Trending Topics Partition using shared classifyTopic()
     const now = Date.now();
     const thirtyDaysAgo = now - 30 * 86400000;
     const sixtyDaysAgo = now - 60 * 86400000;
+    const ninetyDaysAgo = now - 90 * 86400000;
+    const oneEightyDaysAgo = now - 180 * 86400000;
 
-    const topicStats: Record<string, { count: number; recentCount: number; priorCount: number }> = {};
+    const topicStats: Record<
+      string,
+      { count: number; recentCount: number; priorCount: number }
+    > = {};
     for (const t of TOPIC_TAXONOMY) {
       topicStats[t.key] = { count: 0, recentCount: 0, priorCount: 0 };
     }
 
-    circulars.forEach((c) => {
-      const text = `${c.circular_number || ''} ${c.subject || ''} ${c.summary || ''} ${c.executive_summary || ''}`.toLowerCase();
-      let bestTopic = TOPIC_TAXONOMY[TOPIC_TAXONOMY.length - 1];
-      let maxScore = 0;
+    let current90dCount = 0;
+    let previous90dCount = 0;
 
-      for (const t of TOPIC_TAXONOMY) {
-        let score = 0;
-        for (const kw of t.keywords) {
-          if (text.includes(kw)) {
-            score += kw.length > 5 ? 2 : 1;
-          }
-        }
-        if (score > maxScore) {
-          maxScore = score;
-          bestTopic = t;
-        }
+    circulars.forEach((c) => {
+      const classificationText = buildTopicClassificationText(c);
+      const bestTopicKey = classifyTopic(classificationText);
+
+      topicStats[bestTopicKey].count++;
+
+      const createdTime = c.issuance_date
+        ? new Date(c.issuance_date).getTime()
+        : new Date(c.created_at).getTime();
+
+      if (createdTime >= thirtyDaysAgo) {
+        topicStats[bestTopicKey].recentCount++;
+      } else if (createdTime >= sixtyDaysAgo) {
+        topicStats[bestTopicKey].priorCount++;
       }
 
-      topicStats[bestTopic.key].count++;
-      const createdTime = c.issuance_date ? new Date(c.issuance_date).getTime() : new Date(c.created_at).getTime();
-      if (createdTime >= thirtyDaysAgo) {
-        topicStats[bestTopic.key].recentCount++;
-      } else if (createdTime >= sixtyDaysAgo) {
-        topicStats[bestTopic.key].priorCount++;
+      if (createdTime >= ninetyDaysAgo) {
+        current90dCount++;
+      } else if (createdTime >= oneEightyDaysAgo) {
+        previous90dCount++;
       }
     });
 
-    const maxTopicCount = Math.max(...Object.values(topicStats).map((s) => s.count), 1);
+    let trendPercentage = '→ 0%';
+    if (previous90dCount > 0) {
+      const pct = Math.round(((current90dCount - previous90dCount) / previous90dCount) * 100);
+      trendPercentage = pct > 0 ? `↑${pct}%` : pct < 0 ? `↓${Math.abs(pct)}%` : '→ 0%';
+    } else if (current90dCount > 0) {
+      trendPercentage = `↑${current90dCount} in 90d`;
+    }
+
+    const maxTopicCount = Math.max(
+      ...Object.values(topicStats).map((s) => s.count),
+      1
+    );
 
     const trendingTopicsList: DashboardTrendingTopicItem[] = TOPIC_TAXONOMY.map((t) => {
       const s = topicStats[t.key];
       const diff = s.recentCount - s.priorCount;
       const delta = diff > 0 ? `↑${diff}` : diff < 0 ? `↓${Math.abs(diff)}` : '→';
-      const trend: 'UP' | 'DOWN' | 'STABLE' = diff > 0 ? 'UP' : diff < 0 ? 'DOWN' : 'STABLE';
+      const trend: 'UP' | 'DOWN' | 'STABLE' =
+        diff > 0 ? 'UP' : diff < 0 ? 'DOWN' : 'STABLE';
 
       return {
         topicKey: t.key,
@@ -277,14 +173,13 @@ export async function GET(req: NextRequest) {
         max: maxTopicCount,
         delta,
         trend,
-        filterUrl: `/insight?topic=${encodeURIComponent(t.name)}`,
+        filterUrl: `/insight?topic=${encodeURIComponent(t.key)}`,
       };
     });
 
-    // 4. Compute Real Upcoming Deadlines Timeline
+    // 6. Compute Real Upcoming Deadlines Timeline across Horizon, Library, Gap Action Items & Custom Deadlines
     const rawDeadlines: DashboardDeadlineItem[] = [];
 
-    // Helper: extract canonical regulator code without duplication
     const extractRegulator = (refNum?: string, title?: string): RegulatorCode => {
       const prefix = (refNum || '').split('/')[0]?.toUpperCase();
       if (['CBN', 'SEC', 'NDPC', 'FCCPC', 'ARCON', 'NFIU', 'NDIC'].includes(prefix)) {
@@ -300,8 +195,11 @@ export async function GET(req: NextRequest) {
       return 'CBN';
     };
 
-    // Helper: generate clean short label (NEVER duplicate regulator!)
-    const generateShortLabel = (regCode: RegulatorCode, title: string, customLabel?: string): string => {
+    const generateShortLabel = (
+      regCode: RegulatorCode,
+      title: string,
+      customLabel?: string
+    ): string => {
       if (customLabel) {
         const clean = customLabel.replace(new RegExp(`^${regCode}\\s*`, 'i'), '').trim();
         return `${regCode} • ${clean || 'Directive'}`;
@@ -338,7 +236,7 @@ export async function GET(req: NextRequest) {
       return `${regCode} • ${words || 'Notice'}`;
     };
 
-    // A. Extract deadlines from circulars
+    // A. Horizon Scanning deadlines (statutory_deadline + important_dates) -> direct alertId link
     circulars.forEach((c) => {
       const regCode = extractRegulator(c.circular_number, c.subject);
 
@@ -356,120 +254,191 @@ export async function GET(req: NextRequest) {
           daysRemaining,
           priority: (c.priority as any) || 'HIGH',
           summary: c.summary || c.subject,
-          targetUrl: `/insight?search=${encodeURIComponent(c.circular_number || c.subject)}`,
-          actionRequired: c.executive_summary || `Mandatory supervisory concordance required before ${c.statutory_deadline}.`,
+          targetUrl: `/insight?alertId=${c.id}`,
+          actionRequired:
+            c.executive_summary ||
+            `Statutory compliance concordance required before ${c.statutory_deadline}.`,
         });
       }
 
       if (Array.isArray(c.important_dates)) {
-        c.important_dates.forEach((d: any) => {
+        c.important_dates.forEach((d: any, idx: number) => {
           if (d.date && d.label && d.label !== 'Publication Date') {
             const dueTime = new Date(d.date).getTime();
-            const daysRemaining = Math.ceil((dueTime - now) / (1000 * 60 * 60 * 24));
-            rawDeadlines.push({
-              id: `circ_date_${d.id || Math.random()}`,
-              sourceId: c.id,
-              sourceModule: 'horizon',
-              title: `${c.subject} (${d.label})`,
-              shortLabel: generateShortLabel(regCode, c.subject, d.label),
-              regulatorCode: regCode,
-              dueDate: d.date,
-              daysRemaining,
-              priority: (c.priority as any) || 'MEDIUM',
-              summary: d.description || c.summary || c.subject,
-              targetUrl: `/insight?search=${encodeURIComponent(c.circular_number || c.subject)}`,
-              actionRequired: d.description || `Milestone review: ${d.label}.`,
-            });
+            if (!isNaN(dueTime)) {
+              const daysRemaining = Math.ceil((dueTime - now) / (1000 * 60 * 60 * 24));
+              rawDeadlines.push({
+                id: `circ_date_${c.id}_${d.id || idx}`,
+                sourceId: c.id,
+                sourceModule: 'horizon',
+                title: `${c.subject} (${d.label})`,
+                shortLabel: generateShortLabel(regCode, c.subject, d.label),
+                regulatorCode: regCode,
+                dueDate: d.date,
+                daysRemaining,
+                priority: (c.priority as any) || 'MEDIUM',
+                summary: d.description || c.summary || c.subject,
+                targetUrl: `/insight?alertId=${c.id}`,
+                actionRequired: d.description || `Milestone review: ${d.label}.`,
+              });
+            }
           }
         });
       }
     });
 
-    // B. Extract from instruments
+    // B. Regulation Library entry_into_force_date -> direct instrumentId link
     instruments.forEach((inst: any) => {
-      const regCode = (inst.regulatory_bodies?.code as RegulatorCode) || extractRegulator(undefined, inst.title);
+      const regCode =
+        (inst.regulatory_bodies?.code as RegulatorCode) ||
+        extractRegulator(undefined, inst.title);
       if (inst.entry_into_force_date) {
         const dueTime = new Date(inst.entry_into_force_date).getTime();
-        const daysRemaining = Math.ceil((dueTime - now) / (1000 * 60 * 60 * 24));
-        rawDeadlines.push({
-          id: `inst_${inst.id}`,
-          sourceId: inst.id,
-          sourceModule: 'library',
-          title: inst.title,
-          shortLabel: generateShortLabel(regCode, inst.title, inst.short_name),
-          regulatorCode: regCode,
-          dueDate: inst.entry_into_force_date,
-          daysRemaining,
-          priority: 'MEDIUM',
-          summary: `Statutory instrument enters into force on ${inst.entry_into_force_date}.`,
-          targetUrl: `/library?search=${encodeURIComponent(inst.short_name || inst.title)}`,
-          actionRequired: `Statutory concordance required with provisions of ${inst.title}.`,
+        if (!isNaN(dueTime)) {
+          const daysRemaining = Math.ceil((dueTime - now) / (1000 * 60 * 60 * 24));
+          rawDeadlines.push({
+            id: `inst_${inst.id}`,
+            sourceId: inst.id,
+            sourceModule: 'library',
+            title: inst.title,
+            shortLabel: generateShortLabel(regCode, inst.title, inst.short_name),
+            regulatorCode: regCode,
+            dueDate: inst.entry_into_force_date,
+            daysRemaining,
+            priority: 'MEDIUM',
+            summary: `Statutory instrument entry into force date: ${inst.entry_into_force_date}.`,
+            targetUrl: `/library?instrumentId=${inst.id}`,
+            actionRequired: `Verify institutional concordance with ${inst.title}.`,
+          });
+        }
+      }
+    });
+
+    // C. Gap Analysis Action Plan Items (dueDate) -> direct /gap/[gapAnalysisId] link
+    gapEvals.forEach((evalRow: any) => {
+      if (Array.isArray(evalRow.action_plan)) {
+        evalRow.action_plan.forEach((act: any, idx: number) => {
+          if (!act.completed && act.dueDate) {
+            const dueTime = new Date(act.dueDate).getTime();
+            if (!isNaN(dueTime)) {
+              const daysRemaining = Math.ceil((dueTime - now) / (1000 * 60 * 60 * 24));
+              const regCode = extractRegulator(act.linkedObligationCode, act.title || evalRow.analysis_name);
+              rawDeadlines.push({
+                id: `gap_act_${evalRow.id}_${act.id || idx}`,
+                sourceId: evalRow.id,
+                sourceModule: 'gap',
+                title: act.title || `Policy Remediation (${evalRow.analysis_name || 'Gap Analysis'})`,
+                shortLabel: generateShortLabel(regCode, act.title || 'Policy Remediation', act.linkedObligationCode),
+                regulatorCode: regCode,
+                dueDate: String(act.dueDate).slice(0, 10),
+                daysRemaining,
+                priority: daysRemaining <= 14 ? 'HIGH' : 'MEDIUM',
+                summary: `${act.policyTitle ? `${act.policyTitle} — ` : ''}Assigned to ${act.assigneeName || act.assigneeRole || 'Compliance Officer'}.`,
+                targetUrl: `/gap/${evalRow.id}`,
+                actionRequired: act.title,
+              });
+            }
+          }
         });
       }
     });
 
-    // Deduplicate deadlines by sourceId + dueDate
+    // D. Tenant Custom Deadlines (compliance_deadlines table)
+    customDeadlines.forEach((cd: any) => {
+      const dueStr = String(cd.due_date).slice(0, 10);
+      const dueTime = new Date(dueStr).getTime();
+      if (!isNaN(dueTime)) {
+        const daysRemaining = Math.ceil((dueTime - now) / (1000 * 60 * 60 * 24));
+        const regCode = (cd.regulator_code as RegulatorCode) || 'CBN';
+        const mod = (['horizon', 'library', 'gap', 'marketing'].includes(cd.source_module)
+          ? cd.source_module
+          : 'horizon') as DashboardDeadlineItem['sourceModule'];
+        const defaultUrl =
+          mod === 'library'
+            ? '/library'
+            : mod === 'gap'
+            ? '/gap'
+            : mod === 'marketing'
+            ? '/marketing'
+            : '/insight';
+
+        rawDeadlines.push({
+          id: `custom_${cd.id}`,
+          sourceId: cd.source_id || cd.id,
+          sourceModule: mod,
+          title: cd.title,
+          shortLabel: generateShortLabel(regCode, cd.title),
+          regulatorCode: regCode,
+          dueDate: dueStr,
+          daysRemaining,
+          priority: (cd.priority as any) || 'HIGH',
+          summary: cd.summary || cd.title,
+          targetUrl: cd.target_url || defaultUrl,
+          actionRequired: cd.summary || cd.title,
+        });
+      }
+    });
+
+    // Deduplicate deadlines by sourceModule + sourceId + dueDate + title
     const seenDeadlineKeys = new Set<string>();
     const dedupedDeadlines = rawDeadlines.filter((d) => {
-      const key = `${d.sourceId}_${d.dueDate}`;
+      const key = `${d.sourceModule}_${d.sourceId}_${d.dueDate}_${d.title}`;
       if (seenDeadlineKeys.has(key)) return false;
       seenDeadlineKeys.add(key);
       return true;
     });
 
     // Sort chronologically
-    dedupedDeadlines.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+    dedupedDeadlines.sort(
+      (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+    );
 
-    // Filter into upcoming milestones (or recent canonical if future count < 6)
     const futureDeadlines = dedupedDeadlines.filter((d) => d.daysRemaining >= 0);
     const pastDeadlines = dedupedDeadlines.filter((d) => d.daysRemaining < 0);
 
-    // Build timeline milestones list (6-8 milestones covering urgent 30d window and upcoming quarters)
     let timelineDeadlines: DashboardDeadlineItem[] = [];
     if (futureDeadlines.length >= 6) {
       timelineDeadlines = futureDeadlines.slice(0, 8);
     } else {
-      // Complement with most recent milestone dates from DB so timeline has complete visual depth
-      const recentPast = pastDeadlines.slice(-Math.max(2, 6 - futureDeadlines.length));
+      const recentPast = pastDeadlines.slice(-Math.max(0, 6 - futureDeadlines.length));
       timelineDeadlines = [...recentPast, ...futureDeadlines];
-      timelineDeadlines.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+      timelineDeadlines.sort(
+        (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+      );
     }
 
-    // 5. Compute Real Most Impacted Policies Aggregation
-    // Query tenant's real uploaded policies
+    // 7. Compute Real Most Impacted Policies Aggregation (strictly tenant-isolated)
     const { data: policiesData } = await db
       .from('policy_documents')
       .select('id, title, department, organization_id, created_at')
       .eq('organization_id', organizationId);
 
-    let policies = policiesData || [];
+    const policies = policiesData || [];
 
-    // If active tenant has 0 policies, check if there are test policies for dev fallback
-    if (policies.length === 0) {
-      const { data: allDevPolicies } = await db
-        .from('policy_documents')
-        .select('id, title, department, organization_id, created_at')
-        .limit(10);
-      policies = allDevPolicies || [];
-    }
-
-    // Query gap evaluations and matrix items
-    const { data: gapEvalsData } = await (db
-      .from('gap_evaluations') as any)
-      .select('id, analysis_name, policy_ids, critical_gaps_count, partially_met_count, regulation_ids');
-
-    const gapEvals: any[] = gapEvalsData || [];
+    // Resolve regulators per instrument for accurate regulator attribution on evaluated policies
+    const instRegulatorMap = new Map<string, string>();
+    instruments.forEach((inst: any) => {
+      if (inst.id && inst.regulatory_bodies?.code) {
+        instRegulatorMap.set(inst.id, inst.regulatory_bodies.code);
+      }
+    });
 
     let totalImpactedSectionsCount = 0;
     const impactedPoliciesList: DashboardImpactedPolicyItem[] = [];
 
     policies.forEach((pol) => {
-      const matchedEvals = gapEvals.filter((e) => Array.isArray(e.policy_ids) && e.policy_ids.includes(pol.id));
-      let policyGapCount = 0;
+      const matchedEvals = gapEvals.filter(
+        (e) =>
+          (Array.isArray(e.policy_ids) && e.policy_ids.includes(pol.id)) ||
+          e.policy_id === pol.id
+      );
 
-      matchedEvals.forEach((e) => {
-        policyGapCount += (e.critical_gaps_count || 0) + (e.partially_met_count || 0);
-      });
+      // Use the most recent evaluation for this policy to avoid double-counting historical runs
+      const latestPolicyEval = matchedEvals[0] || null;
+      const policyGapCount = latestPolicyEval
+        ? (Number(latestPolicyEval.critical_gaps_count) || 0) +
+          (Number(latestPolicyEval.partially_met_count) || 0)
+        : 0;
 
       totalImpactedSectionsCount += policyGapCount;
 
@@ -480,19 +449,29 @@ export async function GET(req: NextRequest) {
       else if (dept.includes('TECH') || dept.includes('ENG')) ownerInitials = 'CTO';
       else if (dept.includes('LEGAL')) ownerInitials = 'GC';
 
-      let regulators = ['CBN'];
-      const lower = pol.title.toLowerCase();
-      if (lower.includes('credit') || lower.includes('consumer') || lower.includes('loan')) {
-        regulators = ['CBN', 'FCCPC'];
-      } else if (lower.includes('aml') || lower.includes('sanction') || lower.includes('cft')) {
-        regulators = ['CBN', 'NFIU'];
-      } else if (lower.includes('data') || lower.includes('privacy')) {
-        regulators = ['NDPC'];
+      const evalRegs = new Set<string>();
+      if (latestPolicyEval && Array.isArray(latestPolicyEval.regulation_ids)) {
+        latestPolicyEval.regulation_ids.forEach((rid: string) => {
+          const code = instRegulatorMap.get(rid);
+          if (code) evalRegs.add(code);
+        });
       }
 
-      const targetUrl = matchedEvals.length > 0
-        ? `/gap?analysisId=${matchedEvals[0].id}`
-        : `/gap?policy=${encodeURIComponent(pol.title)}`;
+      let regulators = Array.from(evalRegs);
+      if (regulators.length === 0) {
+        const lower = pol.title.toLowerCase();
+        if (lower.includes('credit') || lower.includes('consumer') || lower.includes('loan')) {
+          regulators = ['CBN', 'FCCPC'];
+        } else if (lower.includes('aml') || lower.includes('sanction') || lower.includes('cft')) {
+          regulators = ['CBN', 'NFIU'];
+        } else if (lower.includes('data') || lower.includes('privacy')) {
+          regulators = ['NDPC'];
+        } else {
+          regulators = ['CBN'];
+        }
+      }
+
+      const targetUrl = latestPolicyEval ? `/gap/${latestPolicyEval.id}` : '/gap';
 
       impactedPoliciesList.push({
         id: pol.id,
@@ -504,10 +483,10 @@ export async function GET(req: NextRequest) {
       });
     });
 
-    // Rank impacted policies by open findings count descending
+    // Rank impacted policies by open Partial + Gap counts descending
     impactedPoliciesList.sort((a, b) => b.alertCount - a.alertCount);
 
-    // Get organization name
+    // 8. Resolve Organization Name
     const { data: orgData } = await db
       .from('organizations')
       .select('name')
@@ -525,8 +504,8 @@ export async function GET(req: NextRequest) {
         upcomingDeadlines: timelineDeadlines,
         allUpcomingDeadlines: dedupedDeadlines,
         trendingTopics: {
-          totalAlerts90d,
-          trendPercentage: '↑24%',
+          totalAlerts90d: totalAlertsCount,
+          trendPercentage,
           topics: trendingTopicsList,
         },
         mostImpactedPolicies: {
@@ -534,7 +513,7 @@ export async function GET(req: NextRequest) {
           policies: impactedPoliciesList,
         },
         liveTelemetry: {
-          totalAlerts: totalAlerts90d,
+          totalAlerts: totalAlertsCount,
           totalInstruments: instruments.length,
           totalPolicies: policies.length,
           totalEvaluations: gapEvals.length,

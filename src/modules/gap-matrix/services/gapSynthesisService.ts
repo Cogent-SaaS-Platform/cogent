@@ -25,8 +25,8 @@ export interface ExecuteGapEvaluationParams {
 }
 
 /**
- * 5-W Operational Synthesis & Deterministic Penalty Engine (Epics 16 & 17)
- * Integrates hybrid statutory clause retrieval, Gemini 5-W synthesis,
+ * 5-W Operational Synthesis & Deterministic Penalty Engine
+ * Integrates hybrid statutory clause retrieval, structured 5-W synthesis,
  * deterministic penalty attachment from statutory_penalties, and immutable audit logging.
  */
 export class GapSynthesisService {
@@ -73,29 +73,30 @@ export class GapSynthesisService {
     const evaluationId = crypto.randomUUID();
     const { organizationId, policyId, benchmarkDocumentVersionId, userId } = params;
 
-    // 1. Fetch policy metadata from DB or parameters
-    let policyTitle = params.policyTitle || 'Internal Compliance Manual';
-    let policyDepartment = params.department || 'COMPLIANCE_LEGAL';
+    const { data: policyDoc, error: policyErr } = await this.dbClient
+      .from('policy_documents')
+      .select('title, department')
+      .eq('id', policyId)
+      .eq('organization_id', organizationId)
+      .single();
 
-    if (this.dbClient) {
-      try {
-        const { data: policyDoc } = await this.dbClient
-          .from('policy_documents')
-          .select('title, department')
-          .eq('id', policyId)
-          .eq('organization_id', organizationId)
-          .single();
-
-        if (policyDoc) {
-          policyTitle = policyDoc.title;
-          policyDepartment = policyDoc.department;
-        }
-      } catch (err) {
-        logger.warn({ err: String(err) }, 'Could not read policy document row; using parameter fallback');
-      }
+    if (policyErr || !policyDoc) {
+      logger.error({ err: policyErr?.message, policyId, organizationId }, 'Policy document not found for tenant');
+      throw new Error(`Policy document not found: ${policyErr?.message || 'Invalid policyId'}`);
     }
 
-    // 2. Fetch statutory benchmark clauses and obligations
+    const policyTitle = policyDoc.title;
+    const policyDepartment = policyDoc.department;
+
+    // Fetch benchmark title & regulator
+    const { data: verRow } = await (this.dbClient.from('regulatory_document_versions') as any)
+      .select('id, instrument_id, regulatory_instruments(title, short_name, regulatory_bodies(code))')
+      .eq('id', benchmarkDocumentVersionId)
+      .maybeSingle();
+
+    const benchmarkTitle = verRow?.regulatory_instruments?.title || 'Statutory Regulatory Framework';
+    const issuingRegulator = verRow?.regulatory_instruments?.regulatory_bodies?.code || 'CBN';
+
     const statutoryClauses = await this.benchmarkService.getBenchmarkClausesWithObligations(
       benchmarkDocumentVersionId
     );
@@ -104,7 +105,6 @@ export class GapSynthesisService {
       throw new Error(`No statutory clauses found for benchmark version ${benchmarkDocumentVersionId}`);
     }
 
-    // 3. Pair each statutory clause with top matching internal policy clause via Vector Search
     const promptPairs: GapClausePairPromptInput[] = [];
     const matchedMetadataList: {
       sectionReference?: string;
@@ -122,6 +122,7 @@ export class GapSynthesisService {
       characterSpanEnd?: number | null;
       complianceCriteria?: string[] | null;
       assessment?: string | null;
+      statutoryTimelineDays?: number | null;
     }[] = [];
 
     for (const statClause of statutoryClauses) {
@@ -146,8 +147,6 @@ export class GapSynthesisService {
 
       for (const obligation of obligationsToEvaluate) {
         const penalty = obligation.penalties?.[0];
-
-        // Search top matching internal clauses using obligation summary and clause heading
         const queryText = `${statClause.sectionHeading}: ${obligation.summary || obligation.verbatimQuote || statClause.clauseText}`;
         const matches = await this.vectorIndexService.searchSimilarClauses({
           organizationId,
@@ -158,17 +157,18 @@ export class GapSynthesisService {
         });
 
         const topMatch = matches.length > 0 ? matches[0] : null;
+        const citation = penalty?.penaltyLegalCitation || `${benchmarkTitle} (${statClause.sectionReference})`;
 
         promptPairs.push({
           statutoryClause: {
             sectionReference: statClause.sectionReference,
             sectionHeading: statClause.sectionHeading,
             clauseText: statClause.clauseText,
-            obligationSummary: obligation.summary || 'Statutory compliance obligation',
+            obligationSummary: obligation.summary || statClause.clauseText.slice(0, 150),
             severity: obligation.severityFloor || 'HIGH',
-            statutoryTimelineDays: obligation.statutoryTimelineDays || null,
+            statutoryTimelineDays: obligation.statutoryTimelineDays ?? null,
             mandatoryDisclosure: obligation.mandatoryDisclosureText || null,
-            legalCitation: penalty?.penaltyLegalCitation || 'BOFIA 2020 / Relevant Act',
+            legalCitation: citation,
           },
           matchedInternalClause: topMatch
             ? {
@@ -179,8 +179,8 @@ export class GapSynthesisService {
             : null,
           policyTitle,
           department: policyDepartment,
-          benchmarkTitle: 'Statutory Regulatory Framework',
-          issuingRegulator: 'CBN',
+          benchmarkTitle,
+          issuingRegulator,
         });
 
         matchedMetadataList.push({
@@ -188,7 +188,7 @@ export class GapSynthesisService {
           statutoryClauseId: statClause.clauseId,
           obligationId: obligation.obligationId || null,
           statutoryPenaltyNaira: penalty ? penalty.penaltyMaxNaira : 0,
-          statutoryLegalCitation: penalty?.penaltyLegalCitation || 'BOFIA 2020',
+          statutoryLegalCitation: citation,
           carriesCriminalLiability: penalty?.carriesPersonalCriminalLiability || false,
           carriesLicenseSuspension: penalty?.carriesLicenseSuspensionRisk || false,
           matchedPolicyClauseId: topMatch ? topMatch.policyClauseId : null,
@@ -199,17 +199,17 @@ export class GapSynthesisService {
           characterSpanEnd: obligation.characterSpanEnd ?? null,
           complianceCriteria: obligation.complianceCriteria ?? null,
           assessment: obligation.assessment ?? null,
+          statutoryTimelineDays: obligation.statutoryTimelineDays ?? null,
         });
       }
     }
 
-    // 4. Construct prompt and execute structured Gemini generation
     const { systemInstruction, prompt } = buildGapMatrixPrompt({
       pairs: promptPairs,
       policyTitle,
       department: policyDepartment,
-      benchmarkTitle: 'Statutory Benchmark Baseline',
-      issuingRegulator: 'CBN',
+      benchmarkTitle,
+      issuingRegulator,
     });
 
     let aiResult;
@@ -221,13 +221,23 @@ export class GapSynthesisService {
         modelAlias: 'FAST_MODEL',
       });
     } catch (aiErr) {
-      logger.error({ err: String(aiErr) }, 'Gemini synthesis failed, generating deterministic fallback');
-      aiResult = this.createDeterministicFallbackSynthesis(promptPairs);
+      const msg = aiErr instanceof Error ? aiErr.message : String(aiErr);
+      logger.warn({ err: msg, evaluationId }, 'AI 5-W gap synthesis unavailable; executing deterministic 5-W concordance synthesis');
+      aiResult = {
+        data: this.generateDeterministicGapOutput(promptPairs),
+        telemetry: {
+          modelIdentifier: 'deterministic-concordance-engine',
+          latencyMs: 10,
+          inputTokenCount: 0,
+          outputTokenCount: 0,
+          rawPromptHash: crypto.createHash('sha256').update(prompt).digest('hex'),
+          rawOutputHash: crypto.createHash('sha256').update('deterministic-output').digest('hex'),
+        },
+      };
     }
 
     const { data: synthesisOutput, telemetry } = aiResult;
 
-    // 5. Deterministic Penalty Attachment (ADR-004: Zero LLM hallucinations)
     let adequatelyMetCount = 0;
     let partiallyMetCount = 0;
     let criticalGapsCount = 0;
@@ -239,34 +249,32 @@ export class GapSynthesisService {
       const meta = matchedMetadataList[i];
       const targetRef = meta.sectionReference?.toLowerCase().trim();
 
-      // Positional-independent matching: match by reference code first, fall back to index i
       const synthesized =
         synthesisOutput.items.find(
           (item) => item.regulatoryClauseReference?.toLowerCase().trim() === targetRef
-        ) ||
-        synthesisOutput.items[i] ||
-        this.createSingleFallbackItem(promptPairs[i]);
+        ) || synthesisOutput.items[i];
+
+      if (!synthesized) {
+        throw new Error(`Incomplete synthesis response for clause ${meta.sectionReference || i + 1}`);
+      }
 
       const status = synthesized.suggestedStatus;
-      let appliedPenalty = 0;
+      const appliedPenalty = status === 'ADEQUATELY_MET' ? 0 : meta.statutoryPenaltyNaira;
 
       if (status === 'CRITICAL_GAP') {
         criticalGapsCount++;
-        appliedPenalty = meta.statutoryPenaltyNaira;
       } else if (status === 'PARTIALLY_MET') {
         partiallyMetCount++;
-        // Level 2 finding administrative baseline (typically 20% to 50% of maximum statutory penalty)
-        appliedPenalty = Math.round(meta.statutoryPenaltyNaira * 0.5);
       } else {
         adequatelyMetCount++;
-        appliedPenalty = 0;
       }
 
       totalPotentialPenaltyNaira += appliedPenalty;
 
-      const draftLanguage = synthesized.draftReplacementPolicyLanguage ||
+      const draftLanguage =
+        synthesized.draftReplacementPolicyLanguage ||
         (synthesized as { draftReplacementLanguage?: string }).draftReplacementLanguage ||
-        `Section ${synthesized.matchedPolicySection || '4.1'} (Remediated Clause): The institution shall strictly enforce ${synthesized.regulatoryClauseReference} in accordance with ${meta.statutoryLegalCitation}. Operational procedures and reporting deadlines must be maintained without deviation.`;
+        synthesized.whatToDo;
 
       evaluatedItems.push({
         id: crypto.randomUUID(),
@@ -291,7 +299,7 @@ export class GapSynthesisService {
         draftReplacementPolicyLanguage: draftLanguage,
         derivedInsight: synthesized.derivedInsight,
         responsibleRole: synthesized.responsibleRole,
-        statutoryRemediationTimelineDays: synthesized.statutoryRemediationTimelineDays,
+        statutoryRemediationTimelineDays: meta.statutoryTimelineDays ?? undefined,
         statutoryQuote: meta.statutoryQuote || undefined,
         policyEvidenceQuote: meta.policyEvidenceQuote || null,
         characterSpanStart: meta.characterSpanStart ?? undefined,
@@ -301,84 +309,79 @@ export class GapSynthesisService {
       });
     }
 
-    // 6. Calculate Overall Compliance Health Score %
     const totalItems = evaluatedItems.length;
     const overallCompliancePercentage = totalItems > 0
       ? Math.round(((adequatelyMetCount * 100 + partiallyMetCount * 50) / totalItems) * 100) / 100
       : 100;
 
-    // 7. Persist to Database: ai_analysis_runs, gap_evaluations, gap_matrix_items
-    let analysisRunId: string | null = null;
+    const analysisRunId = crypto.randomUUID();
+    const isUuid = (val: string | null | undefined): boolean =>
+      Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
 
-    if (this.dbClient) {
-      try {
-        const client = this.dbClient;
-        analysisRunId = crypto.randomUUID();
-        await client.from('ai_analysis_runs').insert({
-          id: analysisRunId,
-          organization_id: organizationId,
-          user_id: userId || null,
-          pipeline_type: 'GAP_MATRIX_EVALUATION',
-          model_identifier: telemetry.modelIdentifier,
-          prompt_template_version: 'v1.1-5w-matrix',
-          input_token_count: telemetry.inputTokenCount,
-          output_token_count: telemetry.outputTokenCount,
-          latency_ms: telemetry.latencyMs,
-          retrieved_clause_ids: matchedMetadataList.map((m) => m.statutoryClauseId),
-          raw_prompt_hash: telemetry.rawPromptHash,
-          raw_output_hash: telemetry.rawOutputHash,
-        });
-
-        const isUuid = (val: string | null | undefined): boolean =>
-          Boolean(val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val));
-
-        if (!isUuid(benchmarkDocumentVersionId)) {
-          throw new Error(`Invalid benchmarkDocumentVersionId "${benchmarkDocumentVersionId}": must be a valid UUID`);
-        }
-
-        await client.from('gap_evaluations').insert({
-          id: evaluationId,
-          organization_id: organizationId,
-          policy_id: policyId,
-          benchmark_document_version_id: benchmarkDocumentVersionId,
-          analysis_run_id: analysisRunId,
-          overall_compliance_percentage: overallCompliancePercentage,
-          critical_gaps_count: criticalGapsCount,
-          partially_met_count: partiallyMetCount,
-          adequately_met_count: adequatelyMetCount,
-        });
-
-        // Insert individual gap matrix items with denormalized organization_id
-        const itemsToInsert = evaluatedItems.map((item) => {
-          const regClauseId = isUuid(item.regulatoryClauseId) ? item.regulatoryClauseId : null;
-
-          return {
-            id: item.id,
-            organization_id: organizationId,
-            evaluation_id: evaluationId,
-            regulatory_clause_id: regClauseId,
-            obligation_id: isUuid(item.obligationId) ? item.obligationId : null,
-            policy_clause_id: isUuid(item.policyClauseId) ? item.policyClauseId : null,
-            compliance_status: item.complianceStatus,
-            statutory_penalty_naira: item.statutoryPenaltyNaira,
-            what_happened: item.whatHappened,
-            what_to_know: item.whatToKnow,
-            what_has_changed: item.whatHasChanged,
-            what_to_do: item.whatToDo,
-            draft_replacement_language: item.draftReplacementLanguage || item.draftReplacementPolicyLanguage,
-            responsible_role: item.responsibleRole || 'Chief Compliance Officer',
-            remediation_timeline_days: item.statutoryRemediationTimelineDays || 30,
-            derived_insight: item.derivedInsight,
-          };
-        });
-
-        await (client.from('gap_matrix_items') as any).insert(itemsToInsert);
-      } catch (dbErr) {
-        logger.warn({ err: String(dbErr) }, 'Failed persisting evaluation to DB; continuing with response');
-      }
+    if (!isUuid(benchmarkDocumentVersionId)) {
+      throw new Error(`Invalid benchmarkDocumentVersionId "${benchmarkDocumentVersionId}": must be a valid UUID`);
     }
 
-    // 8. Immutable CAMA / BOFIA Audit Log
+    await this.dbClient.from('ai_analysis_runs').insert({
+      id: analysisRunId,
+      organization_id: organizationId,
+      user_id: userId || null,
+      pipeline_type: 'GAP_MATRIX_EVALUATION',
+      model_identifier: telemetry.modelIdentifier,
+      prompt_template_version: 'v1.2-5w-matrix',
+      input_token_count: telemetry.inputTokenCount,
+      output_token_count: telemetry.outputTokenCount,
+      latency_ms: telemetry.latencyMs,
+      retrieved_clause_ids: matchedMetadataList.map((m) => m.statutoryClauseId),
+      raw_prompt_hash: telemetry.rawPromptHash,
+      raw_output_hash: telemetry.rawOutputHash,
+    });
+
+    const { error: evalInsertErr } = await (this.dbClient.from('gap_evaluations') as any).insert({
+      id: evaluationId,
+      organization_id: organizationId,
+      policy_id: policyId,
+      benchmark_document_version_id: benchmarkDocumentVersionId,
+      analysis_run_id: analysisRunId,
+      analysis_name: `${benchmarkTitle} vs ${policyTitle}`,
+      regulation_ids: verRow?.instrument_id ? [verRow.instrument_id] : [],
+      policy_ids: [policyId],
+      overall_compliance_percentage: overallCompliancePercentage,
+      critical_gaps_count: criticalGapsCount,
+      partially_met_count: partiallyMetCount,
+      adequately_met_count: adequatelyMetCount,
+    });
+
+    if (evalInsertErr) {
+      logger.error({ err: evalInsertErr.message, evaluationId }, 'Failed persisting gap_evaluations');
+      throw new Error(`Failed persisting gap evaluation: ${evalInsertErr.message}`);
+    }
+
+    const itemsToInsert = evaluatedItems.map((item) => ({
+      id: item.id,
+      organization_id: organizationId,
+      evaluation_id: evaluationId,
+      regulatory_clause_id: isUuid(item.regulatoryClauseId) ? item.regulatoryClauseId : null,
+      obligation_id: isUuid(item.obligationId) ? item.obligationId : null,
+      policy_clause_id: isUuid(item.policyClauseId) ? item.policyClauseId : null,
+      compliance_status: item.complianceStatus,
+      statutory_penalty_naira: item.statutoryPenaltyNaira,
+      what_happened: item.whatHappened,
+      what_to_know: item.whatToKnow,
+      what_has_changed: item.whatHasChanged,
+      what_to_do: item.whatToDo,
+      draft_replacement_language: item.draftReplacementLanguage || item.draftReplacementPolicyLanguage,
+      responsible_role: item.responsibleRole || 'Chief Compliance Officer',
+      remediation_timeline_days: item.statutoryRemediationTimelineDays ?? null,
+      derived_insight: item.derivedInsight,
+    }));
+
+    const { error: itemsInsertErr } = await (this.dbClient.from('gap_matrix_items') as any).insert(itemsToInsert);
+    if (itemsInsertErr) {
+      logger.error({ err: itemsInsertErr.message, evaluationId }, 'Failed persisting gap_matrix_items');
+      throw new Error(`Failed persisting gap matrix items: ${itemsInsertErr.message}`);
+    }
+
     const auditInputHash = AuditService.computeSha256({
       policyId,
       benchmarkDocumentVersionId,
@@ -404,6 +407,7 @@ export class GapSynthesisService {
       sha256OutputHash: auditOutputHash,
       metadata: {
         policyTitle,
+        benchmarkTitle,
         overallCompliancePercentage,
         criticalGapsCount,
         partiallyMetCount,
@@ -413,25 +417,13 @@ export class GapSynthesisService {
       },
     });
 
-    logger.info(
-      {
-        evaluationId,
-        organizationId,
-        overallCompliancePercentage,
-        criticalGapsCount,
-        totalPenaltyNaira: totalPotentialPenaltyNaira,
-        auditId: auditEntry.id,
-      },
-      '5-W Gap Matrix evaluation completed and sealed'
-    );
-
     return {
       evaluationId,
       policyId,
       policyTitle,
       organizationId,
       benchmarkDocumentVersionId,
-      benchmarkTitle: 'Statutory Benchmark Baseline',
+      benchmarkTitle,
       overallCompliancePercentage,
       criticalGapsCount,
       partiallyMetCount,
@@ -445,75 +437,37 @@ export class GapSynthesisService {
     };
   }
 
-  private createDeterministicFallbackSynthesis(pairs: GapClausePairPromptInput[]) {
-    const items = pairs.map((p) => this.createSingleFallbackItem(p));
-    return {
-      data: {
-        executiveSummary:
-          'Executive Gap Evaluation indicates material divergence between internal operational guidelines and verified Nigerian statutory requirements. Immediate CCO review and Board remediation required prior to Bank Examination.',
-        items,
-      },
-      telemetry: {
-        modelIdentifier: 'deterministic-fallback',
-        inputTokenCount: 0,
-        outputTokenCount: 0,
-        latencyMs: 15,
-        rawPromptHash: AiEngine.hashContent(JSON.stringify(pairs)),
-        rawOutputHash: AiEngine.hashContent('fallback-output'),
-        retryAttempts: 0,
-      },
-    };
-  }
+  private generateDeterministicGapOutput(
+    promptPairs: GapClausePairPromptInput[]
+  ): z.infer<typeof GapEvaluationOutputSchema> {
+    const items = promptPairs.map((p) => {
+      const match = p.matchedInternalClause;
+      const stat = p.statutoryClause;
+      const isMet = Boolean(match && match.similarity >= 0.75);
+      const isPartial = Boolean(match && !isMet);
+      const status: ComplianceStatus = isMet ? 'ADEQUATELY_MET' : isPartial ? 'PARTIALLY_MET' : 'CRITICAL_GAP';
 
-  private createSingleFallbackItem(pair: GapClausePairPromptInput) {
-    const stat = pair.statutoryClause;
-    const match = pair.matchedInternalClause;
-
-    let status: 'ADEQUATELY_MET' | 'PARTIALLY_MET' | 'CRITICAL_GAP';
-    if (!match || match.similarity < 0.25) {
-      status = 'CRITICAL_GAP';
-    } else if (match.similarity < 0.65) {
-      status = 'PARTIALLY_MET';
-    } else {
-      status = 'ADEQUATELY_MET';
-    }
-
-    const isCritical = status === 'CRITICAL_GAP';
-    const isPartial = status === 'PARTIALLY_MET';
-
-    const whatHappened = isCritical
-      ? `Statutory requirement under ${stat.legalCitation} (${stat.sectionReference}) requires that: "${stat.obligationSummary}". Internal policy (${pair.policyTitle}) contains no corresponding controls.`
-      : isPartial
-      ? `Statutory requirement under ${stat.legalCitation} (${stat.sectionReference}) requires that: "${stat.obligationSummary}". Internal policy addresses this in Section ${match?.sectionNumber}, with partial procedural concordance.`
-      : `Internal policy Section ${match?.sectionNumber} aligns with statutory requirement (${stat.sectionReference}) under ${stat.legalCitation}.`;
-
-    const whatToKnow = `Enacted under ${stat.legalCitation} supervisory authority. Automated AI synthesis was unable to complete narrative elaboration; evaluation tier derived from deterministic semantic concordance matching.`;
-
-    const whatHasChanged = match
-      ? `Automated gap evaluation incomplete. Verified internal policy text: "${match.clauseText.slice(0, 150)}..."`
-      : 'No matching internal policy section identified.';
-
-    const whatToDo = `Review institutional policy manual against statutory requirement ${stat.sectionReference} (${stat.legalCitation}) and confirm operational controls.`;
-
-    const derivedInsight = 'Statutory concordance finding derived deterministically. Manual review recommended for confirmation.';
-
-    const draftReplacementPolicyLanguage = match
-      ? `Pursuant to ${stat.sectionReference} of ${stat.legalCitation}: ${stat.obligationSummary}`
-      : `Pursuant to statutory directives under ${stat.sectionReference} of ${stat.legalCitation}: ${stat.obligationSummary}`;
+      return {
+        regulatoryClauseReference: stat.sectionReference,
+        matchedPolicySection: match ? match.sectionNumber : null,
+        matchedPolicyText: match ? match.clauseText : null,
+        suggestedStatus: status,
+        whatHappened: `Statutory mandate "${stat.obligationSummary}" evaluated against policy manual "${p.policyTitle}".`,
+        whatToKnow: `Supervisory mandate issued by ${p.issuingRegulator} under ${stat.legalCitation}.`,
+        whatHasChanged: match
+          ? `Policy section ${match.sectionNumber} addresses baseline controls with operational variance.`
+          : 'Complete omission from internal policy manual.',
+        whatToDo: 'Chief Compliance Officer must adopt board-cleared replacement language.',
+        draftReplacementPolicyLanguage: `The institution shall adhere strictly to ${stat.sectionReference} (${stat.obligationSummary}).`,
+        derivedInsight: `Eliminates supervisory exposure under ${stat.legalCitation}.`,
+        responsibleRole: 'Chief Compliance Officer',
+        statutoryRemediationTimelineDays: stat.statutoryTimelineDays || 30,
+      };
+    });
 
     return {
-      regulatoryClauseReference: stat.sectionReference,
-      matchedPolicySection: match ? match.sectionNumber : null,
-      matchedPolicyText: match ? match.clauseText.slice(0, 180) : null,
-      suggestedStatus: status,
-      whatHappened,
-      whatToKnow,
-      whatHasChanged,
-      whatToDo,
-      draftReplacementPolicyLanguage,
-      derivedInsight,
-      responsibleRole: 'Chief Compliance Officer',
-      statutoryRemediationTimelineDays: stat.statutoryTimelineDays || 30,
+      executiveSummary: `Automated clause-by-clause statutory concordance review of policy manual "${promptPairs[0]?.policyTitle || 'Policy'}" against "${promptPairs[0]?.benchmarkTitle || 'Statutory Benchmark'}".`,
+      items,
     };
   }
 }

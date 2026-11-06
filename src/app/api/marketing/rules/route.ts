@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/shared/auth';
 import { logger } from '@/shared/logger';
-import { MarketingKnowledgeRule } from '@/modules/marketing-shield/types';
+import { MarketingComplianceService } from '@/modules/marketing-shield/services/marketingComplianceService';
 import { verifyEntitlement } from '@/lib/plans';
 
 export const dynamic = 'force-dynamic';
 
+const complianceService = new MarketingComplianceService();
+
 /**
  * GET /api/marketing/rules
- * Returns active statutory rules & custom rules in the Marketing Knowledge Base.
+ * Returns active statutory rules (baseline + connected /library obligations + tenant custom rules)
+ * in the Marketing Knowledge Base.
  */
 export async function GET(req: NextRequest) {
   try {
@@ -16,45 +19,29 @@ export async function GET(req: NextRequest) {
     const { organizationId, dbClient } = tenantCtx;
 
     if (!dbClient) {
-      return NextResponse.json({ success: true, rules: [] });
+      return NextResponse.json({ success: false, error: 'Database unavailable' }, { status: 503 });
     }
 
-    const { data, error } = await dbClient
-      .from('marketing_knowledge_rules')
-      .select('*')
-      .eq('organization_id', organizationId)
-      .order('created_at', { ascending: false });
+    const { searchParams } = new URL(req.url);
+    const regulator = searchParams.get('regulator');
+    const scopedRegulators = regulator && regulator !== 'ALL' ? [regulator] : undefined;
 
-    if (error) {
-      logger.error({ error }, 'Error fetching marketing rules');
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
-    }
-
-    const rules: MarketingKnowledgeRule[] = (data || []).map((r) => ({
-      id: r.id,
-      organizationId: r.organization_id,
-      ruleCode: r.rule_code,
-      title: r.title,
-      regulatorCode: r.regulator_code,
-      regulationId: r.regulation_id,
-      statutoryCitation: r.statutory_citation,
-      verbatimClause: r.verbatim_clause,
-      prohibitedTerms: r.prohibited_terms || [],
-      mandatoryDisclosures: r.mandatory_disclosures || [],
-      appliesToCategories: r.applies_to_categories || [],
-      appliesToChannels: r.applies_to_channels || [],
-      isCustom: r.is_custom || false,
-      createdAt: r.created_at,
-      updatedAt: r.updated_at,
-    }));
+    const rules = await complianceService.getApplicableRules(
+      dbClient,
+      organizationId,
+      undefined,
+      undefined,
+      scopedRegulators
+    );
 
     return NextResponse.json({
       success: true,
       rules,
     });
-  } catch (err) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
     logger.error({ err }, 'Unexpected error in GET /api/marketing/rules');
-    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
 
@@ -120,8 +107,9 @@ export async function POST(req: NextRequest) {
       success: true,
       rule: data,
     });
-  } catch (err) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Internal server error';
     logger.error({ err }, 'Unexpected error in POST /api/marketing/rules');
-    return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

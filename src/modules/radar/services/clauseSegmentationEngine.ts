@@ -456,13 +456,13 @@ export class ClauseSegmentationEngine {
       if (!isNaN(parsed)) {
         if (/billion/i.test(penaltyMatch[0])) {
           minPenalty = parsed * 1_000_000_000;
-          maxPenalty = parsed * 2_000_000_000;
+          maxPenalty = minPenalty;
         } else if (/million/i.test(penaltyMatch[0])) {
           minPenalty = parsed * 1_000_000;
-          maxPenalty = parsed * 2_000_000;
+          maxPenalty = minPenalty;
         } else {
           minPenalty = parsed;
-          maxPenalty = parsed * 2;
+          maxPenalty = minPenalty;
         }
       }
     }
@@ -729,10 +729,11 @@ export class ClauseSegmentationEngine {
             clause_id: clauseId,
             obligation_type: mapObligationType(obl.obligationType),
             summary: sanitizeStr(obl.summary) || 'Statutory compliance obligation',
+            verbatim_quote: sanitizeOpt(obl.verbatimQuote || c.clauseText),
             severity_floor: mapSeverity(obl.severityFloor),
             statutory_timeline_days: obl.statutoryTimelineDays || null,
             mandatory_disclosure_text: obl.obligationType === 'MANDATORY_DISCLOSURE' ? sanitizeStr(obl.summary) : null,
-          });
+          } as any);
 
           if (oErr) {
             logger.warn({ oblId, error: oErr.message }, 'Failed inserting regulatory_obligation row');

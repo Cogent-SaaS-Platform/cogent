@@ -4,26 +4,16 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Plus,
   ChevronRight,
-  Clock,
-  AlertTriangle,
-  ShieldCheck,
   FileText,
   Search,
-  Filter,
-  ArrowRight,
-  Layers,
-  Scale,
-  RefreshCw,
   BookOpen,
-  CheckCircle2,
-  ExternalLink,
+  RefreshCw,
 } from 'lucide-react';
 import {
   MarketingCampaign,
   ExtractedPromotionalClaim,
   CampaignLifecycleStatus,
 } from '../types';
-import { ProductCategoryCode, MarketingChannel } from '@/shared/types';
 import { MarketingKnowledgeBaseView } from './MarketingKnowledgeBaseView';
 import { AddRuleModal } from './AddRuleModal';
 import { UpgradePlanModal } from '@/shared/ui/UpgradePlanModal';
@@ -45,9 +35,9 @@ export const MarketingComplianceHub: React.FC<MarketingComplianceHubProps> = ({
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<CampaignLifecycleStatus | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isAddRuleOpen, setIsAddRuleOpen] = useState(false);
 
-  // Subscription entitlement state
   const [subscriptionPlan, setSubscriptionPlan] = useState<{
     tier: PlanTier;
     canAddCustomMarketingRules: boolean;
@@ -70,6 +60,7 @@ export const MarketingComplianceHub: React.FC<MarketingComplianceHubProps> = ({
   const fetchHubData = async () => {
     try {
       setIsLoading(true);
+      setLoadError(null);
       const [campRes, claimsRes, subRes] = await Promise.all([
         fetch('/api/marketing/campaigns'),
         fetch('/api/marketing/claims'),
@@ -80,10 +71,12 @@ export const MarketingComplianceHub: React.FC<MarketingComplianceHubProps> = ({
       const claimsData = await claimsRes.json();
       const subData = await subRes.json().catch(() => null);
 
-      if (campData.success) {
-        setCampaigns(campData.campaigns || []);
-        setCounts(campData.counts || { draft: 0, review: 0, revision: 0, approved: 0 });
+      if (!campRes.ok || !campData.success) {
+        throw new Error(campData.error || 'Failed to load marketing campaigns');
       }
+
+      setCampaigns(campData.campaigns || []);
+      setCounts(campData.counts || { draft: 0, review: 0, revision: 0, approved: 0 });
 
       if (claimsData.success) {
         setRecentClaims(claimsData.claims || []);
@@ -96,8 +89,8 @@ export const MarketingComplianceHub: React.FC<MarketingComplianceHubProps> = ({
           canAddCustomMarketingRules: !!subData.planConfig?.canAddCustomMarketingRules,
         });
       }
-    } catch (err) {
-      console.error('Failed to load hub data:', err);
+    } catch (err: unknown) {
+      setLoadError(err instanceof Error ? err.message : 'Unable to load Marketing Compliance Hub');
     } finally {
       setIsLoading(false);
     }
@@ -110,7 +103,7 @@ export const MarketingComplianceHub: React.FC<MarketingComplianceHubProps> = ({
         featureName: 'Custom Knowledge Base Rules (+ Add Rule)',
         requiredPlan: 'PRO',
         reason:
-          'Adding custom statutory and internal brand compliance rules to your Marketing Knowledge Base is a Pro Tier capability. Starter and 7-Day Trial plans include Cogent pre-loaded statutory rule libraries.',
+          'Adding custom statutory and internal brand compliance rules to your Marketing Knowledge Base requires the Pro or Enterprise plan.',
       });
       return;
     }
@@ -136,12 +129,12 @@ export const MarketingComplianceHub: React.FC<MarketingComplianceHubProps> = ({
   }, [campaigns, selectedStatusFilter, searchQuery]);
 
   const recentUpdates = useMemo(() => {
-    return [...campaigns].slice(0, 4);
-  }, [campaigns]);
+    return [...filteredCampaigns].slice(0, 4);
+  }, [filteredCampaigns]);
 
   const campaignsToReview = useMemo(() => {
-    return campaigns.filter((c) => c.status === 'Review' || c.status === 'Revision');
-  }, [campaigns]);
+    return filteredCampaigns.filter((c) => c.status === 'Review' || c.status === 'Revision');
+  }, [filteredCampaigns]);
 
   const getStatusDot = (status: CampaignLifecycleStatus) => {
     switch (status) {
@@ -169,9 +162,7 @@ export const MarketingComplianceHub: React.FC<MarketingComplianceHubProps> = ({
 
   return (
     <div className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8 space-y-6 font-sans">
-      {/* ──────────────────────────────────────────────────────────────────────────
-          1. TOP HEADER & NAVIGATION TABS (Zango Video 04:53)
-          ────────────────────────────────────────────────────────────────────────── */}
+      {/* 1. TOP HEADER & NAVIGATION TABS */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">
@@ -181,7 +172,6 @@ export const MarketingComplianceHub: React.FC<MarketingComplianceHubProps> = ({
             Institutional pre-clearance, deterministic advertising rule evaluation, and continuous drift monitoring.
           </p>
 
-          {/* Sub-Tabs: Campaigns vs Knowledge Base */}
           <div className="flex items-center gap-1 mt-3">
             <button
               onClick={() => setActiveTab('campaigns')}
@@ -202,12 +192,11 @@ export const MarketingComplianceHub: React.FC<MarketingComplianceHubProps> = ({
               }`}
             >
               <BookOpen className="h-3.5 w-3.5" />
-              <span>Knowledge Base & Rules</span>
+              <span>Knowledge Base &amp; Rules</span>
             </button>
           </div>
         </div>
 
-        {/* Top Right Actions */}
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <button
             onClick={handleOpenAddRule}
@@ -219,28 +208,37 @@ export const MarketingComplianceHub: React.FC<MarketingComplianceHubProps> = ({
 
           <button
             onClick={onCreateNewCampaign}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium shadow-xs transition-colors cursor-pointer"
           >
             <Plus className="h-3.5 w-3.5" />
-            <span>+ Campaign</span>
+            <span>Campaign</span>
           </button>
         </div>
       </div>
 
-      {/* RENDER KNOWLEDGE BASE VIEW */}
+      {loadError && (
+        <div className="bg-rose-50 text-rose-700 border border-rose-200 px-3 py-2 rounded text-xs font-medium flex items-center justify-between">
+          <span>{loadError}</span>
+          <button
+            type="button"
+            onClick={fetchHubData}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 text-xs font-medium cursor-pointer"
+          >
+            <RefreshCw className="h-3 w-3" />
+            <span>Retry</span>
+          </button>
+        </div>
+      )}
+
       {activeTab === 'knowledge_base' ? (
         <MarketingKnowledgeBaseView onAddRuleClick={handleOpenAddRule} />
       ) : (
-        /* RENDER CAMPAIGNS WORKSPACE VIEW */
         <div className="space-y-6">
-          {/* ──────────────────────────────────────────────────────────────────────────
-              2. TOP KPI PIPELINE COUNTERS (Zango Video 04:53)
-              Unified container with 1px hairline dividers, monochrome bold numbers
-              ────────────────────────────────────────────────────────────────────────── */}
-          <div className="bg-white border border-slate-200 rounded-lg grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-slate-200 shadow-2xs">
+          {/* 2. TOP KPI PIPELINE COUNTERS — Unified container, 1px hairline dividers, monochrome bold numbers */}
+          <div className="bg-white border border-slate-200 rounded-lg grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-slate-200">
             <button
               type="button"
-              onClick={() => setSelectedStatusFilter((prev) => prev === 'Draft' ? 'ALL' : 'Draft')}
+              onClick={() => setSelectedStatusFilter((prev) => (prev === 'Draft' ? 'ALL' : 'Draft'))}
               className={`p-4 text-left transition-colors cursor-pointer hover:bg-slate-50/60 ${
                 selectedStatusFilter === 'Draft' ? 'bg-slate-50 ring-1 ring-inset ring-slate-900' : ''
               }`}
@@ -256,7 +254,7 @@ export const MarketingComplianceHub: React.FC<MarketingComplianceHubProps> = ({
 
             <button
               type="button"
-              onClick={() => setSelectedStatusFilter((prev) => prev === 'Review' ? 'ALL' : 'Review')}
+              onClick={() => setSelectedStatusFilter((prev) => (prev === 'Review' ? 'ALL' : 'Review'))}
               className={`p-4 text-left transition-colors cursor-pointer hover:bg-slate-50/60 ${
                 selectedStatusFilter === 'Review' ? 'bg-slate-50 ring-1 ring-inset ring-slate-900' : ''
               }`}
@@ -272,7 +270,7 @@ export const MarketingComplianceHub: React.FC<MarketingComplianceHubProps> = ({
 
             <button
               type="button"
-              onClick={() => setSelectedStatusFilter((prev) => prev === 'Revision' ? 'ALL' : 'Revision')}
+              onClick={() => setSelectedStatusFilter((prev) => (prev === 'Revision' ? 'ALL' : 'Revision'))}
               className={`p-4 text-left transition-colors cursor-pointer hover:bg-slate-50/60 ${
                 selectedStatusFilter === 'Revision' ? 'bg-slate-50 ring-1 ring-inset ring-slate-900' : ''
               }`}
@@ -288,7 +286,7 @@ export const MarketingComplianceHub: React.FC<MarketingComplianceHubProps> = ({
 
             <button
               type="button"
-              onClick={() => setSelectedStatusFilter((prev) => prev === 'Approved' ? 'ALL' : 'Approved')}
+              onClick={() => setSelectedStatusFilter((prev) => (prev === 'Approved' ? 'ALL' : 'Approved'))}
               className={`p-4 text-left transition-colors cursor-pointer hover:bg-slate-50/60 ${
                 selectedStatusFilter === 'Approved' ? 'bg-slate-50 ring-1 ring-inset ring-slate-900' : ''
               }`}
@@ -303,9 +301,32 @@ export const MarketingComplianceHub: React.FC<MarketingComplianceHubProps> = ({
             </button>
           </div>
 
-          {/* ──────────────────────────────────────────────────────────────────────────
-              3. RECENT UPDATES HORIZONTAL STRIP (Zango Video 04:53)
-              ────────────────────────────────────────────────────────────────────────── */}
+          {/* Search & Filter Bar */}
+          {campaigns.length > 0 && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="relative w-full sm:w-80">
+                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search campaigns, copy, or channel..."
+                  className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                />
+              </div>
+              {selectedStatusFilter !== 'ALL' && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedStatusFilter('ALL')}
+                  className="text-xs text-slate-600 hover:text-slate-900 font-medium cursor-pointer self-start sm:self-auto"
+                >
+                  Showing: {selectedStatusFilter} (Clear filter)
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* 3. RECENT UPDATES HORIZONTAL STRIP */}
           <div className="space-y-2.5">
             <div className="flex items-center justify-between">
               <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
@@ -313,12 +334,14 @@ export const MarketingComplianceHub: React.FC<MarketingComplianceHubProps> = ({
               </h2>
               {campaigns.length > 0 && (
                 <span className="text-[11px] text-slate-500 font-medium">
-                  {campaigns.length} total active campaigns
+                  {filteredCampaigns.length} of {campaigns.length} campaigns
                 </span>
               )}
             </div>
 
-            {campaigns.length === 0 ? (
+            {isLoading ? (
+              <div className="py-10 text-center text-xs text-slate-500">Loading campaigns...</div>
+            ) : campaigns.length === 0 ? (
               <div className="rounded-lg border border-dashed border-slate-200 bg-white p-8 text-center space-y-3">
                 <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-600">
                   <FileText className="h-5 w-5" />
@@ -339,6 +362,10 @@ export const MarketingComplianceHub: React.FC<MarketingComplianceHubProps> = ({
                   <span>Create First Campaign</span>
                 </button>
               </div>
+            ) : recentUpdates.length === 0 ? (
+              <div className="rounded-lg border border-slate-200 bg-white p-6 text-center text-xs text-slate-500">
+                No campaigns match the active filter.
+              </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {recentUpdates.map((c) => (
@@ -349,7 +376,7 @@ export const MarketingComplianceHub: React.FC<MarketingComplianceHubProps> = ({
                   >
                     <div className="space-y-2">
                       <div className="flex items-center justify-between gap-1 text-[11px] text-slate-600">
-                        <span className="font-mono text-[10px] text-slate-500 uppercase tracking-wider">{c.channel}</span>
+                        <span className="font-mono text-xs text-slate-600">{c.channel}</span>
                         <span>{formatRelativeTime(c.createdAt)}</span>
                       </div>
 
@@ -363,16 +390,16 @@ export const MarketingComplianceHub: React.FC<MarketingComplianceHubProps> = ({
                     </div>
 
                     <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
-                      <span className="inline-flex items-center gap-1.5 font-medium text-slate-700">
+                      <span className="inline-flex items-center gap-1.5 text-xs text-slate-700">
                         {getStatusDot(c.status)}
                         {c.status}
                       </span>
                       {c.totalFindings > 0 ? (
-                        <span className="font-mono text-[11px] text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
+                        <span className="bg-rose-50 text-rose-700 border border-rose-200 px-2 py-0.5 rounded text-xs font-medium">
                           {c.totalFindings} {c.totalFindings === 1 ? 'Issue' : 'Issues'}
                         </span>
                       ) : (
-                        <span className="font-mono text-[11px] text-slate-500">0 Issues</span>
+                        <span className="font-mono text-xs text-slate-600">0 Issues</span>
                       )}
                     </div>
                   </div>
@@ -381,19 +408,14 @@ export const MarketingComplianceHub: React.FC<MarketingComplianceHubProps> = ({
             )}
           </div>
 
-          {/* ──────────────────────────────────────────────────────────────────────────
-              4. BOTTOM TWO-COLUMN SPLIT GRID (Zango Video 04:53)
-              Left: Campaigns to Review | Right: Recent Claims
-              ────────────────────────────────────────────────────────────────────────── */}
+          {/* 4. BOTTOM TWO-COLUMN SPLIT GRID */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* LEFT COLUMN: Campaigns to Review (7 cols) */}
+            {/* LEFT COLUMN: Campaigns to Review */}
             <div className="lg:col-span-7 space-y-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                    Campaigns to Review ({campaignsToReview.length})
-                  </h2>
-                </div>
+                <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                  Campaigns to Review ({campaignsToReview.length})
+                </h2>
                 {campaigns.length > 0 && (
                   <button
                     onClick={() => setSelectedStatusFilter('ALL')}
@@ -420,7 +442,7 @@ export const MarketingComplianceHub: React.FC<MarketingComplianceHubProps> = ({
                       <div className="min-w-0 flex-1 space-y-1">
                         <div className="flex items-center gap-2">
                           <h4 className="text-xs font-bold text-slate-900 truncate">{c.title}</h4>
-                          <span className="font-mono text-[10px] text-slate-500 shrink-0">{c.channel}</span>
+                          <span className="font-mono text-xs text-slate-600 shrink-0">{c.channel}</span>
                         </div>
                         <div className="flex items-center gap-3 text-[11px] text-slate-500">
                           <span>{c.createdBy}</span>
@@ -435,10 +457,10 @@ export const MarketingComplianceHub: React.FC<MarketingComplianceHubProps> = ({
                             {c.totalFindings} Issues
                           </span>
                         ) : (
-                          <span className="text-xs text-slate-700 font-medium">0 Issues</span>
+                          <span className="font-mono text-xs text-slate-600">0 Issues</span>
                         )}
 
-                        <span className="inline-flex items-center gap-1.5 text-xs text-slate-700 font-medium">
+                        <span className="inline-flex items-center gap-1.5 text-xs text-slate-700">
                           {getStatusDot(c.status)}
                           {c.status}
                         </span>
@@ -451,14 +473,12 @@ export const MarketingComplianceHub: React.FC<MarketingComplianceHubProps> = ({
               )}
             </div>
 
-            {/* RIGHT COLUMN: Recent Claims Registry (5 cols) */}
+            {/* RIGHT COLUMN: Recent Claims Registry */}
             <div className="lg:col-span-5 space-y-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                    Recent Claims ({recentClaims.length})
-                  </h2>
-                </div>
+                <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                  Recent Claims ({recentClaims.length})
+                </h2>
                 {recentClaims.length > 0 && (
                   <span className="text-[11px] font-semibold text-slate-600">
                     Live Registry
@@ -476,10 +496,11 @@ export const MarketingComplianceHub: React.FC<MarketingComplianceHubProps> = ({
                   {recentClaims.slice(0, 6).map((claim) => (
                     <div
                       key={claim.id}
-                      className="p-3 hover:bg-slate-50/70 transition-colors space-y-1.5"
+                      onClick={() => claim.campaignId && onOpenCampaign(claim.campaignId)}
+                      className="p-3 hover:bg-slate-50/70 transition-colors space-y-1.5 cursor-pointer"
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-mono text-xs text-slate-600 font-semibold">{claim.code}</span>
+                        <span className="font-mono text-xs text-slate-600">{claim.code}</span>
                         <span className="inline-flex items-center gap-1.5 text-xs text-slate-700">
                           <span
                             className={`w-1.5 h-1.5 rounded-full ${
@@ -510,7 +531,6 @@ export const MarketingComplianceHub: React.FC<MarketingComplianceHubProps> = ({
         </div>
       )}
 
-      {/* Add Rule Modal */}
       <AddRuleModal
         isOpen={isAddRuleOpen}
         onClose={() => setIsAddRuleOpen(false)}
@@ -519,7 +539,6 @@ export const MarketingComplianceHub: React.FC<MarketingComplianceHubProps> = ({
         }}
       />
 
-      {/* Plan Entitlement Upgrade Modal */}
       <UpgradePlanModal
         isOpen={upgradeModalState.isOpen}
         onClose={() => setUpgradeModalState({ isOpen: false })}

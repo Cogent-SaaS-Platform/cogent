@@ -23,6 +23,9 @@ CREATE TABLE IF NOT EXISTS tenant_ingestion_events (
 CREATE INDEX IF NOT EXISTS idx_tenant_ingestion_events_org_created 
   ON tenant_ingestion_events(organization_id, created_at DESC);
 
+CREATE INDEX IF NOT EXISTS idx_tenant_ingestion_events_user_id
+  ON tenant_ingestion_events(user_id) WHERE user_id IS NOT NULL;
+
 -- 3. RLS SECURITY POLICIES FOR INGESTION EVENTS
 ALTER TABLE tenant_ingestion_events ENABLE ROW LEVEL SECURITY;
 
@@ -34,7 +37,8 @@ BEGIN
     AND policyname = 'tenant_isolation_ingestion_events'
   ) THEN
     CREATE POLICY tenant_isolation_ingestion_events ON tenant_ingestion_events
-      FOR ALL
-      USING (organization_id = (SELECT organization_id FROM users WHERE id = auth.uid()));
+      FOR ALL TO authenticated
+      USING (organization_id = (select public.current_org_id()))
+      WITH CHECK (organization_id = (select public.current_org_id()));
   END IF;
 END $$;

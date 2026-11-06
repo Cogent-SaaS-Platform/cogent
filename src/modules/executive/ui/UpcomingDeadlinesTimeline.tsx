@@ -19,6 +19,7 @@ import { UrgentComplianceGate } from '../types';
 
 export interface UpcomingDeadlinesTimelineProps {
   deadlines?: DashboardDeadlineItem[];
+  allDeadlines?: DashboardDeadlineItem[];
   gates?: UrgentComplianceGate[];
   onInspectDeadline?: (item: DashboardDeadlineItem) => void;
   onInspectGate?: (gate: UrgentComplianceGate) => void;
@@ -27,6 +28,7 @@ export interface UpcomingDeadlinesTimelineProps {
 
 export function UpcomingDeadlinesTimeline({
   deadlines = [],
+  allDeadlines,
   gates = [],
   onInspectDeadline,
   onInspectGate,
@@ -176,11 +178,14 @@ export function UpcomingDeadlinesTimeline({
     }
   };
 
-  // Filtered list for calendar modal
+  // Filtered list for calendar modal (uses full chronological list when available)
+  const calendarSourceItems = allDeadlines && allDeadlines.length > 0 ? allDeadlines : items;
   const filteredCalendarItems = useMemo(() => {
-    if (calendarFilterRegulator === 'ALL') return items;
-    return items.filter((it) => it.regulatorCode.toUpperCase() === calendarFilterRegulator.toUpperCase());
-  }, [items, calendarFilterRegulator]);
+    if (calendarFilterRegulator === 'ALL') return calendarSourceItems;
+    return calendarSourceItems.filter(
+      (it) => it.regulatorCode.toUpperCase() === calendarFilterRegulator.toUpperCase()
+    );
+  }, [calendarSourceItems, calendarFilterRegulator]);
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">

@@ -83,7 +83,7 @@ export class AuditDefenseExporter {
     }
 
     // 2. Fetch organization name
-    let organizationName = 'Cogent Enterprise FinTech';
+    let organizationName = 'Licensed Financial Institution';
     const { data: org } = await this.dbClient
       .from('organizations')
       .select('name')

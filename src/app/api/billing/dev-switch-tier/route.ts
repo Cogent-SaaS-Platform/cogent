@@ -14,6 +14,13 @@ import { logger } from '@/shared/logger';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json(
+      { success: false, error: 'Developer tier switcher is disabled in production' },
+      { status: 403 }
+    );
+  }
+
   try {
     const tenantCtx = await getTenantContext({ allowDevFallback: true });
     const adminDb = createAdminClient();

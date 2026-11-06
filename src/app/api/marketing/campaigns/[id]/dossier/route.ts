@@ -2,8 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getTenantContext } from '@/shared/auth';
 import { logger } from '@/shared/logger';
+import { verifyEntitlement } from '@/lib/plans';
 
 export const dynamic = 'force-dynamic';
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
 
 export async function GET(
   req: NextRequest,
@@ -16,6 +26,31 @@ export async function GET(
 
     if (!dbClient) {
       return new Response('Database unavailable', { status: 503 });
+    }
+
+    // Enforce plan entitlement for Pre-Clearance Dossier PDF export
+    const entitlement = await verifyEntitlement(dbClient, organizationId, 'DOSSIER_PDF_EXPORT');
+    const isJsonCheck =
+      req.nextUrl.searchParams.get('check') === 'true' ||
+      req.headers.get('accept')?.includes('application/json');
+
+    if (!entitlement.allowed) {
+      if (isJsonCheck) {
+        return NextResponse.json(entitlement.errorPayload, { status: entitlement.statusCode });
+      }
+      return new Response(
+        `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Upgrade Required</title></head><body style="font-family:sans-serif;padding:40px;color:#0f172a;"><h2>Plan Upgrade Required</h2><p>${escapeHtml(
+          entitlement.errorPayload?.error || 'ARCON Pre-Clearance Dossier Export requires the Pro or Enterprise plan.'
+        )}</p><p><a href="/settings?tab=plan">Manage Subscription Plan &rarr;</a></p></body></html>`,
+        {
+          status: entitlement.statusCode,
+          headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        }
+      );
+    }
+
+    if (req.nextUrl.searchParams.get('check') === 'true') {
+      return NextResponse.json({ success: true, allowed: true });
     }
 
     const { data: campaign } = await dbClient
@@ -35,7 +70,8 @@ export async function GET(
       .eq('campaign_id', id)
       .order('created_at', { ascending: true });
 
-    const orgName = campaign.organizations?.name || 'Licensed Financial Institution';
+    const orgRecord = campaign.organizations as { name?: string } | null;
+    const orgName = orgRecord?.name || 'Licensed Financial Institution';
     const auditHash = crypto
       .createHash('sha256')
       .update(`${campaign.id}-${campaign.updated_at}-${campaign.canvas_content}`)
@@ -45,7 +81,7 @@ export async function GET(
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Pre-Clearance Dossier — ${campaign.title}</title>
+  <title>Pre-Clearance Dossier — ${escapeHtml(campaign.title)}</title>
   <style>
     @page { size: A4 portrait; margin: 18mm; }
     body {
@@ -177,7 +213,7 @@ export async function GET(
 <body>
   <div class="no-print">
     <div><strong>ARCON FORM ASP-PV1</strong> • Pre-Clearance Dossier</div>
-    <button onclick="window.print()" style="background:#2563eb;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-weight:600;cursor:pointer;">
+    <button onclick="window.print()" style="background:#0f172a;color:#fff;border:1px solid #475569;padding:6px 14px;border-radius:6px;font-weight:600;cursor:pointer;">
       Print / Save as PDF
     </button>
   </div>
@@ -191,11 +227,11 @@ export async function GET(
         Statutory Pre-Vetting Compliance Dossier
       </h1>
       <div style="font-size: 12px; color: #475569; margin-top: 4px;">
-        Institutional Clearance Reference: <span style="font-family: monospace; font-weight: 600;">ARCON/PV-2026-${campaign.id.slice(0, 8).toUpperCase()}</span>
+        Institutional Clearance Reference: <span style="font-family: monospace; font-weight: 600;">ARCON/PV-${new Date().getFullYear()}-${campaign.id.slice(0, 8).toUpperCase()}</span>
       </div>
     </div>
     <div style="text-align: right;">
-      <span class="badge">STATUS: ${campaign.status.toUpperCase()}</span>
+      <span class="badge">STATUS: ${escapeHtml(campaign.status.toUpperCase())}</span>
       <div style="font-size: 11px; color: #64748b; margin-top: 6px;">Generated: ${new Date().toUTCString()}</div>
     </div>
   </div>
@@ -203,24 +239,24 @@ export async function GET(
   <div class="meta-grid">
     <div class="meta-cell">
       <div class="meta-label">Regulated Institution</div>
-      <div class="meta-value">${orgName}</div>
+      <div class="meta-value">${escapeHtml(orgName)}</div>
     </div>
     <div class="meta-cell">
       <div class="meta-label">Product Category</div>
-      <div class="meta-value">${campaign.product_category}</div>
+      <div class="meta-value">${escapeHtml(campaign.product_category)}</div>
     </div>
     <div class="meta-cell">
       <div class="meta-label">Dissemination Channel</div>
-      <div class="meta-value">${campaign.channel}</div>
+      <div class="meta-value">${escapeHtml(campaign.channel)}</div>
     </div>
     <div class="meta-cell">
       <div class="meta-label">Designated Reviewer</div>
-      <div class="meta-value">${campaign.assigned_reviewer}</div>
+      <div class="meta-value">${escapeHtml(campaign.assigned_reviewer || 'Chief Compliance Officer')}</div>
     </div>
   </div>
 
   <div class="section-title">Submitted Promotional Copy</div>
-  <div class="copy-box">${campaign.canvas_content || '(No copy text submitted)'}</div>
+  <div class="copy-box">${escapeHtml(campaign.canvas_content || '(No copy text submitted)')}</div>
 
   <div class="section-title">Promotional Claims Concordance Ledger (${claims?.length || 0} Claims Evaluated)</div>
   <table>
@@ -228,30 +264,35 @@ export async function GET(
       <tr>
         <th style="width: 12%;">Code</th>
         <th style="width: 38%;">Evaluated Claim</th>
-        <th style="width: 25%;">Statutory Rule & Citation</th>
+        <th style="width: 25%;">Statutory Rule &amp; Citation</th>
         <th style="width: 15%;">Verdict</th>
         <th style="width: 10%;">Review</th>
       </tr>
     </thead>
     <tbody>
-      ${(claims && claims.length > 0)
-        ? claims.map((c: any) => `
+      ${
+        claims && claims.length > 0
+          ? claims
+              .map(
+                (c) => `
           <tr>
-            <td style="font-family: monospace; font-weight: 600;">${c.code}</td>
-            <td><strong>"${c.claim_text}"</strong><br><span style="font-size: 11px; color: #64748b;">${c.ai_rationale}</span></td>
-            <td style="font-size: 11px;">${c.statutory_citation}</td>
-            <td><span style="font-family: monospace; font-size: 11px; font-weight: 600;">${c.verdict}</span></td>
-            <td><span style="font-size: 11px; font-weight: 600;">${c.review_status}</span></td>
+            <td style="font-family: monospace; font-weight: 600;">${escapeHtml(c.code)}</td>
+            <td><strong>"${escapeHtml(c.claim_text)}"</strong><br><span style="font-size: 11px; color: #64748b;">${escapeHtml(c.ai_rationale)}</span></td>
+            <td style="font-size: 11px;">${escapeHtml(c.statutory_citation)}</td>
+            <td><span style="font-family: monospace; font-size: 11px; font-weight: 600;">${escapeHtml(c.verdict)}</span></td>
+            <td><span style="font-size: 11px; font-weight: 600;">${escapeHtml(c.review_status)}</span></td>
           </tr>
-        `).join('')
-        : `<tr><td colspan="5" style="text-align: center; color: #64748b; padding: 16px;">Zero isolated claims flagged. Standard copy cleared.</td></tr>`
+        `
+              )
+              .join('')
+          : `<tr><td colspan="5" style="text-align: center; color: #64748b; padding: 16px;">Zero isolated claims flagged.</td></tr>`
       }
     </tbody>
   </table>
 
   <div class="signoff-box">
     <div>
-      <div class="meta-label">CCO Attestation & Statutory Sign-Off</div>
+      <div class="meta-label">CCO Attestation &amp; Statutory Sign-Off</div>
       <div style="font-size: 11px; color: #475569; margin-top: 4px;">
         I hereby attest that this promotional campaign has been vetted against ARCON Code 2022, CBN Consumer Protection Framework, and applicable sectoral guidelines.
       </div>

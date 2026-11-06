@@ -29,91 +29,17 @@ export type IdentifiedGapItem = EvaluatedGapItem & {
 export interface GapMatrixDashboardProps {
   onSwitchPillar?: (pillar: PlatformPillar, context?: CrossPillarLinkContext) => void;
   initialContext?: CrossPillarLinkContext | null;
+  initialAnalysisId?: string;
   organizationId?: string;
   organizationName?: string;
 }
 
 type ViewMode = 'LIST' | 'DETAIL' | 'OBLIGATIONS' | 'EVALUATION';
 
-const PRESET_BENCHMARKS: StatutoryBenchmarkFramework[] = [
-  {
-    documentVersionId: 'bench-bofia-2020',
-    instrumentTitle: 'Banks and Other Financial Institutions Act (BOFIA) 2020 (Act No. 5)',
-    shortName: 'BOFIA 2020 (Payments & Banking Rails)',
-    referenceCode: 'FED/GAZ/2020/ACT-05',
-    regulatorCode: 'CBN',
-    publicationDate: '2020-11-12',
-    effectiveDate: '2020-11-13',
-    suggestedDepartments: ['COMPLIANCE_LEGAL', 'TREASURY_FINANCE', 'OPERATIONS'],
-    clausesCount: 8,
-  },
-  {
-    documentVersionId: 'bench-cbn-cpf-2019',
-    instrumentTitle: 'Central Bank of Nigeria Consumer Protection Framework for Banks and OFIs',
-    shortName: 'CBN CPF 2019 (Consumer Protection)',
-    referenceCode: 'CBN/FPR/DIR/GEN/07/040',
-    regulatorCode: 'CBN',
-    publicationDate: '2019-12-20',
-    effectiveDate: '2020-01-01',
-    suggestedDepartments: ['COMPLIANCE_LEGAL', 'OPERATIONS'],
-    clausesCount: 5,
-  },
-  {
-    documentVersionId: 'bench-cbn-aml-2022',
-    instrumentTitle: 'Central Bank of Nigeria (Anti-Money Laundering, Combating Terrorism Financing) Regulations',
-    shortName: 'CBN AML/CFT Regulations 2022',
-    referenceCode: 'CBN/FPR/DIR/PUB/CIR/001/053',
-    regulatorCode: 'CBN',
-    publicationDate: '2022-04-08',
-    effectiveDate: '2022-05-01',
-    suggestedDepartments: ['COMPLIANCE_LEGAL', 'OPERATIONS', 'TREASURY_FINANCE'],
-    clausesCount: 6,
-  },
-  {
-    documentVersionId: 'bench-fccpc-dlr-2022',
-    instrumentTitle: 'Limited Interim Regulatory/Registration Framework and Guidelines for Digital Lending',
-    shortName: 'FCCPC Digital Lending Guidelines 2022',
-    referenceCode: 'FCCPC/DLR/2022/VOL-1',
-    regulatorCode: 'FCCPC',
-    publicationDate: '2022-08-18',
-    effectiveDate: '2022-08-18',
-    suggestedDepartments: ['COMPLIANCE_LEGAL', 'GROWTH_MARKETING'],
-    clausesCount: 4,
-  },
-  {
-    documentVersionId: 'bench-cbn-open-banking-2023',
-    instrumentTitle: 'Operational Guidelines for Open Banking in Nigeria (2023)',
-    shortName: 'CBN Open Banking 2023 (APIs & Data)',
-    referenceCode: 'BPS/DIR/GEN/CIR/09/012',
-    regulatorCode: 'CBN',
-    publicationDate: '2023-03-07',
-    effectiveDate: '2023-04-01',
-    suggestedDepartments: ['ENGINEERING_TECH', 'PRODUCT_MANAGEMENT', 'COMPLIANCE_LEGAL'],
-    clausesCount: 5,
-  },
-  {
-    documentVersionId: 'bench-ndpa-2023',
-    instrumentTitle: 'Nigeria Data Protection Act 2023 (Act No. 13)',
-    shortName: 'NDPA 2023 (Data Privacy & AI)',
-    referenceCode: 'FED/GAZ/2023/ACT-13',
-    regulatorCode: 'NDPC',
-    publicationDate: '2023-06-12',
-    effectiveDate: '2023-06-14',
-    suggestedDepartments: ['COMPLIANCE_LEGAL', 'ENGINEERING_TECH'],
-    clausesCount: 5,
-  },
-];
-
-const DEFAULT_TENANT_POLICIES = [
-  { id: 'pol-aml-manual-2024', title: 'Internal AML/CFT & Sanctions Compliance Policy', department: 'COMPLIANCE_LEGAL', versionTag: '2.4' },
-  { id: 'pol-treasury-risk-2024', title: 'Treasury Risk & Capital Adequacy Framework', department: 'TREASURY_FINANCE', versionTag: '1.8' },
-  { id: 'pol-consumer-fairness-2023', title: 'Consumer Protection & Fair Lending Governance Manual', department: 'OPERATIONS', versionTag: '1.2' },
-  { id: 'pol-cyber-open-banking-2024', title: 'Cybersecurity, Open Banking & API Access Policy', department: 'ENGINEERING_TECH', versionTag: '3.1' },
-];
-
 export function GapMatrixDashboard({
   onSwitchPillar,
   initialContext,
+  initialAnalysisId,
   organizationId = '00000000-0000-0000-0000-000000000001',
   organizationName = 'Authorized Tenant',
 }: GapMatrixDashboardProps) {
@@ -125,23 +51,26 @@ export function GapMatrixDashboard({
     (user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'Authorized Compliance Officer');
 
   // Navigation & View Mode
-  const [viewMode, setViewMode] = useState<ViewMode>('LIST');
-  const [selectedAnalysisId, setSelectedAnalysisId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>(initialAnalysisId ? 'DETAIL' : 'LIST');
+  const [selectedAnalysisId, setSelectedAnalysisId] = useState<string | null>(initialAnalysisId || null);
   const [selectedObligationId, setSelectedObligationId] = useState<string | null>(null);
   const [statusFilterOverride, setStatusFilterOverride] = useState<
     'ALL' | 'ADEQUATELY_MET' | 'PARTIALLY_MET' | 'CRITICAL_GAP'
   >('ALL');
 
-  // Data States
+  // Data States (100% live database state — zero preset mocks)
   const [analyses, setAnalyses] = useState<GapAnalysisSummaryItem[]>([]);
   const [isLoadingAnalyses, setIsLoadingAnalyses] = useState(true);
   const [activeAnalysisDetail, setActiveAnalysisDetail] = useState<GapAnalysisSummaryItem | null>(null);
   const [activeItems, setActiveItems] = useState<GapObligationItemViewModel[]>([]);
-  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(Boolean(initialAnalysisId));
+  const [detailError, setDetailError] = useState<string | null>(null);
 
-  // Available Benchmarks & Policies for Drawer
-  const [availableBenchmarks, setAvailableBenchmarks] = useState<StatutoryBenchmarkFramework[]>(PRESET_BENCHMARKS);
-  const [tenantPolicies, setTenantPolicies] = useState<Array<{ id: string; title: string; department: string; versionTag: string }>>(DEFAULT_TENANT_POLICIES);
+  // Available Benchmarks & Policies for Drawer (loaded strictly from /api/library and /api/gap-matrix/policies)
+  const [availableBenchmarks, setAvailableBenchmarks] = useState<StatutoryBenchmarkFramework[]>([]);
+  const [tenantPolicies, setTenantPolicies] = useState<
+    Array<{ id: string; title: string; department: string; versionTag: string; clausesCount?: number }>
+  >([]);
 
   // Modals & Drawers
   const [isNewAnalysisOpen, setIsNewAnalysisOpen] = useState(false);
@@ -155,7 +84,7 @@ export function GapMatrixDashboard({
       const res = await fetch('/api/gap-matrix/evaluations');
       if (res.ok) {
         const json = await res.json();
-        if (json.success && json.data) {
+        if (json.success && Array.isArray(json.data)) {
           setAnalyses(json.data);
         }
       }
@@ -166,17 +95,40 @@ export function GapMatrixDashboard({
     }
   }, []);
 
+  // 2. Fetch Single Analysis Detail & Items
+  const loadAnalysisDetail = useCallback(async (analysisId: string) => {
+    setIsLoadingDetail(true);
+    setDetailError(null);
+    try {
+      const res = await fetch(`/api/gap-matrix/evaluations?id=${encodeURIComponent(analysisId)}`);
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json.success && json.data) {
+        setActiveAnalysisDetail(json.data.evaluation);
+        setActiveItems(json.data.items || []);
+      } else {
+        setDetailError(json.error || 'Gap analysis record not found.');
+      }
+    } catch (err) {
+      setDetailError(err instanceof Error ? err.message : 'Failed fetching analysis detail.');
+    } finally {
+      setIsLoadingDetail(false);
+    }
+  }, []);
+
   // Fetch benchmarks & policies for drawer options
   useEffect(() => {
     fetchAnalyses();
 
-    async function loadPresets() {
+    async function loadLiveCatalogs() {
       try {
-        // Query Regulation Library for all verified regulatory instruments
-        const libRes = await fetch('/api/library');
+        const [libRes, pRes] = await Promise.all([
+          fetch('/api/library'),
+          fetch('/api/gap-matrix/policies'),
+        ]);
+
         if (libRes.ok) {
           const libJson = await libRes.json();
-          if (libJson.instruments && libJson.instruments.length > 0) {
+          if (Array.isArray(libJson.instruments)) {
             const mapped: StatutoryBenchmarkFramework[] = libJson.instruments.map((inst: any) => ({
               documentVersionId: inst.id,
               instrumentTitle: inst.fullTitle || inst.shortTitle,
@@ -186,38 +138,37 @@ export function GapMatrixDashboard({
               publicationDate: inst.publicationDate || '',
               effectiveDate: inst.effectiveDate || '',
               suggestedDepartments: ['COMPLIANCE_LEGAL', 'OPERATIONS'],
-              clausesCount: inst.totalObligationsCount || inst.sectionsCount || 5,
+              clausesCount: inst.totalObligationsCount || inst.sectionsCount || 0,
             }));
             setAvailableBenchmarks(mapped);
           }
-        } else {
-          const bRes = await fetch('/api/gap-matrix/benchmarks');
-          if (bRes.ok) {
-            const bJson = await bRes.json();
-            if (bJson.data && bJson.data.length > 0) {
-              setAvailableBenchmarks(bJson.data);
-            }
-          }
         }
 
-        const pRes = await fetch('/api/gap-matrix/policies');
         if (pRes.ok) {
           const pJson = await pRes.json();
-          if (pJson.data && pJson.data.length > 0) {
-            setTenantPolicies(pJson.data);
-          }
+          const list = Array.isArray(pJson.policies) ? pJson.policies : Array.isArray(pJson.data) ? pJson.data : [];
+          setTenantPolicies(list);
         }
       } catch (err) {
-        console.warn('Could not load dynamic benchmarks/policies; using defaults:', err);
+        console.error('Failed loading dynamic regulations and policies:', err);
       }
     }
 
-    loadPresets();
+    loadLiveCatalogs();
   }, [fetchAnalyses]);
+
+  // Load initialAnalysisId immediately if provided via /gap/[id]
+  useEffect(() => {
+    if (initialAnalysisId) {
+      setSelectedAnalysisId(initialAnalysisId);
+      setViewMode('DETAIL');
+      loadAnalysisDetail(initialAnalysisId);
+    }
+  }, [initialAnalysisId, loadAnalysisDetail]);
 
   const handleDeleteAnalysis = async (analysisId: string) => {
     try {
-      const res = await fetch(`/api/gap-matrix/evaluations?id=${analysisId}`, {
+      const res = await fetch(`/api/gap-matrix/evaluations?id=${encodeURIComponent(analysisId)}`, {
         method: 'DELETE',
       });
       if (res.ok) {
@@ -232,48 +183,29 @@ export function GapMatrixDashboard({
     }
   };
 
-  // 2. Fetch Single Analysis Detail & Items
-  const loadAnalysisDetail = useCallback(async (analysisId: string) => {
-    setIsLoadingDetail(true);
-    try {
-      const res = await fetch(`/api/gap-matrix/evaluations?id=${analysisId}`);
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && json.data) {
-          setActiveAnalysisDetail(json.data.evaluation);
-          setActiveItems(json.data.items || []);
-        }
-      }
-    } catch (err) {
-      console.error('Failed fetching analysis detail:', err);
-    } finally {
-      setIsLoadingDetail(false);
-    }
-  }, []);
-
   const searchParams = useSearchParams();
   const urlAnalysisId = searchParams?.get('analysisId') || searchParams?.get('gate') || '';
   const urlPolicy = searchParams?.get('policy') || '';
 
   // Handle deep link via initialContext or URL searchParams
   useEffect(() => {
-    if (analyses.length > 0) {
-      if (urlAnalysisId) {
-        const found = analyses.find((a) => a.id === urlAnalysisId);
-        if (found) {
-          setSelectedAnalysisId(found.id);
-          loadAnalysisDetail(found.id);
-          setViewMode('DETAIL');
-          return;
-        }
-      }
+    if (initialAnalysisId) return;
+    if (urlAnalysisId) {
+      setSelectedAnalysisId(urlAnalysisId);
+      loadAnalysisDetail(urlAnalysisId);
+      setViewMode('DETAIL');
+      return;
+    }
 
+    if (analyses.length > 0) {
       if (urlPolicy) {
         const pLower = urlPolicy.toLowerCase();
         const found = analyses.find(
           (a) =>
             a.analysisName.toLowerCase().includes(pLower) ||
-            (a.policyTitle && a.policyTitle.toLowerCase().includes(pLower))
+            (a.policyTitle && a.policyTitle.toLowerCase().includes(pLower)) ||
+            a.policyId === urlPolicy ||
+            (Array.isArray(a.policyIds) && a.policyIds.includes(urlPolicy))
         );
         if (found) {
           setSelectedAnalysisId(found.id);
@@ -296,7 +228,7 @@ export function GapMatrixDashboard({
         }
       }
     }
-  }, [initialContext, analyses, loadAnalysisDetail, urlAnalysisId, urlPolicy]);
+  }, [initialAnalysisId, initialContext, analyses, loadAnalysisDetail, urlAnalysisId, urlPolicy]);
 
   // View Navigation Handlers
   const handleSelectAnalysis = (analysisId: string) => {
@@ -308,11 +240,7 @@ export function GapMatrixDashboard({
   const handleNavigateToObligations = (
     filterStatus?: 'ALL' | 'ADEQUATELY_MET' | 'PARTIALLY_MET' | 'CRITICAL_GAP'
   ) => {
-    if (filterStatus) {
-      setStatusFilterOverride(filterStatus);
-    } else {
-      setStatusFilterOverride('ALL');
-    }
+    setStatusFilterOverride(filterStatus || 'ALL');
     setViewMode('OBLIGATIONS');
   };
 
@@ -325,12 +253,16 @@ export function GapMatrixDashboard({
     setViewMode('LIST');
     setSelectedAnalysisId(null);
     setSelectedObligationId(null);
+    setDetailError(null);
     fetchAnalyses();
   };
 
   const handleBackToDetail = () => {
     setViewMode('DETAIL');
     setSelectedObligationId(null);
+    if (selectedAnalysisId) {
+      loadAnalysisDetail(selectedAnalysisId);
+    }
   };
 
   const handleBackToObligations = () => {
@@ -353,7 +285,7 @@ export function GapMatrixDashboard({
       const partial = updatedItems.filter((i) => i.complianceStatus === 'PARTIALLY_MET').length;
       const gap = updatedItems.filter((i) => i.complianceStatus === 'CRITICAL_GAP').length;
       const total = updatedItems.length || 1;
-      const pct = Math.round((adequate / total) * 100);
+      const pct = Math.round(((adequate * 100 + partial * 50) / total));
 
       return {
         ...prev,
@@ -382,13 +314,13 @@ export function GapMatrixDashboard({
         title: result.title,
         department: result.department,
         versionTag: result.versionTag,
+        clausesCount: result.clausesCount,
       },
-      ...prev,
+      ...prev.filter((p) => p.id !== result.policyId),
     ]);
     setIsNewAnalysisOpen(true);
   };
 
-  // Active Obligation for Evaluation View
   const activeObligation = useMemo(() => {
     if (!selectedObligationId) return activeItems[0] || null;
     return activeItems.find((i) => i.id === selectedObligationId) || activeItems[0] || null;
@@ -400,6 +332,10 @@ export function GapMatrixDashboard({
     if (!currentAnalysis) return null;
 
     const itemsToUse = activeItems.length > 0 ? activeItems : [];
+    const penaltyClause =
+      currentAnalysis.totalPenaltyNaira > 0
+        ? `Explicit statutory penalty exposure identified: ₦${(currentAnalysis.totalPenaltyNaira / 1_000_000).toFixed(1)}M.`
+        : 'Statutory pecuniary fine amount: Not explicitly specified in source text.';
 
     const evalResult: GapEvaluationResult = {
       evaluationId: currentAnalysis.id,
@@ -434,18 +370,18 @@ export function GapMatrixDashboard({
           whatHasChanged: it.whatHasChanged,
           whatToDo: it.whatToDo,
           draftReplacementLanguage: it.draftReplacementLanguage,
-          derivedInsight: it.derivedInsight || 'Insulates institution against statutory fine liability and supervisory downgrade.',
+          derivedInsight: it.derivedInsight || 'Grounded in uploaded policy sections and verified statutory text.',
           responsibleRole: it.responsibleRole,
           statutoryPenaltyNaira: it.statutoryPenaltyNaira,
-          statutoryRemediationTimelineDays: it.statutoryRemediationTimelineDays || 30,
+          statutoryRemediationTimelineDays: it.statutoryRemediationTimelineDays,
           statutoryLegalCitation: it.statutoryLegalCitation,
           matchedPolicySection: it.matchedPolicySection || null,
           matchedPolicyText: it.matchedPolicyText || null,
         };
       }),
-      executiveSummary: `Comprehensive clause-by-clause statutory gap evaluation conducted on ${currentAnalysis.policyTitle} against ${currentAnalysis.regulationTitle}. Evaluation identified ${currentAnalysis.gapCount} critical gaps (Level 1 material deficiencies) and ${currentAnalysis.partialCount} partially met provisions requiring prompt Board review and CCO remediation. Remediation avoids total statutory liability of ₦${(currentAnalysis.totalPenaltyNaira / 1_000_000).toFixed(1)}M.`,
+      executiveSummary: `Clause-by-clause statutory gap evaluation conducted on "${currentAnalysis.policyTitle}" against "${currentAnalysis.regulationTitle}". Evaluation identified ${currentAnalysis.gapCount} critical gap(s) and ${currentAnalysis.partialCount} partially met provision(s). ${penaltyClause}`,
       analysisRunId: null,
-      auditId: 'audit-' + Date.now(),
+      auditId: currentAnalysis.id,
       createdAt: currentAnalysis.createdAt || new Date().toISOString(),
     };
 
@@ -466,7 +402,6 @@ export function GapMatrixDashboard({
   return (
     <div className="min-h-screen bg-[#FAFAFA] text-slate-900 pb-16 font-sans">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* VIEW 1: Gap Analysis List (temp (11).png) */}
         {viewMode === 'LIST' && (
           <GapAnalysisListView
             evaluations={analyses}
@@ -479,12 +414,35 @@ export function GapMatrixDashboard({
           />
         )}
 
-        {/* VIEW 2: Gap Analysis Detail (temp (13).png) */}
         {viewMode === 'DETAIL' && (
           <>
-            {isLoadingDetail || !activeAnalysisDetail ? (
+            {isLoadingDetail ? (
               <div className="py-20 text-center text-xs text-slate-500 font-medium">
                 Loading statutory evaluation breakdown...
+              </div>
+            ) : detailError || !activeAnalysisDetail ? (
+              <div className="p-10 bg-white border border-slate-200 rounded-xl text-center space-y-3">
+                <p className="text-xs text-rose-700 font-medium">
+                  {detailError || 'Unable to load gap analysis record.'}
+                </p>
+                <div className="flex items-center justify-center gap-2">
+                  {selectedAnalysisId && (
+                    <button
+                      type="button"
+                      onClick={() => loadAnalysisDetail(selectedAnalysisId)}
+                      className="px-3.5 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-medium hover:bg-slate-800"
+                    >
+                      Retry
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleBackToAnalyses}
+                    className="px-3.5 py-1.5 bg-white text-slate-700 border border-slate-300 rounded-lg text-xs font-medium hover:bg-slate-50"
+                  >
+                    Back to Gap Analyses
+                  </button>
+                </div>
               </div>
             ) : (
               <GapAnalysisDetailView
@@ -508,7 +466,6 @@ export function GapMatrixDashboard({
           </>
         )}
 
-        {/* VIEW 3: Gap Obligations List (temp (14).png) */}
         {viewMode === 'OBLIGATIONS' && (
           <GapObligationsListView
             analysisName={activeAnalysisDetail?.analysisName || 'Regulatory Gap Analysis'}
@@ -520,12 +477,13 @@ export function GapMatrixDashboard({
           />
         )}
 
-        {/* VIEW 4: Obligation Assessment Evaluation (temp (15-16).png + 5-W) */}
         {viewMode === 'EVALUATION' && activeObligation && (
           <ObligationAssessmentEvaluationView
             obligation={activeObligation}
             analysisName={activeAnalysisDetail?.analysisName || 'Regulatory Gap Analysis'}
             policyTitle={activeAnalysisDetail?.policyTitle}
+            initialAuditLogs={activeAnalysisDetail?.auditLogs || []}
+            initialComments={activeAnalysisDetail?.comments || []}
             onBack={handleBackToObligations}
             onNavigateToDetail={handleBackToDetail}
             onNavigateToAnalysisList={handleBackToAnalyses}
@@ -535,7 +493,6 @@ export function GapMatrixDashboard({
         )}
       </div>
 
-      {/* New Gap Analysis Drawer (temp (12).png) */}
       <NewGapAnalysisDrawer
         isOpen={isNewAnalysisOpen}
         onClose={() => setIsNewAnalysisOpen(false)}
@@ -548,7 +505,6 @@ export function GapMatrixDashboard({
         }}
       />
 
-      {/* Policy Upload Drawer */}
       <PolicyUploadDrawer
         isOpen={isUploadDrawerOpen}
         onClose={() => setIsUploadDrawerOpen(false)}
@@ -556,10 +512,10 @@ export function GapMatrixDashboard({
         onUploadSuccess={handleUploadSuccess}
       />
 
-      {/* Bank Examiner Audit Defense Dossier Modal */}
       {isDossierModalOpen && (
         <AuditDefenseDossierModal
           dossier={currentDossier}
+          evaluationId={activeAnalysisDetail?.id}
           onClose={() => setIsDossierModalOpen(false)}
         />
       )}

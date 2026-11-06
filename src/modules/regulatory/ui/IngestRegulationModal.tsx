@@ -14,6 +14,8 @@ import {
   Scale,
 } from 'lucide-react';
 import { RegulatoryInstrumentPresentation } from '../types';
+import { UpgradePlanModal } from '@/shared/ui/UpgradePlanModal';
+import { PlanTier } from '@/lib/plans';
 
 interface IngestRegulationModalProps {
   isOpen: boolean;
@@ -34,6 +36,13 @@ export function IngestRegulationModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [progressStep, setProgressStep] = useState<number>(0);
+  const [upgradeModal, setUpgradeModal] = useState<{
+    isOpen: boolean;
+    featureName?: string;
+    requiredPlan?: PlanTier;
+    reason?: string;
+    isReadOnly?: boolean;
+  }>({ isOpen: false });
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -121,6 +130,19 @@ export function IngestRegulationModal({
       clearTimeout(timer3);
 
       const data = await res.json();
+
+      if (res.status === 402 || res.status === 403) {
+        setIsSubmitting(false);
+        setProgressStep(0);
+        setUpgradeModal({
+          isOpen: true,
+          featureName: data?.featureName || 'Custom Regulation Ingestion',
+          requiredPlan: (data?.requiredPlan as PlanTier) || 'PRO',
+          reason: data?.error || 'Custom regulation ingestion quota reached for your current plan.',
+          isReadOnly: data?.code === 'TRIAL_EXPIRED',
+        });
+        return;
+      }
 
       if (!res.ok || !data.success) {
         throw new Error(data.error || 'Statutory ingestion failed. Please verify the document source.');
@@ -339,6 +361,15 @@ export function IngestRegulationModal({
           )}
         </form>
       </div>
+
+      <UpgradePlanModal
+        isOpen={upgradeModal.isOpen}
+        onClose={() => setUpgradeModal({ isOpen: false })}
+        featureName={upgradeModal.featureName}
+        requiredPlan={upgradeModal.requiredPlan}
+        reason={upgradeModal.reason}
+        isReadOnly={upgradeModal.isReadOnly}
+      />
     </div>
   );
 }

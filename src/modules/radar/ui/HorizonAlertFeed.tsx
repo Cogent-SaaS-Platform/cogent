@@ -20,6 +20,12 @@ import {
 import { RadarCircularPresentationCard } from '../types';
 import { RegulatorCode } from '@/shared/types';
 import { TeamMember, FunctionalRole } from '@/modules/organization/types';
+import {
+  TOPIC_TAXONOMY,
+  classifyTopic,
+  getTopicByKey,
+  isRegulatoryTopicKey,
+} from '@/shared/taxonomy/regulatoryTopics';
 
 interface HorizonAlertFeedProps {
   circulars: RadarCircularPresentationCard[];
@@ -34,6 +40,7 @@ interface HorizonAlertFeedProps {
   onUpdateCircular?: (updated: Partial<RadarCircularPresentationCard> & { id: string }) => void;
   lastUpdatedText?: string;
   initialSearchQuery?: string;
+  initialTopicKey?: string;
 }
 
 const ALL_REGULATORS: Array<{ code: string; label: string }> = [
@@ -68,12 +75,17 @@ export function HorizonAlertFeed({
   onUpdateCircular,
   lastUpdatedText = 'Just now',
   initialSearchQuery = '',
+  initialTopicKey = '',
 }: HorizonAlertFeedProps) {
   // Feed Tab Filter: 'pending' | 'all' | 'starred'
-  const [activeTab, setActiveTab] = useState<'pending' | 'all' | 'starred'>('pending');
+  // When navigating from a topic or search deep-link, default to 'all' so counts match /overview 1:1.
+  const [activeTab, setActiveTab] = useState<'pending' | 'all' | 'starred'>(
+    initialTopicKey || initialSearchQuery ? 'all' : 'pending'
+  );
 
   // Search & Filter state
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
+  const [activeTopicKey, setActiveTopicKey] = useState<string>(initialTopicKey);
   const [selectedSources, setSelectedSources] = useState<string[]>([]);
   const [isSourceDropdownOpen, setIsSourceDropdownOpen] = useState(false);
   const [sourceSearchTerm, setSourceSearchTerm] = useState('');
@@ -89,8 +101,17 @@ export function HorizonAlertFeed({
   useEffect(() => {
     if (initialSearchQuery) {
       setSearchQuery(initialSearchQuery);
+      setActiveTab('all');
     }
   }, [initialSearchQuery]);
+
+  useEffect(() => {
+    setActiveTopicKey(initialTopicKey || '');
+    if (initialTopicKey) {
+      setActiveTab('all');
+      setCurrentPage(1);
+    }
+  }, [initialTopicKey]);
 
   // Dynamic team members & functional roles for assignment filtering
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
@@ -323,6 +344,32 @@ export function HorizonAlertFeed({
         if (filterUrgency === 'STANDARD' && c.priority !== 'MEDIUM' && c.priority !== 'LOW') return false;
       }
 
+      // Exact Topic Key Filter (mirrors /api/dashboard/overview classifyTopic 1:1)
+      if (activeTopicKey.trim()) {
+        const normTopic = activeTopicKey.trim().toLowerCase();
+        const matchedTaxonomy = isRegulatoryTopicKey(normTopic)
+          ? getTopicByKey(normTopic)
+          : TOPIC_TAXONOMY.find((t) => t.name.toLowerCase() === normTopic);
+
+        const resolvedCardTopicKey =
+          c.topicKey ||
+          classifyTopic(
+            `${c.circularNumber || ''} ${c.subject || ''} ${c.summary || ''} ${c.executiveSummary || ''}`
+          );
+
+        if (matchedTaxonomy) {
+          if (resolvedCardTopicKey !== matchedTaxonomy.key) return false;
+        } else {
+          const cardTopicsLower = (c.topics || []).map((t) => t.toLowerCase());
+          if (
+            resolvedCardTopicKey !== normTopic &&
+            !cardTopicsLower.some((t) => t.includes(normTopic))
+          ) {
+            return false;
+          }
+        }
+      }
+
       // Search & Topic Filter Pipeline (Guarantees zero empty screens on topic drill-down)
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
@@ -368,6 +415,7 @@ export function HorizonAlertFeed({
     selectedTimeRange,
     filterDocType,
     filterUrgency,
+    activeTopicKey,
     searchQuery,
   ]);
 
@@ -748,7 +796,7 @@ export function HorizonAlertFeed({
           2. SUB-BAR: LAST UPDATED & PAGINATION
           ────────────────────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between px-4 py-2 bg-slate-50/60 border-b border-slate-200 text-xs text-slate-500">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span>Last Updated {lastUpdatedText}</span>
           <button
             onClick={onTriggerSync}
@@ -758,6 +806,24 @@ export function HorizonAlertFeed({
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-slate-900' : ''}`} />
           </button>
+          {activeTopicKey && (
+            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-white border border-slate-200 font-mono text-xs text-slate-700">
+              <span>
+                Topic: {getTopicByKey(activeTopicKey.toLowerCase())?.name || activeTopicKey}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTopicKey('');
+                  setCurrentPage(1);
+                }}
+                className="text-slate-400 hover:text-slate-900"
+                aria-label="Clear topic filter"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-3">

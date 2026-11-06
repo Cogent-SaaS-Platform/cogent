@@ -34,7 +34,10 @@ export interface RadarCockpitProps {
 
 export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitProps) {
   const searchParams = useSearchParams();
-  const urlSearch = searchParams?.get('search') || searchParams?.get('topic') || '';
+  const urlSearch = searchParams?.get('search') || '';
+  const urlTopic = searchParams?.get('topic') || '';
+  const urlAlertId = searchParams?.get('alertId') || searchParams?.get('circularId') || '';
+  const urlCircularNumber = searchParams?.get('circularNumber') || '';
 
   const [circulars, setCirculars] = useState<RadarCircularPresentationCard[]>([]);
   const [selectedCircularId, setSelectedCircularId] = useState<string | null>(null);
@@ -132,8 +135,31 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
     fetchLiveCirculars();
   }, [fetchLiveCirculars]);
 
-  // Deep linking initial context consumption
+  // Deep linking from URL params (?alertId=, ?circularNumber=) and initialContext
   useEffect(() => {
+    if (circulars.length === 0) return;
+
+    if (urlAlertId) {
+      const found = circulars.find((c) => c.id === urlAlertId);
+      if (found) {
+        setSelectedCircularId(found.id);
+        setViewMode('detail');
+        return;
+      }
+    }
+
+    if (urlCircularNumber) {
+      const found = circulars.find(
+        (c) => c.circularNumber.toLowerCase() === urlCircularNumber.toLowerCase() ||
+          c.circularNumber.includes(urlCircularNumber)
+      );
+      if (found) {
+        setSelectedCircularId(found.id);
+        setViewMode('detail');
+        return;
+      }
+    }
+
     if (initialContext) {
       if (initialContext.circularNumber) {
         const found = circulars.find((c) => c.circularNumber.includes(initialContext.circularNumber!));
@@ -155,7 +181,7 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
         }
       }
     }
-  }, [initialContext, circulars]);
+  }, [urlAlertId, urlCircularNumber, initialContext, circulars]);
 
   const selectedCircular = useMemo(() => {
     if (!circulars || circulars.length === 0) return null;
@@ -275,64 +301,11 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
     return activeInspectorItem?.statutoryReference || null;
   }, [inspector.refId, activeInspectorItem, circulars]);
 
-  const handleIngestSuccess = (rawResult: unknown) => {
+  const handleIngestSuccess = async (rawResult: unknown) => {
     const result = rawResult as CircularIngestResult;
-    const meta = result?.metadata;
-    if (!meta) return;
-
-    const countdown = defaultCountdownCalculator.calculateCountdown({
-      statutoryDeadline: meta.statutoryDeadline || null,
-      publicationDate: meta.publicationDate,
-      regulator: meta.regulatorCode,
-    });
-
-    const newCard: RadarCircularPresentationCard = {
-      id: result.circularId,
-      circularNumber: meta.circularNumber,
-      regulator: meta.regulatorCode,
-      subject: meta.subject,
-      summary: meta.summary,
-      publicationDate: meta.publicationDate,
-      effectiveDate: meta.effectiveDate,
-      statutoryDeadline: meta.statutoryDeadline ?? null,
-      daysRemaining: countdown.daysRemaining,
-      businessDaysRemaining: countdown.businessDaysRemaining,
-      countdownTier: countdown.tier,
-      urgencyWindow: countdown.urgencyWindow,
-      priority: meta.priority,
-      enforcementRiskLevel: meta.enforcementRiskLevel,
-      lineageStatus: (result.lineageStatus || 'ACTIVE_LAW') as LineageStatus,
-      targetedLicenses: meta.targetedLicenseTypes,
-      affectedRails: meta.affectedPaymentRails,
-      appliesUniversally: meta.appliesUniversally,
-      penaltyEscalationProjection: countdown.penaltyEscalation,
-      deduplicated: result.deduplicated,
-      applicability: {
-        isApplicable: true,
-        reason: `Matched during live ingestion: targets [ ${(meta.targetedLicenseTypes || []).join(', ')} ].`,
-        matchedLicenses: meta.targetedLicenseTypes,
-        matchedRails: meta.affectedPaymentRails,
-      },
-      executiveBriefCco: `Official directive from ${meta.regulatorCode}. Full compliance required by ${meta.statutoryDeadline || 'statutory timeline'}.`,
-      actionBriefCoo: `Verify rail continuity for ${(meta.affectedPaymentRails || []).join(', ')}.`,
-      technicalBriefProductEng: 'Implement required schema and authentication limit adjustments.',
-      technicalBriefCto: 'Audit microservice APIs and database models to support statutory compliance.',
-      financialBriefCfo: 'Verify reserve adequacy and transaction fee allocations.',
-      governanceBriefCeoCro: 'Convene Executive Risk Committee to review remediation SLA.',
-      actionItems: [
-        {
-          id: `act_${Date.now()}`,
-          targetDepartment: 'COMPLIANCE_LEGAL',
-          actionTitle: `Statutory Review: ${meta.circularNumber}`,
-          actionDescription: 'Execute regulatory risk review and prepare board brief.',
-          suggestedDeadline: meta.statutoryDeadline,
-          isCompleted: false,
-        },
-      ],
-    };
-
-    setCirculars([newCard, ...circulars]);
-    setSelectedCircularId(newCard.id);
+    if (!result?.circularId) return;
+    await fetchLiveCirculars();
+    setSelectedCircularId(result.circularId);
     setViewMode('detail');
   };
 
@@ -416,6 +389,7 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
               onUpdateCircular={handleUpdateCircular}
               lastUpdatedText={lastSyncTime}
               initialSearchQuery={urlSearch || initialContext?.searchTerm || ''}
+              initialTopicKey={urlTopic}
             />
           ) : selectedCircular ? (
             <HorizonAlertDetail
@@ -444,6 +418,7 @@ export function RadarCockpit({ onSwitchPillar, initialContext }: RadarCockpitPro
               onUpdateCircular={handleUpdateCircular}
               lastUpdatedText={lastSyncTime}
               initialSearchQuery={urlSearch || initialContext?.searchTerm || ''}
+              initialTopicKey={urlTopic}
             />
           )}
         </main>

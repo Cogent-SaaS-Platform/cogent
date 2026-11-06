@@ -1,10 +1,6 @@
-import crypto from 'crypto';
 import {
   MarketingShieldViewModel,
-  FindingPresentationCard,
-  PresentationActionItem,
 } from '@/shared/types/presentation';
-import { MarketingChannel } from '@/shared/types';
 import { AuditService } from './auditService';
 
 export interface ArconDossierParams {
@@ -30,7 +26,7 @@ export class ArconDossierService {
   public static generateMarkdownDossier(params: ArconDossierParams): string {
     const {
       viewModel,
-      organizationName = 'Cogent Enterprise Tenant',
+      organizationName = 'Licensed Financial Institution',
       organizationId = '00000000-0000-0000-0000-000000000001',
       applicantCcoName = 'Authorized Compliance Officer',
       applicantCcoTitle = 'Chief Compliance Officer',
@@ -47,11 +43,14 @@ export class ArconDossierService {
 
     const dossierTrackingId = `COG-ARCON-${new Date().getFullYear()}-${viewModel.telemetry.auditHash.substring(0, 8).toUpperCase()}`;
 
-    const formattedPenalty = new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-      maximumFractionDigits: 0,
-    }).format(viewModel.deterministicPenaltyTotalNaira);
+    const formattedPenalty =
+      viewModel.deterministicPenaltyTotalNaira > 0
+        ? new Intl.NumberFormat('en-NG', {
+            style: 'currency',
+            currency: 'NGN',
+            maximumFractionDigits: 0,
+          }).format(viewModel.deterministicPenaltyTotalNaira)
+        : 'Not explicitly specified in source text';
 
     const inputHash = AuditService.computeSha256(viewModel.originalCopy);
     const outputHash = AuditService.computeSha256(viewModel.compliantRewrite || '');
@@ -73,9 +72,9 @@ export class ArconDossierService {
     lines.push(`| **Date of Attestation** | ${formattedDate} (${timestamp} WAT) |`);
     lines.push(`| **Applicant Entity** | **${organizationName}** (Org ID: \`${organizationId}\`) |`);
     lines.push(`| **Regulated License Profiles** | ${viewModel.activeLicenseProfiles?.join(', ') || 'FINANCIAL_INSTITUTION_REGISTERED'} |`);
-    lines.push(`| **Filing Category** | ${filingType === 'ACCELERATED_48H_SPECIAL_VETTING' ? '⚡ 48-Hour Accelerated Special Vetting' : '📋 Standard ASP 10-Day Pre-Clearance'} |`);
-    lines.push(`| **Statutory Pre-Vetting Verdict** | **${viewModel.verdict}** (Risk Score: ${viewModel.overallRiskScore}/100) |`);
-    lines.push(`| **Deterministic Fine Exposure Avoided** | **${formattedPenalty}** |`);
+    lines.push(`| **Filing Category** | ${filingType === 'ACCELERATED_48H_SPECIAL_VETTING' ? '48-Hour Accelerated Special Vetting' : 'Standard ASP 10-Day Pre-Clearance'} |`);
+    lines.push(`| **Statutory Pre-Vetting Verdict** | **${viewModel.verdict}** (Risk Index: ${viewModel.overallRiskScore}/100) |`);
+    lines.push(`| **Deterministic Fine Schedule** | **${formattedPenalty}** |`);
     lines.push(``);
     lines.push(`---`);
     lines.push(``);
@@ -112,9 +111,12 @@ export class ArconDossierService {
       lines.push(`*No statutory violations detected against verified Nigerian corpus (ARCON Code 2022, CBN CPF 2019, FCCPC Guidelines).*`);
     } else {
       viewModel.findings.forEach((finding, index) => {
-        const itemPenalty = finding.statutoryPenaltyNaira
-          ? new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(finding.statutoryPenaltyNaira)
-          : 'Administrative Sanction / Injunction';
+        const itemPenalty =
+          finding.statutoryPenaltyNaira && finding.statutoryPenaltyNaira > 0
+            ? new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(
+                finding.statutoryPenaltyNaira
+              )
+            : 'Not explicitly specified in source text';
 
         lines.push(`#### 3.${index + 1} Finding: ${finding.ruleCode} [${finding.severity}]`);
         lines.push(`- **Regulator:** ${finding.regulatorCode}`);
@@ -132,11 +134,11 @@ export class ArconDossierService {
     // Action Checklist
     lines.push(`### SECTION 4: STATUTORY REMEDIATION ACTION PLAN`);
     lines.push(``);
-    lines.push(`| Priority | Action Item Description | Owner Department | Statutory Deadline | Status |`);
+    lines.push(`| Priority | Action Item Description | Owner Department | Target Window | Status |`);
     lines.push(`| :--- | :--- | :--- | :--- | :--- |`);
     viewModel.actions.forEach((act) => {
       lines.push(
-        `| **${act.priority}** | ${act.title}: ${act.description} | ${act.ownerDepartment} | ${act.suggestedDeadlineDays || 2} Days | ${act.completed ? 'COMPLETED' : 'PENDING'} |`
+        `| **${act.priority}** | ${act.title}: ${act.description} | ${act.ownerDepartment} | ${act.suggestedDeadlineDays ? `${act.suggestedDeadlineDays} Business Days (Internal SLA)` : 'Immediate'} | ${act.completed ? 'COMPLETED' : 'PENDING'} |`
       );
     });
     lines.push(``);
@@ -153,19 +155,19 @@ export class ArconDossierService {
     lines.push(`- **Digital Cryptographic Seal:** \`${sealHash}\``);
     lines.push(``);
 
-    // Audit Proofs
+    // Audit Proofs (no provider model branding per AGENTS.md Rule #4)
     lines.push(`### SECTION 6: CRYPTOGRAPHIC CHAIN OF CUSTODY & AUDIT PROVENANCE`);
-    lines.push(`*(Preserved per CAMA 2020 & BOFIA 2020 6-Year Statutory Audit Retention Rule)*`);
+    lines.push(`*(Preserved per CAMA 2020 & BOFIA 2020 Statutory Audit Retention Rule)*`);
     lines.push(``);
     lines.push(`- **Raw Copy SHA-256 Input Digest:** \`${inputHash}\``);
     lines.push(`- **Compliant Output SHA-256 Digest:** \`${outputHash}\``);
     lines.push(`- **Attestation Seal SHA-256 Digest:** \`${sealHash}\``);
-    lines.push(`- **AI & Deterministic Engine Model:** \`${viewModel.telemetry.modelIdentifier}\``);
+    lines.push(`- **Verification Engine:** \`Deterministic Rule Evaluation & Statutory Concordance Pipeline\``);
     lines.push(`- **Verification Latency:** \`${viewModel.telemetry.latencyMs}ms\``);
     lines.push(`- **Integrity Seal Status:** **VALIDATED & TAMPER-EVIDENT**`);
     lines.push(``);
     lines.push(`---`);
-    lines.push(`*Generated autonomously by Cogent Regulatory Moat Platform. Verified against official Nigerian Federal Gazettes.*`);
+    lines.push(`*Generated by Cogent Sovereign RegTech Platform. Grounded in verified Nigerian statutory instruments.*`);
 
     return lines.join('\n');
   }
@@ -174,19 +176,21 @@ export class ArconDossierService {
    * Generates a print-ready, styled HTML Dossier suitable for PDF rendering or browser printing
    */
   public static generateHtmlDossier(params: ArconDossierParams): string {
-    const md = ArconDossierService.generateMarkdownDossier(params);
     const {
       viewModel,
-      organizationName = 'Cogent Enterprise Tenant',
+      organizationName = 'Licensed Financial Institution',
       applicantCcoName = 'Authorized Compliance Officer',
       applicantCcoTitle = 'Chief Compliance Officer',
     } = params;
 
-    const formattedPenalty = new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-      maximumFractionDigits: 0,
-    }).format(viewModel.deterministicPenaltyTotalNaira);
+    const formattedPenalty =
+      viewModel.deterministicPenaltyTotalNaira > 0
+        ? new Intl.NumberFormat('en-NG', {
+            style: 'currency',
+            currency: 'NGN',
+            maximumFractionDigits: 0,
+          }).format(viewModel.deterministicPenaltyTotalNaira)
+        : 'Not explicitly specified in source text';
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -204,15 +208,12 @@ export class ArconDossierService {
     .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; }
     .card-title { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }
     .card-value { font-size: 14px; font-weight: 600; color: #0f172a; }
-    .penalty-card { background: #fef2f2; border: 1px solid #fecaca; }
-    .penalty-value { color: #dc2626; font-size: 16px; font-weight: 700; }
+    .penalty-card { background: #f8fafc; border: 1px solid #cbd5e1; }
+    .penalty-value { color: #0f172a; font-size: 15px; font-weight: 700; font-family: monospace; }
     .verdict-chip { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; background: ${viewModel.verdict === 'BLOCKING_ISSUE' ? '#fee2e2; color: #991b1b;' : '#fef3c7; color: #92400e;'}; }
-    .section-title { font-size: 14px; font-weight: 700; color: #0f172a; border-left: 4px solid #0284c7; padding-left: 8px; margin: 24px 0 12px; }
+    .section-title { font-size: 14px; font-weight: 700; color: #0f172a; border-left: 4px solid #0f172a; padding-left: 8px; margin: 24px 0 12px; }
     .copy-box { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 12px; font-family: monospace; font-size: 12px; white-space: pre-wrap; margin-bottom: 12px; }
     .rewrite-box { background: #f0fdf4; border: 1px solid #86efac; color: #166534; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
-    th, td { border: 1px solid #e2e8f0; padding: 8px 10px; text-align: left; }
-    th { background: #f1f5f9; font-weight: 600; color: #334155; }
     .finding-block { border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px 12px; margin-bottom: 10px; background: #fff; }
     .finding-header { display: flex; justify-content: space-between; font-weight: 600; color: #0f172a; margin-bottom: 4px; }
     .finding-citation { font-size: 11px; color: #64748b; font-style: italic; margin-top: 4px; }
@@ -238,12 +239,12 @@ export class ArconDossierService {
     <div class="card">
       <div class="card-title">Pre-Vetting Verdict</div>
       <div class="card-value"><span class="verdict-chip">${viewModel.verdict}</span></div>
-      <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Overall Risk Score: ${viewModel.overallRiskScore}/100</div>
+      <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Risk Index: ${viewModel.overallRiskScore}/100</div>
     </div>
     <div class="card penalty-card">
-      <div class="card-title">Deterministic Fine Exposure Avoided</div>
+      <div class="card-title">Recorded Statutory Penalty Schedule</div>
       <div class="penalty-value">${formattedPenalty}</div>
-      <div style="font-size: 11px; color: #991b1b; margin-top: 4px;">Statutory Fine Schedule Calculated Under Nigerian Law</div>
+      <div style="font-size: 11px; color: #475569; margin-top: 4px;">Grounded in Statutory Instrument Citations</div>
     </div>
   </div>
 
@@ -255,19 +256,23 @@ export class ArconDossierService {
 
   <div class="section-title">3. Verified Statutory Findings (${viewModel.findings.length})</div>
   ${viewModel.findings
-    .map(
-      (f) => `
+    .map((f) => {
+      const fineText =
+        f.statutoryPenaltyNaira && f.statutoryPenaltyNaira > 0
+          ? `Fine Schedule: ₦${f.statutoryPenaltyNaira.toLocaleString()}`
+          : 'Fine Schedule: Not explicitly specified in source text';
+      return `
     <div class="finding-block">
       <div class="finding-header">
         <span>${f.ruleCode} [${f.regulatorCode}]</span>
-        <span style="color: #dc2626; font-size: 11px;">Fine: ₦${(f.statutoryPenaltyNaira || 0).toLocaleString()}</span>
+        <span style="color: #475569; font-size: 11px; font-family: monospace;">${fineText}</span>
       </div>
       <div><strong>Flagged:</strong> "${f.flaggedExcerpt}"</div>
       <div style="font-size: 12px; color: #334155; margin-top: 4px;">${f.whyItMatters}</div>
       <div class="finding-citation">Gazette Citation: ${f.statutoryCitation}</div>
     </div>
-  `
-    )
+  `;
+    })
     .join('')}
 
   <div class="signature-box">

@@ -1320,6 +1320,88 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['tenant_obligation_controls']['Insert']>;
         Relationships: [];
       };
+      compliance_deadlines: {
+        Row: {
+          id: string;
+          organization_id: string;
+          title: string;
+          regulator_code: string;
+          source_module: string;
+          source_id: string | null;
+          due_date: string;
+          summary: string | null;
+          target_url: string | null;
+          priority: string | null;
+          is_completed: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          title: string;
+          regulator_code: string;
+          source_module?: string;
+          source_id?: string | null;
+          due_date: string;
+          summary?: string | null;
+          target_url?: string | null;
+          priority?: string | null;
+          is_completed?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['compliance_deadlines']['Insert']>;
+        Relationships: [];
+      };
+      tenant_ingestion_events: {
+        Row: {
+          id: string;
+          organization_id: string;
+          user_id: string | null;
+          event_type: string;
+          entity_id: string | null;
+          metadata: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          user_id?: string | null;
+          event_type: string;
+          entity_id?: string | null;
+          metadata?: Json | null;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['tenant_ingestion_events']['Insert']>;
+        Relationships: [];
+      };
+      obligation_assessment_criteria: {
+        Row: {
+          id: string;
+          obligation_id: string;
+          criterion_type: string;
+          criterion_text: string;
+          evidence_required: string | null;
+          is_mandatory: boolean;
+          order_index: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          obligation_id: string;
+          criterion_type?: string;
+          criterion_text: string;
+          evidence_required?: string | null;
+          is_mandatory?: boolean;
+          order_index?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['obligation_assessment_criteria']['Insert']>;
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;

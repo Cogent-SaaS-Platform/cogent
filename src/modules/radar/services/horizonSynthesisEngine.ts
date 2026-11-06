@@ -191,7 +191,7 @@ Respond ONLY with valid JSON conforming to the HorizonSynthesisOutput schema.`;
         id: crypto.randomUUID(),
         timestamp: nowIso,
         action: forceResynthesize ? 'Document Re-synthesized by Horizon Engine' : 'Initial Horizon Synthesis Completed',
-        author: 'Cogent Horizon Engine (AI Grounded)',
+        author: 'Cogent Horizon Engine',
       },
     ];
 
@@ -232,6 +232,29 @@ Respond ONLY with valid JSON conforming to the HorizonSynthesisOutput schema.`;
 
     if (updateErr) {
       logger.error({ error: updateErr.message, circularId }, 'Failed updating synthesized circular record');
+    }
+
+    // Enforce Statutory Eligibility Gate on linked regulatory_instruments:
+    // Non-binding News & Events, Reports & Research, or Informative notices must NOT appear in /library.
+    if (circular.document_version_id) {
+      const isBindingInstrument =
+        synth.alertType === 'Actionable' &&
+        synth.docType !== 'News & Events' &&
+        synth.docType !== 'Reports & Research';
+      const { data: verRow } = await this.dbClient
+        .from('regulatory_document_versions')
+        .select('instrument_id')
+        .eq('id', circular.document_version_id)
+        .maybeSingle();
+      if (verRow?.instrument_id) {
+        await (this.dbClient as any)
+          .from('regulatory_instruments')
+          .update({
+            is_binding: isBindingInstrument,
+            overview: synth.executiveSummary,
+          })
+          .eq('id', verRow.instrument_id);
+      }
     }
 
     // 7. Sync departmental briefs to radar_tenant_impacts for target org or all active orgs

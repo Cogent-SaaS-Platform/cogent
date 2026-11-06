@@ -382,7 +382,6 @@ export async function getLiveTenantUsage(
     const fetchRegs = async () => {
       try {
         const q = (dbClient.from('regulatory_instruments') as any).select('*', { count: 'exact', head: true });
-        if (q.not) return await q.not('source_url', 'is', null);
         if (q.eq) return await q.eq('organization_id', organizationId);
         return await q;
       } catch {
@@ -392,7 +391,7 @@ export async function getLiveTenantUsage(
 
     const fetchMembers = async () => {
       try {
-        const q = (dbClient as any).from('organization_members').select('*', { count: 'exact', head: true });
+        const q = (dbClient as any).from('organization_memberships').select('*', { count: 'exact', head: true });
         return q.eq ? await q.eq('organization_id', organizationId) : await q;
       } catch {
         return { count: 1 };
@@ -646,6 +645,38 @@ export async function verifyEntitlement(
             maxAllowed: plan.maxMarketingCampaignsPerMonth,
             actionUrl: '/settings?tab=plan',
           });
+        }
+        break;
+      }
+
+      case 'MARKETING_INLINE_REWRITE': {
+        if (plan.maxInlineRewritesPerMonth !== -1) {
+          let rewritesCount = 0;
+          try {
+            const cycleStart = new Date(Date.now() - 30 * 86400000).toISOString();
+            const q = (dbClient as any)
+              .from('tenant_ingestion_events')
+              .select('*', { count: 'exact', head: true });
+            const eqOrg = q.eq ? q.eq('organization_id', organizationId) : q;
+            const eqType = eqOrg.eq ? eqOrg.eq('event_type', 'MARKETING_INLINE_REWRITE') : eqOrg;
+            const res = eqType.gte ? await eqType.gte('created_at', cycleStart) : await eqType;
+            rewritesCount = res?.count ?? 0;
+          } catch {
+            rewritesCount = 0;
+          }
+
+          if (rewritesCount >= plan.maxInlineRewritesPerMonth) {
+            return formatRejection(402, {
+              success: false,
+              error: `You have reached your limit of ${plan.maxInlineRewritesPerMonth} inline statutory copy rewrites on the ${plan.name}. Upgrade to Pro for unlimited inline rewrites.`,
+              code: 'PLAN_LIMIT_REACHED',
+              requiredPlan: 'PRO',
+              featureName: 'Inline Statutory Copy Rewrites',
+              currentUsage: rewritesCount,
+              maxAllowed: plan.maxInlineRewritesPerMonth,
+              actionUrl: '/settings?tab=plan',
+            });
+          }
         }
         break;
       }

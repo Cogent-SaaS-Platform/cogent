@@ -75,24 +75,20 @@ describe('Regulation Library Production Architecture (Zango 01:20 - 02:30 Refere
       }
     });
 
-    it('should generate robust offline fallback extraction when LLM is unavailable', async () => {
-      const service = new RegulatoryExtractionService();
-      const fallback = service.deterministicFallbackExtraction({
-        cleanText: 'Section 1.0 General Provisions. Regulated entities must maintain adequate capital reserves.',
-        title: 'Prudential Banking Capital Adequacy Framework',
-        regulatorCode: 'CBN',
-        year: 2024,
-      });
+    it('should surface an honest structured error (never fake fallback clauses) when LLM extraction fails', async () => {
+      const mockFailingEngine = {
+        generateStructured: vi.fn().mockRejectedValue(new Error('Upstream provider timeout')),
+      } as any;
+      const service = new RegulatoryExtractionService(mockFailingEngine);
 
-      expect(fallback).toBeDefined();
-      expect(fallback.overview).toBeDefined();
-      expect(fallback.overview.length).toBeGreaterThan(20);
-      expect(fallback.scope).toBeDefined();
-      expect(fallback.keyRequirementAreas.length).toBeGreaterThanOrEqual(2);
-      expect(fallback.sections.length).toBeGreaterThanOrEqual(1);
-      expect(fallback.obligations.length).toBeGreaterThanOrEqual(1);
-      expect(fallback.obligations[0].verbatimQuote).toBeDefined();
-      expect(fallback.obligations[0].assessmentCriteria.length).toBeGreaterThanOrEqual(1);
+      await expect(
+        service.extractRegulationAndObligations({
+          cleanText: 'Section 1.0 General Provisions. Regulated entities must maintain adequate capital reserves.',
+          title: 'Prudential Banking Capital Adequacy Framework',
+          regulatorCode: 'CBN',
+          year: 2024,
+        })
+      ).rejects.toThrow(/Unable to complete structured statutory extraction/);
     });
   });
 

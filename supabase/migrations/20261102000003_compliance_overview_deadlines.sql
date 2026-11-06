@@ -27,7 +27,7 @@ DO $$ BEGIN
   DROP POLICY IF EXISTS comp_deadlines_tenant_policy ON compliance_deadlines;
   CREATE POLICY comp_deadlines_tenant_policy ON compliance_deadlines
     FOR ALL TO authenticated
-    USING (organization_id = auth.uid() OR organization_id IN (SELECT organization_id FROM organization_memberships WHERE user_id = auth.uid()))
-    WITH CHECK (organization_id = auth.uid() OR organization_id IN (SELECT organization_id FROM organization_memberships WHERE user_id = auth.uid()));
+    USING (organization_id = (select public.current_org_id()))
+    WITH CHECK (organization_id = (select public.current_org_id()));
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;

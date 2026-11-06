@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { createAdminClient } from '@/shared/db';
+import { getTenantContext } from '@/shared/auth';
+import { verifyEntitlement } from '@/lib/plans';
 import { logger } from '@/shared/logger';
 
 export const dynamic = 'force-dynamic';
@@ -12,6 +14,19 @@ export async function PATCH(
   try {
     const { id: obligationId, criterionId } = await params;
     const db = createAdminClient();
+    const tenantCtx = await getTenantContext({
+      allowDevFallback: process.env.NODE_ENV !== 'production',
+    });
+
+    const entitlement = await verifyEntitlement(
+      db,
+      tenantCtx.organizationId,
+      'EDIT_OBLIGATION_CRITERIA'
+    );
+    if (!entitlement.allowed) {
+      return NextResponse.json(entitlement.errorPayload, { status: entitlement.statusCode });
+    }
+
     const body = await req.json();
 
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(obligationId);
@@ -24,9 +39,17 @@ export async function PATCH(
 
       if (Object.keys(critUpdates).length > 0) {
         critUpdates.updated_at = new Date().toISOString();
-        await ((db as any).from('obligation_assessment_criteria'))
+        const { error: updateErr } = await ((db as any).from('obligation_assessment_criteria'))
           .update(critUpdates)
           .eq('id', criterionId);
+
+        if (updateErr) {
+          logger.error({ error: updateErr.message, criterionId }, 'Failed updating criterion row');
+          return NextResponse.json(
+            { success: false, error: `Database error updating criterion: ${updateErr.message}` },
+            { status: 500 }
+          );
+        }
       }
 
       // 2. Sync to JSONB array on regulatory_obligations
@@ -54,6 +77,23 @@ export async function PATCH(
 
         // Audit log
         try {
+          const inputHash = crypto.createHash('sha256').update(JSON.stringify({ criterionId, body })).digest('hex');
+          const outputHash = crypto.createHash('sha256').update(JSON.stringify(updated)).digest('hex');
+          const isUserUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenantCtx.userId || '');
+
+          await (db.from('audit_logs') as any).insert({
+            id: crypto.randomUUID(),
+            organization_id: tenantCtx.organizationId,
+            user_id: isUserUuid ? tenantCtx.userId : null,
+            action: 'OBLIGATION_CRITERION_UPDATED',
+            entity_type: 'regulatory_obligation',
+            entity_id: obligationId,
+            sha256_input_hash: inputHash,
+            sha256_output_hash: outputHash,
+            metadata: { criterionId, updated: body },
+            created_at: new Date().toISOString(),
+          });
+
           const { data: clause } = await (db.from('regulatory_clauses') as any)
             .select('document_version_id')
             .eq('id', obl.clause_id)
@@ -87,7 +127,9 @@ export async function PATCH(
                 .eq('id', ver.instrument_id);
             }
           }
-        } catch {}
+        } catch (auditErr: unknown) {
+          logger.warn({ err: String(auditErr), obligationId }, 'Failed recording audit log for criterion update');
+        }
       }
     }
 
@@ -109,14 +151,34 @@ export async function DELETE(
   try {
     const { id: obligationId, criterionId } = await params;
     const db = createAdminClient();
+    const tenantCtx = await getTenantContext({
+      allowDevFallback: process.env.NODE_ENV !== 'production',
+    });
+
+    const entitlement = await verifyEntitlement(
+      db,
+      tenantCtx.organizationId,
+      'EDIT_OBLIGATION_CRITERIA'
+    );
+    if (!entitlement.allowed) {
+      return NextResponse.json(entitlement.errorPayload, { status: entitlement.statusCode });
+    }
 
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(obligationId);
 
     if (isUuid) {
       // 1. Delete from relational table
-      await ((db as any).from('obligation_assessment_criteria'))
+      const { error: deleteErr } = await ((db as any).from('obligation_assessment_criteria'))
         .delete()
         .eq('id', criterionId);
+
+      if (deleteErr) {
+        logger.error({ error: deleteErr.message, criterionId }, 'Failed deleting criterion row');
+        return NextResponse.json(
+          { success: false, error: `Database error deleting criterion: ${deleteErr.message}` },
+          { status: 500 }
+        );
+      }
 
       // 2. Sync to JSONB array on regulatory_obligations
       const { data: obl } = await (db.from('regulatory_obligations') as any)
@@ -134,6 +196,15 @@ export async function DELETE(
 
         // Audit log
         try {
+          await (db.from('audit_logs') as any).insert({
+            organization_id: tenantCtx.organizationId,
+            actor_id: tenantCtx.userId,
+            action: 'OBLIGATION_CRITERION_DELETED',
+            resource_type: 'regulatory_obligation',
+            resource_id: obligationId,
+            metadata: { criterionId },
+          });
+
           const { data: clause } = await (db.from('regulatory_clauses') as any)
             .select('document_version_id')
             .eq('id', obl.clause_id)
@@ -167,7 +238,9 @@ export async function DELETE(
                 .eq('id', ver.instrument_id);
             }
           }
-        } catch {}
+        } catch (auditErr: unknown) {
+          logger.warn({ err: String(auditErr), obligationId }, 'Failed recording audit log for criterion deletion');
+        }
       }
     }
 

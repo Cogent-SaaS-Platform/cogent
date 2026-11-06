@@ -20,7 +20,7 @@ export async function GET(
     }
 
     const tenantCtx = await getTenantContext({ allowDevFallback: true });
-    const { dbClient } = tenantCtx;
+    const { dbClient, organizationId } = tenantCtx;
 
     if (!dbClient) {
       return NextResponse.json(
@@ -29,9 +29,69 @@ export async function GET(
       );
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // Fetch evaluation from Supabase database
-    // ──────────────────────────────────────────────────────────────────────────
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(evaluationId);
+
+    if (!isUuid) {
+      // Mock / Dev evaluation for non-UUID test IDs (e.g. eval-seed-bofia-2020)
+      return NextResponse.json({
+        success: true,
+        data: {
+          evaluation: {
+            id: evaluationId,
+            organizationId,
+            policyTitle: 'Institutional AML/CFT Compliance Manual',
+            benchmarkTitle: 'BOFIA 2020 Statutory Benchmark',
+            overallCompliancePercentage: 75.0,
+            status: 'COMPLETED',
+            criticalGapsCount: 1,
+            partiallyMetCount: 1,
+            adequatelyMetCount: 2,
+            actionPlan: [],
+            auditLogs: [],
+            comments: [],
+            createdAt: new Date().toISOString(),
+          },
+          summary: {
+            id: evaluationId,
+            overallCompliancePercentage: 75.0,
+            obligationsAssessedCount: 4,
+            adequateCount: 2,
+            partialCount: 1,
+            gapCount: 1,
+          },
+          items: [
+            {
+              id: 'item-mock-1',
+              evaluationId,
+              obligationId: 'obl-mock-1',
+              obligationCode: 'BOFIA-SEC-57',
+              obligationTitle: 'Prudential Compliance and Monetary Directives',
+              obligationDescription: 'Banks must adhere strictly to CBN monetary policy directives.',
+              statutoryLegalCitation: 'BOFIA 2020 §57(2)',
+              complianceStatus: 'PARTIALLY_MET',
+              statutoryPenaltyNaira: 10000000,
+              whatHappened: 'Policy references general board review but lacks mandatory 24-hour escalation clause.',
+              whatToKnow: 'CBN enforcement guidelines prescribe personal officer sanctions for non-conformance.',
+              whatHasChanged: 'Direct monetary penalty escalates daily for persistent policy non-conformance.',
+              whatToDo: 'Amend internal manual clause 4.2 to incorporate direct supervisory notification.',
+              draftReplacementLanguage: 'The institution shall comply with all monetary directives issued by the Central Bank of Nigeria without delay.',
+              statutoryQuote: 'Every bank shall comply with the monetary guidelines and directives issued by the Central Bank of Nigeria.',
+              complianceCriteria: ['Board review required', '24-hour escalation protocol established'],
+              criteriaEvaluations: [
+                {
+                  id: 'crit-mock-1',
+                  criterionText: 'Board review required',
+                  criterionType: 'Core Criteria',
+                  status: 'MET',
+                  aiReason: 'Policy manual explicitly confirms quarterly board review.',
+                },
+              ],
+            },
+          ],
+        },
+      });
+    }
+
     const { data: evalRow, error: evalErr } = await (dbClient.from('gap_evaluations') as any)
       .select(`
         id,
@@ -55,105 +115,32 @@ export async function GET(
         metadata
       `)
       .eq('id', evaluationId)
+      .eq('organization_id', organizationId)
       .maybeSingle();
 
-    if (evalErr || !evalRow) {
-      if (evaluationId === 'eval-seed-bofia-2020') {
-        const seedItem = {
-          id: 'item-seed-bofia-01',
-          evaluationId: 'eval-seed-bofia-2020',
-          regulatoryClauseId: 'clause-bofia-64-1',
-          obligationId: 'obl-bofia-64-1',
-          obligationTitle: 'Biometric 2FA on High-Value Electronic Funds Settlement',
-          obligationCode: 'BOFIA 2020 § 64(1)',
-          obligationDescription: 'Mandatory dual-factor biometric authorization on transfers above ₦5,000,000.',
-          regulatoryClauseReference: 'BOFIA 2020 § 64(1)',
-          ruleType: 'Mandatory Control',
-          policyApplicability: 'Directly Applicable',
-          statutoryLegalCitation: 'BOFIA 2020 § 64(1)',
-          complianceStatus: 'CRITICAL_GAP' as const,
-          statutoryPenaltyNaira: 25000000,
-          matchedPolicySection: 'Section 4.2 - Payment Authorizations',
-          matchedPolicyText: 'High-value payments require standard dual-signoff without explicit biometric verification.',
-          suggestedStatus: 'CRITICAL_GAP' as const,
-          whatHappened: 'Internal payment policy permits token-only signoff exceeding statutory ₦5,000,000 threshold without biometric verification.',
-          whatToKnow: 'CBN Bank Examiners treat lack of biometric gating as non-compliance under BOFIA 2020 § 64(1) with personal criminal director exposure.',
-          whatHasChanged: 'Thresholds tightened from ₦10M to ₦5M, with mandatory biometric capture before settlement window closes.',
-          whatToDo: 'Amend Section 4.2 of Credit & Payment Policy to mandate biometric 2FA for all transfers exceeding ₦5M.',
-          draftReplacementLanguage: 'All electronic funds transfers exceeding ₦5,000,000 shall mandate dual-factor biometric verification prior to clearance and settlement.',
-          draftReplacementPolicyLanguage: 'All electronic funds transfers exceeding ₦5,000,000 shall mandate dual-factor biometric verification prior to clearance and settlement.',
-          statutoryQuote: 'Every licensed financial institution shall deploy dual-factor biometric verification on electronic funds transfers exceeding ₦5,000,000.',
-          complianceCriteria: [
-            'Biometric verification integrated on payment switch',
-            'Immutable audit logging with 6-year retention',
-          ],
-          criteriaEvaluations: [
-            { criterionText: 'Biometric verification integrated on payment switch', isMet: false },
-            { criterionText: 'Immutable audit logging with 6-year retention', isMet: true },
-          ],
-          actionItems: [
-            { text: 'Upgrade payment gateway for biometric capture', role: 'CTO', deadline: '2026-11-30' },
-          ],
-          suggestedActionItem: 'Incorporate biometric secondary authorization module.',
-          regulationTitle: 'BOFIA 2020',
-          sourceSectionRef: 'Section 64(1)',
-          responsibleRole: 'Chief Technology Officer',
-          statutoryRemediationTimelineDays: 30,
-          derivedInsight: 'High statutory penalty exposure with potential director personal liability.',
-        };
+    if (evalErr) {
+      logger.error({ err: evalErr.message, evaluationId }, 'Database error fetching evaluation');
+      return NextResponse.json({ success: false, error: evalErr.message }, { status: 500 });
+    }
 
-        return NextResponse.json({
-          success: true,
-          data: {
-            evaluation: {
-              id: 'eval-seed-bofia-2020',
-              analysisName: 'BOFIA 2020 vs Institutional Lending & Capital Policy',
-              regulationTitle: 'Banks and Other Financial Institutions Act (BOFIA) 2020',
-              regulationShortName: 'BOFIA 2020',
-              regulatorCode: 'CBN' as RegulatorCode,
-              benchmarkDocumentVersionId: 'bench-bofia-2020-v1',
-              policyId: 'pol-lending-capital-v1',
-              policyTitle: 'Institutional Credit & Capital Adequacy Policy',
-              policyDepartment: 'CREDIT_RISK',
-              policyVersion: '2.4',
-              scope: 'SECTION_BY_SECTION',
-              status: 'COMPLETED',
-              overallCompliancePercentage: 68.5,
-              criticalGapsCount: 1,
-              partiallyMetCount: 0,
-              adequatelyMetCount: 0,
-              totalPotentialPenaltyNaira: 25000000,
-              actionPlan: 'Board policy amendment and operational risk provisioning required within 30 days.',
-              auditLogs: [],
-              comments: [],
-              createdByName: 'Chief Compliance Officer',
-              createdAt: '2026-10-01T08:00:00Z',
-              metadata: {
-                analysisName: 'BOFIA 2020 vs Institutional Lending & Capital Policy',
-              },
-            },
-            items: [seedItem],
-          },
-        });
-      }
-
+    if (!evalRow) {
       return NextResponse.json(
         { success: false, error: 'Gap analysis not found' },
         { status: 404 }
       );
     }
 
-    // Fetch items
     const { data: dbItems, error: itemsErr } = await (dbClient.from('gap_matrix_items') as any)
       .select('*')
       .eq('evaluation_id', evaluationId)
+      .eq('organization_id', organizationId)
       .order('created_at', { ascending: true });
 
     if (itemsErr) {
       logger.error({ err: itemsErr.message }, 'Failed fetching gap matrix items');
+      return NextResponse.json({ success: false, error: itemsErr.message }, { status: 500 });
     }
 
-    // Resolve regulation titles
     const regIds = Array.isArray(evalRow.regulation_ids) ? evalRow.regulation_ids : [];
     let regTitle = 'Statutory Regulatory Framework';
     let regShort = 'Regulations';
@@ -170,7 +157,6 @@ export async function GET(
       }
     }
 
-    // Resolve policy titles
     const polIds = Array.isArray(evalRow.policy_ids) ? evalRow.policy_ids : [];
     let policyTitle = 'Internal Policy Manual';
     let policyDept = 'COMPLIANCE_LEGAL';
@@ -179,6 +165,7 @@ export async function GET(
     if (polIds.length > 0) {
       const { data: pols } = await (dbClient.from('policy_documents') as any)
         .select('id, title, department, version_tag')
+        .eq('organization_id', organizationId)
         .in('id', polIds);
       if (pols && pols.length > 0) {
         policyTitle = pols.map((p: any) => p.title).join(', ');
@@ -193,7 +180,7 @@ export async function GET(
       regulatoryClauseId: it.regulatory_clause_id,
       obligationId: it.obligation_id || null,
       obligationTitle: it.obligation_title || it.obligation_code || 'Statutory Compliance Directive',
-      obligationCode: it.obligation_code || 'OBL-CBN-001',
+      obligationCode: it.obligation_code || 'OBL',
       obligationDescription: it.obligation_description || it.what_has_changed || it.what_happened,
       regulatoryClauseReference: it.obligation_title || it.obligation_code || 'Statutory Compliance Directive',
       ruleType: it.rule_type || 'Prescriptive',
@@ -210,29 +197,36 @@ export async function GET(
       whatToDo: it.what_to_do,
       draftReplacementLanguage: it.draft_remediation_clause || it.draft_replacement_language,
       draftReplacementPolicyLanguage: it.draft_remediation_clause || it.draft_replacement_language,
-      statutoryQuote: it.statutory_quote || it.statutory_verbatim_quote || it.obligation_description || it.matched_policy_text || 'Statutory requirement quote',
-      complianceCriteria: Array.isArray(it.compliance_criteria) ? it.compliance_criteria : (it.criteria_evaluations?.map((c: any) => c.criterionText || c) || []),
+      statutoryQuote: it.statutory_quote || it.obligation_description || it.what_has_changed || null,
+      complianceCriteria: Array.isArray(it.compliance_criteria)
+        ? it.compliance_criteria
+        : it.criteria_evaluations?.map((c: any) => c.criterionText || c) || [],
       criteriaEvaluations: it.criteria_evaluations || [],
       actionItems: it.action_items || [],
       suggestedActionItem: it.suggested_action_item,
       regulationTitle: it.regulation_title || regTitle,
-      sourceSectionRef: it.source_section_ref || 'Section 1.0',
+      sourceSectionRef: it.source_section_ref || 'Not explicitly specified in source text',
       responsibleRole: it.responsible_role || 'Chief Compliance Officer',
-      statutoryRemediationTimelineDays: it.remediation_timeline_days || 14,
+      statutoryRemediationTimelineDays:
+        typeof it.remediation_timeline_days === 'number' ? it.remediation_timeline_days : undefined,
       derivedInsight: it.derived_insight,
     }));
 
     const totalPenalty = items.reduce((sum: number, item: any) => sum + item.statutoryPenaltyNaira, 0);
-    const adequateCount = evalRow.adequately_met_count ?? items.filter((i: any) => i.complianceStatus === 'ADEQUATELY_MET').length;
-    const partialCount = evalRow.partially_met_count ?? items.filter((i: any) => i.complianceStatus === 'PARTIALLY_MET').length;
-    const gapCount = evalRow.critical_gaps_count ?? items.filter((i: any) => i.complianceStatus === 'CRITICAL_GAP').length;
+    const adequateCount =
+      evalRow.adequately_met_count ?? items.filter((i: any) => i.complianceStatus === 'ADEQUATELY_MET').length;
+    const partialCount =
+      evalRow.partially_met_count ?? items.filter((i: any) => i.complianceStatus === 'PARTIALLY_MET').length;
+    const gapCount =
+      evalRow.critical_gaps_count ?? items.filter((i: any) => i.complianceStatus === 'CRITICAL_GAP').length;
 
     return NextResponse.json({
       success: true,
       data: {
         evaluation: {
           id: evalRow.id,
-          analysisName: evalRow.analysis_name || (evalRow.metadata as any)?.analysisName || `${regShort} vs ${policyTitle}`,
+          analysisName:
+            evalRow.analysis_name || (evalRow.metadata as any)?.analysisName || `${regShort} vs ${policyTitle}`,
           regulationTitle: regTitle,
           regulationShortName: regShort,
           regulatorCode,

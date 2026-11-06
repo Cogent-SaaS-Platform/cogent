@@ -5,9 +5,13 @@ import { defaultCountdownCalculator } from '@/modules/radar/services/deadlineCou
 import { ApplicabilityEngine } from '@/modules/radar/services/applicabilityEngine';
 import { RegulatorCode, RadarPriority, LicenseType, PaymentRail, LineageStatus } from '@/shared/types';
 import { CircularTargetingContext } from '@/modules/radar/types';
-import { DeterministicMetadataExtractor } from '@/modules/radar/services/deterministicMetadataExtractor';
-import { RoleSynthesisService } from '@/modules/radar/services/roleSynthesisService';
 import { computeInitials } from '@/modules/organization/services/teamService';
+import {
+  TOPIC_TAXONOMY,
+  buildTopicClassificationText,
+  classifyTopic,
+  isRegulatoryTopicKey,
+} from '@/shared/taxonomy/regulatoryTopics';
 
 export async function GET(req: NextRequest) {
   try {
@@ -24,6 +28,7 @@ export async function GET(req: NextRequest) {
     const statusFilter = searchParams.get('status');
     const docTypeFilter = searchParams.get('docType');
     const alertTypeFilter = searchParams.get('alertType');
+    const topicFilter = searchParams.get('topic')?.trim();
     const searchQuery = searchParams.get('search')?.toLowerCase().trim();
 
     // 1. Fetch tenant operating profile (licenses & payment rails)
@@ -44,8 +49,8 @@ export async function GET(req: NextRequest) {
     const { data: circularsData, error: circularsError } = await query;
 
     if (circularsError) {
-      logger.warn({ error: circularsError.message }, 'Failed to query radar_circulars; returning empty array');
-      return NextResponse.json({ success: true, circulars: [] });
+      logger.error({ error: circularsError.message }, 'Failed to query radar_circulars');
+      return NextResponse.json({ success: false, error: circularsError.message }, { status: 500 });
     }
 
     const rawCirculars: any[] = circularsData || [];
@@ -103,11 +108,9 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 4. Instantiate RoleSynthesisService for executive-grade briefs
-    const roleSynthService = new RoleSynthesisService({ dbClient: db });
-
-    // 5. Enrich each circular with dynamic statutory countdowns and tenant applicability
+    // 4. Enrich each circular with dynamic statutory countdowns and tenant applicability
     const enrichedCirculars = rawCirculars.map((c) => {
+      const topicKey = classifyTopic(buildTopicClassificationText(c));
       let regulatorCode: RegulatorCode = 'CBN';
       const refPrefix = (c.circular_number || '').split('/')[0]?.toUpperCase();
       if (['CBN', 'SEC', 'ARCON', 'NDPC', 'FCCPC', 'NFIU', 'NDIC'].includes(refPrefix)) {
@@ -345,6 +348,7 @@ export async function GET(req: NextRequest) {
         workflowStatus,
         assignee: resolvedAssignee,
         topics: topicsList,
+        topicKey,
         impactedAreas,
         publicationDate: pubDate,
         effectiveDate: effDate,
@@ -418,6 +422,23 @@ export async function GET(req: NextRequest) {
       filteredCirculars = filteredCirculars.filter(
         (c) => c.targetedLicenses.includes(licenseFilter as LicenseType) || c.appliesUniversally
       );
+    }
+
+    if (topicFilter && topicFilter !== 'ALL') {
+      const normalizedTopic = topicFilter.toLowerCase();
+      const matchedTaxonomy = isRegulatoryTopicKey(normalizedTopic)
+        ? TOPIC_TAXONOMY.find((t) => t.key === normalizedTopic)
+        : TOPIC_TAXONOMY.find((t) => t.name.toLowerCase() === normalizedTopic);
+
+      if (matchedTaxonomy) {
+        filteredCirculars = filteredCirculars.filter((c) => c.topicKey === matchedTaxonomy.key);
+      } else {
+        filteredCirculars = filteredCirculars.filter(
+          (c) =>
+            c.topicKey === normalizedTopic ||
+            (c.topics || []).some((t: string) => t.toLowerCase().includes(normalizedTopic))
+        );
+      }
     }
 
     if (searchQuery) {

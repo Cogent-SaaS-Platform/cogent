@@ -53,37 +53,6 @@ export interface MarketingCascadeCheckResult {
 }
 
 /**
- * Deterministic Statutory Penalty Schedule for Advertising & Consumer Protection
- */
-const STATUTORY_MARKETING_PENALTY_RATES: Record<string, { base: number; max: number; citation: string }> = {
-  ARCON: {
-    base: 1000000,
-    max: 3000000,
-    citation: 'ARCON Act 2022 Section 34 & Advertising Offences Regulations',
-  },
-  CBN: {
-    base: 2000000,
-    max: 10000000,
-    citation: 'BOFIA 2020 Section 64 & CBN Consumer Protection Framework 2019',
-  },
-  FCCPC: {
-    base: 5000000,
-    max: 10000000,
-    citation: 'FCCPC Act 2018 Section 127/155 Deceptive Commercial Practices',
-  },
-  SEC: {
-    base: 10000000,
-    max: 20000000,
-    citation: 'ISA 2007 Section 303 & SEC Capital Market Transparency Guidelines',
-  },
-  NDPC: {
-    base: 10000000,
-    max: 20000000,
-    citation: 'NDPA 2023 Section 48 Unlawful Data Processing in Direct Marketing',
-  },
-};
-
-/**
  * 4.2 Upstream Circular -> Trigger Downstream Marketing Drift Check
  * Connects Pillar 2 (Regulatory Radar) to Pillar 1 (Marketing Shield Enterprise).
  *
@@ -95,19 +64,25 @@ export class MarketingCascadeListener {
   private dbClient: SupabaseClient<Database>;
   private auditService: AuditService;
 
-  constructor(options: {
-    dbClient: SupabaseClient<Database>;
-    auditService?: AuditService;
-  } | SupabaseClient<Database>) {
-    const client = options && 'dbClient' in options ? options.dbClient : (options as SupabaseClient<Database>);
+  constructor(
+    options:
+      | {
+          dbClient: SupabaseClient<Database>;
+          auditService?: AuditService;
+        }
+      | SupabaseClient<Database>
+  ) {
+    const client =
+      options && 'dbClient' in options ? options.dbClient : (options as SupabaseClient<Database>);
     if (!client) {
       throw new ConfigurationError('MarketingCascadeListener requires an RLS-bound SupabaseClient');
     }
     this.dbClient = client;
 
-    this.auditService = (options && 'auditService' in options && options.auditService)
-      ? options.auditService
-      : new AuditService(this.dbClient);
+    this.auditService =
+      options && 'auditService' in options && options.auditService
+        ? options.auditService
+        : new AuditService(this.dbClient);
   }
 
   /**
@@ -175,7 +150,8 @@ export class MarketingCascadeListener {
   }
 
   /**
-   * Executes the full marketing cascade check across tenant marketing assets and claims ledger
+   * Executes the full marketing cascade check across tenant marketing assets and claims ledger.
+   * Never fabricates circular numbers or statutory penalty figures not explicitly grounded in DB records.
    */
   public async checkMarketingDrift(
     params: MarketingCascadeCheckParams
@@ -192,9 +168,9 @@ export class MarketingCascadeListener {
       'Executing Upstream Circular -> Marketing Drift Check'
     );
 
-    // 1. Fetch circular details
-    let circularNumber = 'CBN/DIR/CON/2026/04';
-    let subject = 'Consumer Protection & Digital Lending Directive';
+    // 1. Fetch circular details strictly from database (no invented circular codes)
+    let circularNumber = 'Not explicitly specified in source text';
+    let subject = 'Not explicitly specified in source text';
     let summary = '';
     let rawText = '';
     let regulatorCode: RegulatorCode = 'CBN';
@@ -217,9 +193,10 @@ export class MarketingCascadeListener {
           else if (circularNumber.startsWith('FCCPC')) regulatorCode = 'FCCPC';
           else if (circularNumber.startsWith('SEC')) regulatorCode = 'SEC';
           else if (circularNumber.startsWith('NDPC')) regulatorCode = 'NDPC';
+          else if (circularNumber.startsWith('NFIU')) regulatorCode = 'NFIU';
         }
       } catch (err) {
-        logger.warn({ err }, 'Could not read circular row from DB; proceeding with parameter context');
+        logger.error({ err, circularId }, 'Failed reading circular row from radar_circulars');
       }
     }
 
@@ -234,13 +211,6 @@ export class MarketingCascadeListener {
     const invalidatedCampaigns: InvalidatedCampaignItem[] = [];
     const flaggedClaims: FlaggedClaimItem[] = [];
     let totalFineExposureNaira = 0;
-
-    // Determine deterministic base fine for governing regulator
-    const penaltyRate = STATUTORY_MARKETING_PENALTY_RATES[regulatorCode] || {
-      base: 2000000,
-      max: 5000000,
-      citation: 'BOFIA 2020 & Nigerian Financial Consumer Protection Regulations',
-    };
 
     // 3. Query active tenant campaigns from marketing_scans
     interface MarketingScanRow {
@@ -267,7 +237,7 @@ export class MarketingCascadeListener {
           candidateScans = scanRows;
         }
       } catch (err) {
-        logger.warn({ err }, 'Failed querying marketing_scans; using fallback baseline');
+        logger.error({ err, organizationId }, 'Failed querying marketing_scans for drift check');
       }
     }
 
@@ -299,7 +269,7 @@ export class MarketingCascadeListener {
           candidateClaims = claimRows;
         }
       } catch (err) {
-        logger.warn({ err }, 'Failed querying tenant_claims_ledger; using fallback baseline');
+        logger.error({ err, organizationId }, 'Failed querying tenant_claims_ledger for drift check');
       }
     }
 
@@ -327,17 +297,14 @@ export class MarketingCascadeListener {
         }
       }
 
-      // Invalidate if approved and conflicting phrasing detected OR if circular explicitly governs this product/channel
       const isApproved =
         scan.approval_status === 'APPROVED_BY_CCO' ||
         scan.approval_status === 'MODIFIED_AND_APPROVED' ||
         scan.approval_status === 'APPROVED';
 
       if (matchedPhrases.length > 0 || (isApproved && impactAssessment.impacted)) {
-        const penaltyNaira = Math.max(
-          penaltyRate.base,
-          Number(scan.deterministic_penalty_naira) || penaltyRate.base
-        );
+        // Strictly use explicitly recorded deterministic penalty from database (0 if unspecified)
+        const penaltyNaira = Number(scan.deterministic_penalty_naira) || 0;
         totalFineExposureNaira += penaltyNaira;
 
         const stateReason = `Statutory baseline modified by Circular ${circularNumber} (${subject}). Flagged prohibitions: ${
@@ -346,10 +313,8 @@ export class MarketingCascadeListener {
 
         let auditId: string | undefined = undefined;
 
-        // Perform mutations if not simulation
         if (!simulate && this.dbClient) {
           try {
-            // Mutate marketing_scans approval_status to NEEDS_RE_REVIEW
             await this.dbClient
               .from('marketing_scans')
               .update({
@@ -358,7 +323,6 @@ export class MarketingCascadeListener {
               })
               .eq('id', scan.id);
 
-            // Flag associated marketing_live_assets
             await this.dbClient
               .from('marketing_live_assets')
               .update({
@@ -372,10 +336,16 @@ export class MarketingCascadeListener {
               })
               .eq('scan_id', scan.id);
 
-            // Dispatch urgent notification to radar_notifications & notifications
-            const notifTitle = `⚠️ Marketing Shield Drift: Campaign "${scan.campaign_name}" Invalidated`;
-            const notifMessage = `Promotional asset invalidated following Circular ${circularNumber}. Statutory fine exposure: ₦${penaltyNaira.toLocaleString()}. Status mutated to NEEDS_RE_REVIEW.`;
-            const isUserUuid = Boolean(userId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId));
+            const penaltySummary =
+              penaltyNaira > 0
+                ? `₦${penaltyNaira.toLocaleString()}`
+                : 'Not explicitly specified in source text';
+
+            const notifTitle = `Marketing Shield Drift: Campaign "${scan.campaign_name}" Invalidated`;
+            const notifMessage = `Promotional asset invalidated following Circular ${circularNumber}. Statutory fine exposure: ${penaltySummary}. Status mutated to NEEDS_RE_REVIEW.`;
+            const isUserUuid = Boolean(
+              userId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)
+            );
             const safeUserId = isUserUuid ? userId : null;
 
             await this.dbClient.from('radar_notifications').insert({
@@ -407,7 +377,6 @@ export class MarketingCascadeListener {
               is_read: false,
             });
 
-            // Write immutable audit log
             const auditLog = await this.auditService.recordLog({
               organizationId,
               userId,
@@ -427,7 +396,6 @@ export class MarketingCascadeListener {
             });
             auditId = auditLog.id;
 
-            // Persist cryptographic cascade hop into compliance_cascade_events
             await this.dbClient.from('compliance_cascade_events').insert({
               id: crypto.randomUUID(),
               organization_id: organizationId,
@@ -451,7 +419,7 @@ export class MarketingCascadeListener {
               previous_event_hash: AuditService.computeSha256(copy),
             });
           } catch (mutateErr) {
-            logger.warn({ mutateErr }, 'Warning mutating marketing scan state in database');
+            logger.error({ mutateErr, scanId: scan.id }, 'Error mutating marketing scan state during cascade drift check');
           }
         }
 
@@ -498,7 +466,7 @@ export class MarketingCascadeListener {
               })
               .eq('id', claim.id);
           } catch (claimErr) {
-            logger.warn({ claimErr }, 'Warning flagging claim in tenant_claims_ledger');
+            logger.error({ claimErr, claimId: claim.id }, 'Error flagging claim in tenant_claims_ledger');
           }
         }
 

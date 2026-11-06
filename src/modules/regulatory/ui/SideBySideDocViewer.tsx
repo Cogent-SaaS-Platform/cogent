@@ -238,63 +238,75 @@ export function SideBySideDocViewer({
               viewMode === 'split' ? 'w-1/2' : 'w-full'
             }`}
           >
-            {/* Gazette Document Container */}
-            <div className="flex-1 overflow-y-auto p-6 flex justify-center">
-              <div className="w-full max-w-2xl bg-white shadow-md border border-slate-300 rounded-sm p-8 space-y-6 text-slate-900 font-serif">
-                {/* Official Gazette Header */}
-                <div className="text-center border-b-2 border-slate-900 pb-5 space-y-1">
-                  <div className="text-[10px] font-mono tracking-widest uppercase text-slate-600 font-bold">
-                    Federal Republic of Nigeria Official Gazette
-                  </div>
-                  <div className="text-sm font-bold tracking-tight uppercase">
-                    Extraordinary Statutory Regulatory Publication
-                  </div>
-                  <div className="font-mono text-[11px] text-slate-500">
-                    No. 42 · Vol. 107 · Sovereign Concordance Verified
-                  </div>
-                </div>
-
-                {/* Title & Enactment Recital */}
-                <div className="text-center space-y-2 py-2">
-                  <h1 className="text-base font-bold uppercase tracking-wide">
-                    {instrument.fullTitle}
-                  </h1>
-                  <p className="text-xs italic text-slate-600 max-w-lg mx-auto">
-                    An Act to repeal the previous statutory enactments, regulate the operations of financial
-                    institutions, and establish supervisory standards for sovereign compliance.
-                  </p>
-                  <div className="font-mono text-xs font-bold pt-1">
-                    [{instrument.officialCitation}]
-                  </div>
-                </div>
-
-                <div className="border-t border-slate-200 pt-4 space-y-4 text-xs leading-relaxed font-sans">
-                  {sections.map((sec) => (
-                    <div
-                      key={sec.id}
-                      className={`p-3 rounded transition-colors ${
-                        sec.id === activeSection?.id
-                          ? 'bg-amber-50/70 border-l-2 border-amber-600'
-                          : 'hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className="font-mono text-[11px] font-bold text-slate-800">
-                        {sec.sectionReference} &mdash; {sec.sectionHeading}
-                      </div>
-                      <div className="text-slate-700 mt-1 leading-relaxed">
-                        {sec.clauseText}
-                      </div>
+            {instrument.sourceFileUrl && instrument.sourceFileUrl.toLowerCase().endsWith('.pdf') ? (
+              <iframe
+                src={`${instrument.sourceFileUrl}#toolbar=1`}
+                className="w-full h-full border-0 bg-white"
+                title={instrument.fullTitle}
+              />
+            ) : (
+              /* Captured Statutory Source Text Container */
+              <div className="flex-1 overflow-y-auto p-6 flex justify-center">
+                <div className="w-full max-w-2xl bg-white shadow-md border border-slate-300 rounded-sm p-8 space-y-6 text-slate-900 font-serif">
+                  <div className="text-center border-b-2 border-slate-900 pb-5 space-y-1">
+                    <div className="text-[10px] font-mono tracking-widest uppercase text-slate-600 font-bold">
+                      {instrument.regulatorName} ({instrument.regulator})
                     </div>
-                  ))}
-                </div>
+                    <div className="text-sm font-bold tracking-tight uppercase">
+                      Captured Statutory Text
+                    </div>
+                    <div className="font-mono text-[11px] text-slate-500">
+                      Publication Date: {instrument.publicationDate || 'Not explicitly specified in source text'}
+                    </div>
+                  </div>
 
-                {/* Gazette Footer Authentication Stamp */}
-                <div className="border-t-2 border-slate-900 pt-4 flex items-center justify-between text-[10px] font-mono text-slate-500">
-                  <span>PRINTED BY AUTHORITY OF THE FEDERAL GOVERNMENT</span>
-                  <span>VERIFIED BY COGENT SOVEREIGN PARSER</span>
+                  <div className="text-center space-y-2 py-2">
+                    <h1 className="text-base font-bold uppercase tracking-wide">
+                      {instrument.fullTitle}
+                    </h1>
+                    {instrument.overview && (
+                      <p className="text-xs italic text-slate-600 max-w-lg mx-auto">
+                        {instrument.overview}
+                      </p>
+                    )}
+                    <div className="font-mono text-xs font-bold pt-1">
+                      [{instrument.officialCitation}]
+                    </div>
+                  </div>
+
+                  <div className="border-t border-slate-200 pt-4 space-y-4 text-xs leading-relaxed font-sans">
+                    {sections.length > 0 ? (
+                      sections.map((sec) => (
+                        <div
+                          key={sec.id}
+                          className={`p-3 rounded transition-colors ${
+                            sec.id === activeSection?.id
+                              ? 'bg-amber-50/70 border-l-2 border-amber-600'
+                              : 'hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className="font-mono text-[11px] font-bold text-slate-800">
+                            {sec.sectionReference} &mdash; {sec.sectionHeading}
+                          </div>
+                          <div className="text-slate-700 mt-1 leading-relaxed whitespace-pre-wrap">
+                            {sec.clauseText}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-slate-700 whitespace-pre-wrap leading-relaxed">
+                        {instrument.capturedText || 'No captured statutory text available for this record.'}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="border-t-2 border-slate-900 pt-4 flex items-center justify-between text-[10px] font-mono text-slate-500">
+                    <span>AUTHORITY: {instrument.regulator}</span>
+                    <span>EFFECTIVE: {instrument.effectiveDate || 'Not explicitly specified in source text'}</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>
