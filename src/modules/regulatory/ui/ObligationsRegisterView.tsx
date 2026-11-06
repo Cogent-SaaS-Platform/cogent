@@ -27,6 +27,7 @@ import {
   Save,
   CheckSquare,
   Square,
+  Download,
 } from 'lucide-react';
 import {
   RegulatoryInstrumentPresentation,
@@ -37,6 +38,7 @@ import {
   ObligationReviewStatus,
   AssessmentCriterionItem,
 } from '../types';
+import { sanitizeSectionHeading } from '../utils/statutoryUtils';
 import { UpgradePlanModal } from '@/shared/ui/UpgradePlanModal';
 import { PlanTier } from '@/lib/plans';
 
@@ -161,6 +163,18 @@ export function ObligationsRegisterView({
         .finally(() => setIsLoading(false));
     }
   }, [instrument?.id, initialSections]);
+
+  // Auto-scroll to referenced quote when active obligation changes
+  useEffect(() => {
+    if (activeObligation) {
+      const timer = setTimeout(() => {
+        if (quoteRef.current) {
+          quoteRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 180);
+      return () => clearTimeout(timer);
+    }
+  }, [activeObligation?.id, activeObligation?.clauseId]);
 
   // Flattened obligations list
   const allObligations: RegulatoryObligationPresentation[] = useMemo(() => {
@@ -290,6 +304,46 @@ export function ObligationsRegisterView({
     } catch (err) {
       console.error('Failed to star obligation', err);
     }
+  };
+
+  // Handler: Export Filtered Obligations to CSV
+  const handleExportCsv = () => {
+    const headers = [
+      'Statutory Code',
+      'Section Reference',
+      'Section Heading',
+      'Obligation Title',
+      'Rule Description',
+      'Rule Nature',
+      'Policy Applicability',
+      'Review Status',
+      'Assessment Criteria Count',
+      'Is Relevant',
+      'Verbatim Statutory Quote'
+    ];
+    const rows = filteredObligations.map((obl) => [
+      `"${obl.code || ''}"`,
+      `"${obl.sectionReference || ''}"`,
+      `"${(obl.sectionHeading || '').replace(/"/g, '""')}"`,
+      `"${(obl.title || '').replace(/"/g, '""')}"`,
+      `"${(obl.description || '').replace(/"/g, '""')}"`,
+      `"${obl.ruleType || ''}"`,
+      `"${obl.policyApplicability || ''}"`,
+      `"${obl.status || ''}"`,
+      `"${obl.assessmentCriteria?.length || 0}"`,
+      `"${obl.isRelevant ? 'Yes' : 'No'}"`,
+      `"${(obl.verbatimQuote || '').replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    const cleanTitle = (instrument?.shortTitle || 'statutory_obligations').toLowerCase().replace(/[^a-z0-9]+/g, '_');
+    link.setAttribute('download', `${cleanTitle}_register.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Handler: Update Status
@@ -487,6 +541,16 @@ export function ObligationsRegisterView({
 
         {/* Header Actions */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* Export CSV Button */}
+          <button
+            type="button"
+            onClick={handleExportCsv}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-medium rounded-lg shadow-xs transition-colors"
+          >
+            <Download className="w-3.5 h-3.5 text-slate-500" />
+            <span>Export CSV</span>
+          </button>
+
           <button
             type="button"
             onClick={() => {
@@ -644,7 +708,7 @@ export function ObligationsRegisterView({
                           isSelected ? 'text-slate-200' : 'text-slate-600'
                         }`}
                       >
-                        {sec.sectionHeading}
+                        {sanitizeSectionHeading(sec.sectionReference, sec.sectionHeading)}
                       </p>
                     </div>
                     <span
@@ -819,11 +883,11 @@ export function ObligationsRegisterView({
         </div>
       ) : (
         /* ================= VIEW 2: 50/50 SPLIT-SCREEN WORKSPACE ================= */
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
           {/* ================= LEFT PANE (50%): OBLIGATION INSPECTOR ================= */}
-          <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
+          <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden flex flex-col h-[calc(100vh-210px)] max-h-[820px] min-h-[520px]">
             {/* Top Bar */}
-            <div className="p-3.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-3">
+            <div className="shrink-0 p-3.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <span className="font-mono text-xs font-bold bg-slate-900 text-white px-2 py-0.5 rounded">
                   {activeObligation.code}
@@ -922,7 +986,7 @@ export function ObligationsRegisterView({
             </div>
 
             {/* Pane Content */}
-            <div className="p-5 space-y-5 max-h-[calc(100vh-240px)] overflow-y-auto">
+            <div className="flex-1 p-5 space-y-5 overflow-y-auto min-w-0">
               {isEditMode ? (
                 /* ================= EDIT MODE ================= */
                 <div className="space-y-4">
@@ -1135,7 +1199,7 @@ export function ObligationsRegisterView({
                       <FileText className="w-4 h-4 text-purple-600 shrink-0" />
                       <div>
                         <span className="font-semibold text-purple-950">
-                          {activeObligation.sectionReference}: {activeObligation.sectionHeading}
+                          {activeObligation.sectionReference}: {sanitizeSectionHeading(activeObligation.sectionReference, activeObligation.sectionHeading)}
                         </span>
                         <p className="text-[11px] text-purple-800 line-clamp-1">
                           &ldquo;{activeObligation.verbatimQuote}&rdquo;
@@ -1268,15 +1332,34 @@ export function ObligationsRegisterView({
                       </div>
                     )}
                   </div>
+
+                  {/* Concordance & Policy Mapping Action Card */}
+                  <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-lg flex items-center justify-between gap-3 text-xs">
+                    <div className="space-y-0.5">
+                      <span className="font-semibold text-slate-900 block">
+                        Internal Policy Concordance
+                      </span>
+                      <p className="text-[11px] text-slate-500">
+                        Evaluate compliance alignment against uploaded internal policies in Gap Matrix.
+                      </p>
+                    </div>
+                    <a
+                      href={`/gap-matrix?obligationId=${encodeURIComponent(activeObligation.id)}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium rounded-lg shrink-0 shadow-xs transition-colors"
+                    >
+                      <span>Map in Gap Matrix</span>
+                      <ExternalLink className="w-3 h-3 text-slate-300" />
+                    </a>
+                  </div>
                 </div>
               )}
             </div>
           </div>
 
           {/* ================= RIGHT PANE (50%): SYNCHRONIZED SOURCE VIEWER ================= */}
-          <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
+          <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden flex flex-col h-[calc(100vh-210px)] max-h-[820px] min-h-[520px]">
             {/* Top Bar */}
-            <div className="p-3.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-3">
+            <div className="shrink-0 p-3.5 border-b border-slate-200 bg-slate-50/60 flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500 block">
                   Authoritative Statutory Source
@@ -1302,7 +1385,7 @@ export function ObligationsRegisterView({
             </div>
 
             {/* Document Reader Body */}
-            <div className="p-5 max-h-[calc(100vh-240px)] overflow-y-auto space-y-6 font-serif leading-relaxed text-slate-800 text-xs">
+            <div className="flex-1 p-5 overflow-y-auto space-y-6 font-serif leading-relaxed text-slate-800 text-xs min-w-0">
               {/* If source document is PDF and has a direct file URL */}
               {instrument?.sourceFileUrl?.toLowerCase().endsWith('.pdf') ? (
                 <div className="space-y-3">
@@ -1322,14 +1405,22 @@ export function ObligationsRegisterView({
                 /* Structured Clean Multi-Section Statutory Reader */
                 <div className="space-y-6">
                   {sections.map((sec) => {
-                    const isReferencedSection = sec.id === activeObligation.clauseId;
+                    const isReferencedSection =
+                      sec.id === activeObligation.clauseId ||
+                      (activeObligation.sectionReference && sec.sectionReference === activeObligation.sectionReference) ||
+                      (activeObligation.verbatimQuote &&
+                        sec.clauseText &&
+                        sec.clauseText.toLowerCase().includes(activeObligation.verbatimQuote.trim().toLowerCase().slice(0, 30)));
+
+                    const headingClean = sanitizeSectionHeading(sec.sectionReference, sec.sectionHeading);
+
                     return (
                       <div
                         key={sec.id}
-                        className={`space-y-2 p-3 rounded-lg transition-colors ${
+                        className={`space-y-2 p-3.5 rounded-lg transition-colors ${
                           isReferencedSection
-                            ? 'bg-purple-50/30 border border-purple-100'
-                            : ''
+                            ? 'bg-purple-50/40 border border-purple-200/90 shadow-xs'
+                            : 'border border-transparent'
                         }`}
                       >
                         <div className="font-sans flex items-center gap-2 pb-1 border-b border-slate-200/80">
@@ -1337,32 +1428,42 @@ export function ObligationsRegisterView({
                             {sec.sectionReference}
                           </span>
                           <span className="font-bold text-slate-900 text-xs">
-                            {sec.sectionHeading}
+                            {headingClean}
                           </span>
                         </div>
 
-                        {/* Clause Text with Verbatim Quote Highlight */}
+                        {/* Clause Text with Verbatim Quote Highlight (Zero Text Duplication) */}
                         <div className="text-slate-800 text-xs leading-relaxed space-y-2 font-serif">
                           {isReferencedSection && activeObligation.verbatimQuote ? (
                             <div className="space-y-2">
-                              {/* Highlighted Quote Box */}
+                              {/* Single Authoritative Highlighted Quote Box */}
                               <div
                                 ref={quoteRef}
-                                className="bg-purple-100/90 text-purple-950 border-l-4 border-purple-600 px-3 py-2.5 rounded-r shadow-xs my-2 font-medium"
+                                className="bg-purple-100/90 text-purple-950 border-l-4 border-purple-600 px-3.5 py-3 rounded-r shadow-xs my-2 font-medium leading-relaxed font-sans"
                               >
-                                <span className="font-mono text-[10px] uppercase font-bold text-purple-700 block mb-0.5 font-sans">
+                                <span className="font-mono text-[10px] uppercase font-bold text-purple-700 block mb-1">
                                   [Reference 1 · Verbatim Statutory Mandate]
                                 </span>
                                 &ldquo;{activeObligation.verbatimQuote}&rdquo;
                               </div>
-                              {sec.clauseText && sec.clauseText !== activeObligation.verbatimQuote && (
-                                <p className="text-slate-600 font-sans text-[11px] leading-relaxed">
-                                  {sec.clauseText}
-                                </p>
-                              )}
+                              {/* Only show supplementary clause text if it is NOT substantially identical to the quote */}
+                              {(() => {
+                                const normClause = (sec.clauseText || '').trim().toLowerCase();
+                                const normQuote = (activeObligation.verbatimQuote || '').trim().toLowerCase();
+                                const isDuplicate =
+                                  !normClause ||
+                                  normClause === normQuote ||
+                                  (normClause.includes(normQuote) && normClause.length <= normQuote.length + 40);
+                                if (isDuplicate) return null;
+                                return (
+                                  <p className="text-slate-600 font-sans text-[11px] leading-relaxed pt-1">
+                                    {sec.clauseText}
+                                  </p>
+                                );
+                              })()}
                             </div>
                           ) : (
-                            <p className="text-slate-700 leading-relaxed">
+                            <p className="text-slate-700 leading-relaxed font-sans">
                               {sec.clauseText || 'Statutory provisions enacted by regulatory authority.'}
                             </p>
                           )}

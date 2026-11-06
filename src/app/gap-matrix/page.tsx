@@ -4,6 +4,8 @@ import React, { Suspense } from 'react';
 import { AppShell } from '@/shared/ui/AppShell';
 import { GapMatrixDashboard } from '@/modules/gap-matrix/ui';
 
+export const dynamic = 'force-dynamic';
+
 export default function GapMatrixPage() {
   return (
     <AppShell activePillarOverride="gap">

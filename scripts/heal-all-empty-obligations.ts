@@ -107,7 +107,18 @@ function decomposeSentencesIntoObligations(
   const rawSentences = clean
     .split(/(?<=[.?!])\s+/)
     .map((s) => s.replace(/^[\d\.\-\s]+/, '').trim())
-    .filter((s) => s.length > 20 && !s.toLowerCase().startsWith('http') && !s.toLowerCase().startsWith('date:'));
+    .filter((s) => {
+      if (s.length < 25 || s.toLowerCase().startsWith('http') || s.toLowerCase().startsWith('date:')) {
+        return false;
+      }
+      // Preamble sentences are background facts, not obligations
+      const isPreamble = /^(?:the\s+united\s+nations|the\s+central\s+bank|the\s+securities\s+and\s+exchange|hereby\s+informs|this\s+circular\s+is\s+issued|reference\s+is\s+made|please\s+be\s+informed)/i.test(s);
+      if (isPreamble) return false;
+
+      // Must contain an actionable supervisory imperative
+      const hasActionableImperative = /\b(?:shall|must|is required to|are required to|prohibit|prohibited|forbidden|freeze|freezing|report|disclose|maintain|comply|submit|notify|file|ensure)\b/i.test(s);
+      return hasActionableImperative;
+    });
 
   const results: Array<{ summary: string; obligationType: ValidObligationType; severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' }> = [];
 

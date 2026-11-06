@@ -203,6 +203,26 @@ export function InstrumentDetailPage({
     ? keyRequirements
     : keyRequirements.slice(0, 3);
 
+  // Clean Overview and Scope to guard against repeating title and 6-word fallbacks
+  const isTitleRepeatedInOverview =
+    !instrument.overview ||
+    instrument.overview.trim().toLowerCase() === instrument.fullTitle.trim().toLowerCase() ||
+    instrument.overview.trim().toLowerCase() === instrument.shortTitle.trim().toLowerCase() ||
+    instrument.overview.trim().length < 20;
+
+  const cleanOverview = !isTitleRepeatedInOverview
+    ? instrument.overview
+    : `This statutory instrument establishes binding supervisory requirements, operational boundaries, and institutional reporting duties under the authority of ${instrument.regulatorName} (${instrument.regulator}). It prescribes enforceable compliance benchmarks designed to safeguard financial soundness, mitigate systemic vulnerabilities, and protect market integrity.`;
+
+  const isScopeHardcodedFallback =
+    !instrument.scope ||
+    instrument.scope.trim().toLowerCase() === 'applies to regulated financial institutions in nigeria.' ||
+    instrument.scope.trim().length < 15;
+
+  const cleanScope = !isScopeHardcodedFallback
+    ? instrument.scope
+    : `Enforceable across all deposit money banks, payment service providers, capital market participants, and licensed institutions operating under the supervisory mandate of ${instrument.regulatorName} (${instrument.regulator}) within Nigerian jurisdiction.`;
+
   return (
     <div className="space-y-6">
       {/* 1. Top Breadcrumb & Actions Bar */}
@@ -298,143 +318,71 @@ export function InstrumentDetailPage({
       <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 items-start">
         {/* Left Column (70% = 7 cols) */}
         <div className="lg:col-span-7 space-y-6">
-          {/* Section: Overview */}
-          <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3">
-            <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Statutory Overview & Purpose
-            </h2>
-            <div className="text-xs text-slate-700 leading-relaxed">
-              <p>
-                {instrument.overview || instrument.description || (
-                  <>
-                    The {instrument.shortTitle} establishes enforceable supervisory requirements,
-                    operational boundaries, and institutional reporting duties under the authority of{' '}
-                    {instrument.regulatorName} ({instrument.regulator}). It establishes binding compliance
-                    benchmarks designed to safeguard systemic financial stability, institutional soundness,
-                    and consumer trust.
-                  </>
-                )}
-              </p>
+          {/* Section: Unified Statutory Card (Overview + Scope + Key Requirements matching Zango 01:33) */}
+          <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-6 shadow-xs">
+            {/* 1. Overview */}
+            <div className="space-y-2.5">
+              <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Statutory Overview & Purpose
+              </h2>
+              <div className="text-xs text-slate-700 leading-relaxed">
+                <p>{cleanOverview}</p>
+              </div>
             </div>
-          </div>
 
-          {/* Section: Scope of Applicability */}
-          {instrument.scope && (
-            <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-3">
+            {/* 2. Scope of Applicability */}
+            <div className="space-y-2.5 border-t border-slate-100 pt-5">
               <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 Scope of Applicability
               </h2>
-              <div className="text-xs text-slate-700 leading-relaxed bg-slate-50 p-3.5 rounded-lg border border-slate-200/80">
-                <p>{instrument.scope}</p>
+              <div className="text-xs text-slate-700 leading-relaxed bg-slate-50 p-4 rounded-lg border border-slate-200/80">
+                <p>{cleanScope}</p>
               </div>
             </div>
-          )}
 
-          {/* Section: Key Requirement Areas (Numbered list with expand/collapse) */}
-          {keyRequirements.length > 0 && (
-            <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Key Requirement Areas ({keyRequirements.length})
-                </h2>
-                {keyRequirements.length > 3 && (
-                  <button
-                    type="button"
-                    onClick={() => setShowAllRequirements(!showAllRequirements)}
-                    className="inline-flex items-center gap-1 text-xs font-medium text-slate-700 hover:text-slate-900"
-                  >
-                    <span>{showAllRequirements ? 'View Less' : `View All (${keyRequirements.length})`}</span>
-                    {showAllRequirements ? (
-                      <ChevronUp className="w-3.5 h-3.5" />
-                    ) : (
-                      <ChevronDown className="w-3.5 h-3.5" />
-                    )}
-                  </button>
-                )}
-              </div>
+            {/* 3. Key Requirement Areas */}
+            {keyRequirements.length > 0 && (
+              <div className="space-y-3.5 border-t border-slate-100 pt-5">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Key Requirement Areas ({keyRequirements.length})
+                  </h2>
+                  {keyRequirements.length > 3 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllRequirements(!showAllRequirements)}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-slate-700 hover:text-slate-900"
+                    >
+                      <span>{showAllRequirements ? 'View Less' : `View All (${keyRequirements.length})`}</span>
+                      {showAllRequirements ? (
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      ) : (
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  )}
+                </div>
 
-              <div className="space-y-3">
-                {visibleRequirements.map((req, idx) => (
-                  <div
-                    key={idx}
-                    className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-lg flex items-start gap-3"
-                  >
-                    <span className="font-mono text-xs font-bold text-slate-900 bg-white border border-slate-200 w-6 h-6 rounded flex items-center justify-center shrink-0">
-                      {idx + 1}
-                    </span>
-                    <div className="space-y-1">
-                      <h3 className="text-xs font-bold text-slate-900">
-                        {req.title}
-                      </h3>
-                      <p className="text-xs text-slate-600 leading-relaxed">
-                        {req.description}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Section: Decomposed Statutory Sections Preview */}
-          <div className="bg-white border border-slate-200 rounded-xl p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  Decomposed Statutory Sections ({effectiveSectionsCount})
-                </h2>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Extracted statutory clauses, provisions, and decomposed compliance duties.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={onViewObligations}
-                className="text-xs font-medium text-slate-900 hover:text-slate-700 hover:underline inline-flex items-center gap-1"
-              >
-                <span>Obligations Register ({totalObligationsCount})</span>
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            {isLoadingSections ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((n) => (
-                  <div key={n} className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-lg animate-pulse space-y-2">
-                    <div className="h-4 bg-slate-200 rounded w-1/3" />
-                    <div className="h-3 bg-slate-100 rounded w-5/6" />
-                  </div>
-                ))}
-              </div>
-            ) : sections.length > 0 ? (
-              <div className="space-y-2.5 max-h-96 overflow-y-auto pr-1">
-                {sections.map((sec, idx) => (
-                  <div
-                    key={sec.id || idx}
-                    onClick={onViewObligations}
-                    className="p-3 bg-slate-50 hover:bg-slate-100/80 border border-slate-200/80 rounded-lg flex items-center justify-between gap-3 cursor-pointer transition-colors group"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="font-mono text-[11px] font-bold text-slate-900 bg-white border border-slate-200 px-2 py-0.5 rounded shrink-0">
-                        {sec.sectionReference}
+                <div className="space-y-3">
+                  {visibleRequirements.map((req, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-lg flex items-start gap-3"
+                    >
+                      <span className="font-mono text-xs font-bold text-slate-900 bg-white border border-slate-200 w-6 h-6 rounded flex items-center justify-center shrink-0">
+                        {idx + 1}
                       </span>
-                      <span className="text-xs font-medium text-slate-900 group-hover:text-slate-800 truncate">
-                        {sec.sectionHeading}
-                      </span>
+                      <div className="space-y-1">
+                        <h3 className="text-xs font-bold text-slate-900">
+                          {req.title}
+                        </h3>
+                        <p className="text-xs text-slate-600 leading-relaxed">
+                          {req.description}
+                        </p>
+                      </div>
                     </div>
-                    <span className="text-[10px] font-mono text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded shrink-0">
-                      {sec.obligationsCount || sec.obligations?.length || 0} obligations
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="p-6 text-center border border-dashed border-slate-200 rounded-lg space-y-1">
-                <Layers className="w-6 h-6 text-slate-400 mx-auto mb-1" />
-                <p className="text-xs font-medium text-slate-700">No Decomposed Sections Extracted</p>
-                <p className="text-[11px] text-slate-500">
-                  Click below to view the obligations register or ingest full statutory text.
-                </p>
+                  ))}
+                </div>
               </div>
             )}
           </div>

@@ -22,7 +22,9 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const isClerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+  const publishableKey =
+    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ||
+    'pk_test_Y2xlcmsuY29nZW50LmRldnZkZXNra2V5JA';
 
   const htmlContent = (
     <html
@@ -33,12 +35,9 @@ export default function RootLayout({
     </html>
   );
 
-  if (!isClerkConfigured) {
-    return htmlContent;
-  }
-
   return (
     <ClerkProvider
+      publishableKey={publishableKey}
       appearance={{
         variables: {
           colorPrimary: '#2A4BFF',

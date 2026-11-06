@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { createClient } from '@supabase/supabase-js';
+import { generateObligationCriteria, sanitizeSectionHeading } from '../src/modules/regulatory/utils/statutoryUtils';
 
 function loadEnvLocal(): Record<string, string> {
   const envPath = path.resolve(process.cwd(), '.env.local');
@@ -24,10 +25,13 @@ function loadEnvLocal(): Record<string, string> {
 }
 
 const env = loadEnvLocal();
-const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY || env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+const supabase = createClient(
+  env.NEXT_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+  env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+);
 
 async function healObligations() {
-  console.log('Querying obligations with title = "null" or null...');
+  console.log('Querying obligations with title = "null" or null or holding hardcoded template criteria...');
   const { data: obls } = await supabase
     .from('regulatory_obligations')
     .select(`
@@ -36,20 +40,23 @@ async function healObligations() {
       title,
       summary,
       obligation_type,
+      verbatim_quote,
+      assessment_criteria,
       regulatory_clauses (
         section_reference,
         section_heading,
+        clause_text,
         regulatory_document_versions (
           regulatory_instruments (
+            title,
             short_name,
             regulatory_bodies ( code )
           )
         )
       )
-    `)
-    .or('title.eq.null,title.is.null');
+    `);
 
-  console.log(`Found ${obls?.length} obligations needing title and code healing.`);
+  console.log(`Found ${obls?.length} obligations to examine for title, code, and genuine criteria.`);
 
   let healedCount = 0;
   for (let i = 0; i < (obls || []).length; i++) {
@@ -58,38 +65,51 @@ async function healObligations() {
     const inst = clause?.regulatory_document_versions?.regulatory_instruments;
     const regBody = inst?.regulatory_bodies?.code || 'REG';
 
+    const cleanSectionHeading = sanitizeSectionHeading(clause?.section_reference || 'Section 1.0', clause?.section_heading);
+
     // Derive a clean, readable, professional title from summary or clause heading
-    let derivedTitle = clause?.section_heading;
-    if (!derivedTitle || derivedTitle.toLowerCase() === 'null') {
-      if (obl.summary && obl.summary.length > 10) {
-        // Use first sentence or up to 80 chars
+    let derivedTitle = obl.title;
+    if (!derivedTitle || derivedTitle.toLowerCase() === 'null' || derivedTitle.toLowerCase() === 'directive') {
+      if (cleanSectionHeading && !cleanSectionHeading.startsWith('Statutory Provisions')) {
+        derivedTitle = cleanSectionHeading;
+      } else if (obl.summary && obl.summary.length > 10) {
         const firstSent = obl.summary.split(/[.?!]/)[0].trim();
-        derivedTitle = firstSent.length > 5 ? firstSent : obl.summary;
+        derivedTitle = firstSent.length < 80 ? firstSent : `${firstSent.slice(0, 77)}...`;
       } else {
-        derivedTitle = `Statutory Obligation under ${clause?.section_reference || 'Regulation'}`;
+        derivedTitle = `Statutory Compliance Duty under ${clause?.section_reference || 'Regulation'}`;
       }
     }
 
     const derivedCode = obl.code || `OBL-${regBody}-${String(i + 1).padStart(3, '0')}`;
 
-    // Clean criteria if empty
-    const assessmentCriteria = [
-      {
-        type: 'Core Criteria',
-        text: `Internal operating manual explicitly mandates compliance: ${obl.summary || derivedTitle}`,
-        evidenceRequired: 'Approved internal policy manual or standard operating procedure (SOP)',
-      },
-      {
-        type: 'Core Criteria',
-        text: 'Documented operational procedures and supervisory review checkpoints are maintained for audit readiness.',
-        evidenceRequired: 'Executive sign-off or compliance review log',
-      },
-      {
-        type: 'Best Practice',
-        text: 'Retention and audit logging procedures are maintained across operational ledgers.',
-        evidenceRequired: 'Archived supervisory logs and inspection registers',
-      },
-    ];
+    // Check if criteria has the fake template or is empty
+    const currentCriteria = Array.isArray(obl.assessment_criteria) ? obl.assessment_criteria : [];
+    const hasFakeTemplate = currentCriteria.some((c: any) =>
+      typeof c?.text === 'string' && (
+        c.text.includes('Internal operating manual explicitly mandates compliance:') ||
+        c.text.includes('Documented operational procedures and supervisory review checkpoints') ||
+        c.text.includes('Retention and audit logging procedures are maintained across operational ledgers')
+      )
+    );
+
+    let assessmentCriteria = currentCriteria;
+    if (currentCriteria.length === 0 || hasFakeTemplate) {
+      const generated = generateObligationCriteria({
+        title: derivedTitle,
+        summary: obl.summary,
+        verbatimQuote: obl.verbatim_quote || clause?.clause_text,
+        regulator: regBody,
+        ruleType: obl.obligation_type,
+      });
+
+      assessmentCriteria = generated.map((c, idx) => ({
+        id: `crit-${obl.id}-${idx + 1}`,
+        type: c.type,
+        text: c.text,
+        evidenceRequired: c.evidenceRequired,
+        isMandatory: c.isMandatory ?? true,
+      }));
+    }
 
     await supabase
       .from('regulatory_obligations')
@@ -103,7 +123,7 @@ async function healObligations() {
     healedCount++;
   }
 
-  console.log(`Successfully healed ${healedCount} obligations in regulatory_obligations!`);
+  console.log(`Successfully healed ${healedCount} obligations in regulatory_obligations with genuine criteria!`);
 }
 
 healObligations().catch(console.error);

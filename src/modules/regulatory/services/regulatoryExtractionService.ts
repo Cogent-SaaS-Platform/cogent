@@ -9,6 +9,11 @@ import {
   InstrumentType,
   ObligationType,
 } from '@/shared/types';
+import {
+  classifyInstrumentDomainAndType,
+  generateObligationCriteria,
+  sanitizeSectionHeading,
+} from '../utils/statutoryUtils';
 
 export const AssessmentCriterionSchema = z.object({
   type: z.preprocess((val) => {
@@ -292,27 +297,42 @@ Extract the structured regulatory instrument overview, scope, key requirement ar
       const sent = sentences[i];
       const matchedSec = sections.find((sec) => sec.content.includes(sent)) || sections[0];
       const isProhibitive = /prohibit|shall not|must not|forbidden/i.test(sent);
+      const cleanOblTitle = `Mandatory Compliance Directive: ${sent.slice(0, 60)}...`;
+
+      const generatedCriteria = generateObligationCriteria({
+        title: cleanOblTitle,
+        summary: sent,
+        verbatimQuote: sent,
+        regulator: regulatorCode,
+        ruleType: isProhibitive ? 'Prohibitive' : 'Prescriptive',
+      });
 
       obligations.push({
         sectionNumber: matchedSec.sectionNumber,
-        title: `Mandatory Directive: ${sent.slice(0, 60)}...`,
+        title: cleanOblTitle,
         description: sent,
         obligationType: isProhibitive ? 'Prohibitive' : 'Prescriptive',
         policyApplicability: 'Policy Applicable',
         verbatimQuote: sent,
         sectionOrPageRef: matchedSec.sectionNumber,
-        assessmentCriteria: [
-          {
-            type: 'Core Criteria',
-            text: `Verify institutional operational controls enforce: ${sent.slice(0, 100)}`,
-            evidenceRequired: 'Approved internal policy manual and operational logs',
-          },
-        ],
+        assessmentCriteria: generatedCriteria.map((c) => ({
+          type: c.type,
+          text: c.text,
+          evidenceRequired: c.evidenceRequired,
+        })),
         riskDescription: 'Statutory penalty amount: Not explicitly specified in source text.',
       });
     }
 
     if (obligations.length === 0) {
+      const fallbackCriteria = generateObligationCriteria({
+        title: `Compliance Mandate: ${title}`,
+        summary: cleanText.slice(0, 200),
+        verbatimQuote: cleanText.slice(0, 150),
+        regulator: regulatorCode,
+        ruleType: 'Prescriptive',
+      });
+
       obligations.push({
         sectionNumber: sections[0].sectionNumber,
         title: `Compliance Mandate: ${title}`,
@@ -321,13 +341,11 @@ Extract the structured regulatory instrument overview, scope, key requirement ar
         policyApplicability: 'Policy Applicable',
         verbatimQuote: cleanText.slice(0, 150),
         sectionOrPageRef: sections[0].sectionNumber,
-        assessmentCriteria: [
-          {
-            type: 'Core Criteria',
-            text: 'Verify full compliance with instrument provisions',
-            evidenceRequired: 'Board-approved policy documentation',
-          },
-        ],
+        assessmentCriteria: fallbackCriteria.map((c) => ({
+          type: c.type,
+          text: c.text,
+          evidenceRequired: c.evidenceRequired,
+        })),
         riskDescription: 'Statutory penalty amount: Not explicitly specified in source text.',
       });
     }
@@ -345,12 +363,19 @@ Extract the structured regulatory instrument overview, scope, key requirement ar
 
     const keyRequirementAreas = derivedAreas.length >= 2 ? derivedAreas.slice(0, 5) : defaultFallbackAreas;
 
+    const classified = classifyInstrumentDomainAndType({
+      title,
+      referenceCode,
+      regulator: regulatorCode,
+      capturedText: cleanText,
+    });
+
     return {
       overview: `Statutory supervisory instrument issued by ${regulatorCode} establishing binding regulatory standards: ${title}.`,
       scope: `Applies across licensed entities subject to ${regulatorCode} oversight pursuant to applicable statutory enactments.`,
       keyRequirementAreas,
-      domain: 'FINTECH_PAYMENTS',
-      instrumentType: 'CIRCULAR_DIRECTIVE',
+      domain: classified.domain,
+      instrumentType: classified.instrumentType,
       publicationDate,
       entryIntoForceDate,
       officialReferenceCode: referenceCode || null,

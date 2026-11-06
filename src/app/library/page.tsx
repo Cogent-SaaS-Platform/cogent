@@ -14,7 +14,9 @@ import { ObligationsRegisterView } from '@/modules/regulatory/ui/ObligationsRegi
 import { SideBySideDocViewer } from '@/modules/regulatory/ui/SideBySideDocViewer';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 
-type LibraryViewMode = 'hub' | 'instrument' | 'obligations' | 'viewer';
+export const dynamic = 'force-dynamic';
+
+type LibraryViewMode = 'hub' | 'list' | 'instrument' | 'obligations' | 'viewer';
 
 const TOPIC_TO_UI_DOMAIN: Record<string, string> = {
   aml_cft: 'AML_CFT',
@@ -31,13 +33,14 @@ const TOPIC_TO_UI_DOMAIN: Record<string, string> = {
 export default function RegulatoryLibraryPage() {
   const [viewMode, setViewMode] = useState<LibraryViewMode>('hub');
   const [instruments, setInstruments] = useState<RegulatoryInstrumentPresentation[]>([]);
+  const [rawTotalCount, setRawTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDomain, setSelectedDomain] = useState<string>('ALL');
-  const [selectedJurisdiction, setSelectedJurisdiction] = useState<string>('ALL');
+  const [selectedRegulator, setSelectedRegulator] = useState<string>('ALL');
 
   // Active Selected Instrument & Sections
   const [activeInstrument, setActiveInstrument] = useState<RegulatoryInstrumentPresentation | null>(null);
@@ -79,10 +82,14 @@ export default function RegulatoryLibraryPage() {
     const instId = sp.get('instrumentId');
     const domParam = sp.get('domain');
     const qParam = sp.get('search');
+    const regParam = sp.get('regulator');
 
     if (domParam) {
       const mapped = TOPIC_TO_UI_DOMAIN[domParam.toLowerCase()] || domParam.toUpperCase();
       setSelectedDomain(mapped);
+    }
+    if (regParam) {
+      setSelectedRegulator(regParam.toUpperCase());
     }
     if (qParam) {
       setSearchQuery(qParam);
@@ -105,6 +112,8 @@ export default function RegulatoryLibraryPage() {
         .catch(() => {});
     } else if (view === 'obligations') {
       setViewMode('obligations');
+    } else if (view === 'list') {
+      setViewMode('list');
     }
   }, [fetchClausesForInstrument]);
 
@@ -115,7 +124,7 @@ export default function RegulatoryLibraryPage() {
     try {
       const params = new URLSearchParams();
       if (selectedDomain !== 'ALL') params.set('domain', selectedDomain);
-      if (selectedJurisdiction !== 'ALL') params.set('jurisdiction', selectedJurisdiction);
+      if (selectedRegulator !== 'ALL') params.set('regulator', selectedRegulator);
       if (searchQuery.trim()) params.set('search', searchQuery.trim());
 
       const res = await fetch(`/api/library?${params.toString()}`);
@@ -133,6 +142,7 @@ export default function RegulatoryLibraryPage() {
           isStarred: starredInstrumentIds.has(inst.id) || Boolean(inst.isStarred),
         }));
         setInstruments(mapped);
+        setRawTotalCount(data.totalAllCount || mapped.length);
       } else {
         throw new Error(data.error || 'Failed to fetch statutory corpus');
       }
@@ -141,7 +151,7 @@ export default function RegulatoryLibraryPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedDomain, selectedJurisdiction, searchQuery, starredInstrumentIds]);
+  }, [selectedDomain, selectedRegulator, searchQuery, starredInstrumentIds]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -190,7 +200,7 @@ export default function RegulatoryLibraryPage() {
     }
   };
 
-  // 4. Select Instrument (also fetches full detail with comments/auditLogs)
+  // 4. Select Instrument
   const handleSelectInstrument = (inst: RegulatoryInstrumentPresentation) => {
     setActiveInstrument(inst);
     setViewMode('instrument');
@@ -212,7 +222,7 @@ export default function RegulatoryLibraryPage() {
     setViewMode('viewer');
   };
 
-  // Live Counts for Filter Matrix
+  // Live Counts for Domains
   const domainCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const inst of instruments) {
@@ -221,17 +231,19 @@ export default function RegulatoryLibraryPage() {
     return counts;
   }, [instruments]);
 
-  const jurisdictionCounts = useMemo(() => {
+  // Live Counts for Nigerian Regulators
+  const regulatorCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const inst of instruments) {
-      counts[inst.jurisdiction] = (counts[inst.jurisdiction] || 0) + 1;
+      const reg = inst.regulator.toUpperCase();
+      counts[reg] = (counts[reg] || 0) + 1;
     }
     return counts;
   }, [instruments]);
 
   return (
     <AppShell activePillarOverride="library">
-      <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+      <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
         {error && (
           <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-xl flex items-center justify-between gap-3 text-xs text-rose-700">
             <div className="flex items-center gap-2">
@@ -241,7 +253,7 @@ export default function RegulatoryLibraryPage() {
             <button
               type="button"
               onClick={fetchInstruments}
-              className="inline-flex items-center gap-1 font-semibold text-rose-800 hover:underline"
+              className="inline-flex items-center gap-1 font-semibold text-rose-800 hover:underline cursor-pointer"
             >
               <RefreshCw className="w-3.5 h-3.5" />
               <span>Retry</span>
@@ -249,32 +261,38 @@ export default function RegulatoryLibraryPage() {
           </div>
         )}
 
+        {/* VIEW MODE 1: HUB VIEW (Side-by-side Domains + Regulators, Suggested Cards, 6-Row Preview Table) */}
         {viewMode === 'hub' && (
-          <div className="space-y-8">
-            <RegulationLibraryHub
-              instruments={instruments}
-              selectedDomain={selectedDomain}
-              onSelectDomain={setSelectedDomain}
-              selectedJurisdiction={selectedJurisdiction}
-              onSelectJurisdiction={setSelectedJurisdiction}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              onSelectInstrument={handleSelectInstrument}
-              onOpenIngestDrawer={() => setIsIngestModalOpen(true)}
-              domainCounts={domainCounts}
-              jurisdictionCounts={jurisdictionCounts}
-            />
-
-            <RegulatoryInstrumentsTable
-              instruments={instruments}
-              isLoading={isLoading}
-              onSelectInstrument={handleSelectInstrument}
-              onToggleStar={handleToggleStarInstrument}
-              onViewDoc={handleViewDoc}
-            />
-          </div>
+          <RegulationLibraryHub
+            instruments={instruments}
+            selectedDomain={selectedDomain}
+            onSelectDomain={setSelectedDomain}
+            selectedRegulator={selectedRegulator}
+            onSelectRegulator={setSelectedRegulator}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            onSelectInstrument={handleSelectInstrument}
+            onOpenIngestDrawer={() => setIsIngestModalOpen(true)}
+            onViewAll={() => setViewMode('list')}
+            domainCounts={domainCounts}
+            regulatorCounts={regulatorCounts}
+            totalAllCount={rawTotalCount || instruments.length}
+          />
         )}
 
+        {/* VIEW MODE 2: DEDICATED PAGINATED INSTRUMENT LIST VIEW (1–10 of X, Zango 01:28) */}
+        {viewMode === 'list' && (
+          <RegulatoryInstrumentsTable
+            instruments={instruments}
+            isLoading={isLoading}
+            onSelectInstrument={handleSelectInstrument}
+            onToggleStar={handleToggleStarInstrument}
+            onViewDoc={handleViewDoc}
+            onBack={() => setViewMode('hub')}
+          />
+        )}
+
+        {/* VIEW MODE 3: INSTRUMENT DETAIL VIEW (Single Unified Card, No Decomposed Sections on Main Page) */}
         {viewMode === 'instrument' && activeInstrument && (
           <InstrumentDetailPage
             instrument={activeInstrument}
@@ -293,6 +311,7 @@ export default function RegulatoryLibraryPage() {
           />
         )}
 
+        {/* VIEW MODE 4: OBLIGATIONS REGISTER & SPLIT-SCREEN WORKSPACE */}
         {viewMode === 'obligations' && (
           <ObligationsRegisterView
             instrument={activeInstrument}
@@ -306,6 +325,7 @@ export default function RegulatoryLibraryPage() {
           />
         )}
 
+        {/* VIEW MODE 5: SIDE-BY-SIDE STATUTORY DOCUMENT VIEWER */}
         {viewMode === 'viewer' && activeInstrument && (
           <SideBySideDocViewer
             instrument={activeInstrument}
@@ -314,6 +334,7 @@ export default function RegulatoryLibraryPage() {
           />
         )}
 
+        {/* Ingest Regulation Modal */}
         <IngestRegulationModal
           isOpen={isIngestModalOpen}
           onClose={() => setIsIngestModalOpen(false)}
