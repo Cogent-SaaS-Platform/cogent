@@ -49,6 +49,7 @@
     "node_modules",
     ".next",
     "ref",
-    "ui_ref"
+    "ui_ref",
+    "scripts"
   ]
 }
