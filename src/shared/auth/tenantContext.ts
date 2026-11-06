@@ -15,17 +15,20 @@ import { logger } from '@/shared/logger';
 import { UnauthorizedError, ForbiddenError, ConfigurationError } from '@/shared/errors';
 import { TenantSubscriptionSummary, SubscriptionTier } from '@/shared/types';
 import { EntitlementEngine } from '@/shared/billing';
+import { isFounderAdminEmail } from '@/lib/plans';
 
 export type UserOrgRole = 'org:admin' | 'org:compliance_officer' | 'org:viewer' | string;
 
 export interface TenantContext {
   organizationId: string; // Database UUID
   userId: string;         // Database UUID
+  userEmail?: string;
   clerkOrgId?: string;
   clerkUserId?: string;
   userOrgRole?: UserOrgRole;
   dbClient: SupabaseClient<Database>;
   isDevFallback: boolean;
+  isInternalDemoOrAdmin?: boolean; // Flag for Founder / Demo Admin bypass & switcher access
   subscription: TenantSubscriptionSummary;
   isSubscriptionActive: boolean; // Convenience flag: true when active, trialing, or in grace period
 }
@@ -58,7 +61,8 @@ export async function requireRole(
  */
 async function resolveOrganizationSubscription(
   client: SupabaseClient<Database>,
-  organizationId: string
+  organizationId: string,
+  userEmail?: string
 ): Promise<TenantSubscriptionSummary> {
   try {
     let admin: SupabaseClient<Database>;
@@ -68,11 +72,26 @@ async function resolveOrganizationSubscription(
       admin = client;
     }
 
-    const { data: subData, error: subError } = await admin
-      .from('tenant_subscriptions')
-      .select('*')
-      .eq('organization_id', organizationId)
-      .maybeSingle();
+    const isFounderEmail = isFounderAdminEmail(userEmail);
+
+    const [subQueryRes, orgQueryRes] = await Promise.all([
+      admin
+        .from('tenant_subscriptions')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .maybeSingle(),
+      admin
+        .from('organizations')
+        .select('created_at, is_internal_demo_or_admin')
+        .eq('id', organizationId)
+        .maybeSingle(),
+    ]);
+
+    const subData = subQueryRes?.data;
+    const subError = subQueryRes?.error;
+    const orgData = orgQueryRes?.data;
+
+    const isInternalDemoOrAdmin = isFounderEmail || Boolean(orgData?.is_internal_demo_or_admin);
 
     if (subError) {
       logger.warn(
@@ -92,18 +111,57 @@ async function resolveOrganizationSubscription(
         policyDocumentQuota: subData.policy_document_quota,
         paystackSubscriptionCode: subData.paystack_subscription_code,
         paystackPlanCode: subData.paystack_plan_code,
+        isInternalDemoOrAdmin: isInternalDemoOrAdmin || Boolean(subData.is_internal_demo_or_admin),
       });
     }
 
-    // 2. Retrieve organization's true registration timestamp
-    const { data: orgData } = await admin
-      .from('organizations')
-      .select('created_at')
-      .eq('id', organizationId)
-      .maybeSingle();
-
+    // 2. Retrieve organization's registration timestamp
     const createdAt = orgData?.created_at ? new Date(orgData.created_at) : new Date();
-    // 7-day institutional evaluation trial exactly anchored to registration date
+
+    if (isInternalDemoOrAdmin) {
+      // Auto-provision ENTERPRISE with UNLIMITED quotas for Founder Admin
+      try {
+        const { data: insertedAdminSub } = await admin
+          .from('tenant_subscriptions')
+          .insert({
+            organization_id: organizationId,
+            tier: 'ENTERPRISE',
+            status: 'active',
+            trial_ends_at: null,
+            current_period_start: createdAt.toISOString(),
+            current_period_end: new Date(Date.now() + 3650 * 86400000).toISOString(),
+            marketing_scan_quota: -1,
+            policy_document_quota: -1,
+            is_internal_demo_or_admin: true,
+          })
+          .select('*')
+          .maybeSingle();
+
+        if (insertedAdminSub) {
+          return EntitlementEngine.computeSummary({
+            tier: insertedAdminSub.tier as SubscriptionTier,
+            status: insertedAdminSub.status,
+            trialEndsAt: null,
+            currentPeriodEnd: insertedAdminSub.current_period_end,
+            marketingScanQuota: -1,
+            policyDocumentQuota: -1,
+            isInternalDemoOrAdmin: true,
+          });
+        }
+      } catch (insertErr) {
+        logger.warn({ insertErr, organizationId }, 'Failed to persist founder admin subscription row');
+      }
+
+      return EntitlementEngine.computeSummary({
+        tier: 'ENTERPRISE',
+        status: 'active',
+        marketingScanQuota: -1,
+        policyDocumentQuota: -1,
+        isInternalDemoOrAdmin: true,
+      });
+    }
+
+    // Standard 7-day institutional evaluation trial exactly anchored to registration date
     const trialEndsAt = new Date(createdAt.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
     // Persist this row so trial duration is real and does NOT reset on every request!
@@ -119,6 +177,7 @@ async function resolveOrganizationSubscription(
           current_period_end: trialEndsAt,
           marketing_scan_quota: 10,
           policy_document_quota: 1,
+          is_internal_demo_or_admin: false,
         })
         .select('*')
         .maybeSingle();
@@ -132,6 +191,7 @@ async function resolveOrganizationSubscription(
           currentPeriodEnd: insertedSub.current_period_end,
           marketingScanQuota: insertedSub.marketing_scan_quota,
           policyDocumentQuota: insertedSub.policy_document_quota,
+          isInternalDemoOrAdmin: false,
         });
       }
     } catch (insertErr) {
@@ -142,6 +202,7 @@ async function resolveOrganizationSubscription(
       tier: 'STARTER',
       status: 'trialing',
       trialEndsAt,
+      isInternalDemoOrAdmin: false,
     });
   } catch (err: unknown) {
     const error = err instanceof Error ? err : new Error(String(err));
@@ -152,6 +213,7 @@ async function resolveOrganizationSubscription(
     return EntitlementEngine.computeSummary({
       tier: 'STARTER',
       status: 'trialing',
+      isInternalDemoOrAdmin: false,
     });
   }
 }
@@ -232,18 +294,25 @@ export async function getTenantContext(options?: TenantContextOptions): Promise<
       const dbClient = token ? createServerClient(token) : createAdminClient();
 
       // Resolve subscription summary
-      const subscription = await resolveOrganizationSubscription(dbClient, syncResult.organizationId);
+      const subscription = await resolveOrganizationSubscription(dbClient, syncResult.organizationId, userEmail);
+
+      const isInternalDemoOrAdmin =
+        isFounderAdminEmail(userEmail) ||
+        Boolean(syncResult.isInternalDemoOrAdmin) ||
+        Boolean(subscription.isInternalDemoOrAdmin);
 
       const context: TenantContext = {
         organizationId: syncResult.organizationId,
         userId: syncResult.userId,
+        userEmail,
         clerkOrgId,
         clerkUserId,
         userOrgRole: orgRole || undefined,
         dbClient,
         isDevFallback: false,
+        isInternalDemoOrAdmin,
         subscription,
-        isSubscriptionActive: subscription.isActive,
+        isSubscriptionActive: isInternalDemoOrAdmin || subscription.isActive,
       };
 
       if (options?.requiredRole) {
@@ -302,18 +371,21 @@ export async function getTenantContext(options?: TenantContextOptions): Promise<
     status: 'active',
     marketingScanQuota: -1,
     policyDocumentQuota: -1,
+    isInternalDemoOrAdmin: true,
   });
 
   const context: TenantContext = {
     organizationId: DEFAULT_DEV_ORG_ID,
     userId: DEFAULT_DEV_USER_ID,
+    userEmail: 'dev-founder@stem-cogent.com',
     clerkOrgId: 'org_dev_default',
     clerkUserId: 'user_dev_default',
     userOrgRole: 'org:admin',
     dbClient: fallbackDbClient,
     isDevFallback: true,
+    isInternalDemoOrAdmin: true,
     subscription: devSubscription,
-    isSubscriptionActive: devSubscription.isActive,
+    isSubscriptionActive: true,
   };
 
   if (options?.requiredRole) {

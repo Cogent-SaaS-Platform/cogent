@@ -8,21 +8,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/shared/auth';
 import { createAdminClient } from '@/shared/db';
-import { PlanTier, PLAN_CONFIG } from '@/lib/plans';
+import { PlanTier, PLAN_CONFIG, isFounderAdminEmail } from '@/lib/plans';
 import { logger } from '@/shared/logger';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json(
-      { success: false, error: 'Developer tier switcher is disabled in production' },
-      { status: 403 }
-    );
-  }
-
   try {
     const tenantCtx = await getTenantContext({ allowDevFallback: true });
+
+    // Allow in non-production, OR if user / organization has Founder & Demo Admin status
+    const isAuthorized =
+      process.env.NODE_ENV !== 'production' ||
+      tenantCtx.isInternalDemoOrAdmin ||
+      isFounderAdminEmail(tenantCtx.userEmail);
+
+    if (!isAuthorized) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Access restricted: The Admin Plan Switcher requires Founder / Demo Super-Admin privileges.',
+        },
+        { status: 403 }
+      );
+    }
+
     const adminDb = createAdminClient();
 
     const body = await req.json();
@@ -31,7 +41,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     let targetTier: PlanTier = 'STARTER';
     let simulateExpired = Boolean(body.simulateExpired);
 
-    if (rawTarget === 'TRIAL_EXPIRED') {
+    if (rawTarget === 'FOUNDER_ADMIN' || rawTarget === 'FOUNDER' || rawTarget === 'DEFAULT') {
+      targetTier = 'FOUNDER_ADMIN';
+      simulateExpired = false;
+    } else if (rawTarget === 'TRIAL_EXPIRED') {
       targetTier = 'TRIAL';
       simulateExpired = true;
     } else if (rawTarget === 'TRIAL') {
@@ -46,7 +59,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     let status = 'active';
     let trialEndsAt: string | null = null;
-    let dbTier = targetTier;
+    let dbTier = targetTier === 'FOUNDER_ADMIN' ? 'ENTERPRISE' : targetTier;
 
     if (targetTier === 'TRIAL') {
       dbTier = 'STARTER';
@@ -72,6 +85,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           trial_ends_at: trialEndsAt,
           marketing_scan_quota: planLimits.maxMarketingCampaignsPerMonth,
           policy_document_quota: planLimits.maxPoliciesUploaded,
+          is_internal_demo_or_admin: Boolean(tenantCtx.isInternalDemoOrAdmin),
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'organization_id' }
@@ -93,7 +107,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       success: true,
       effectiveTier: targetTier,
       isExpired: simulateExpired,
-      message: `Test workspace tier updated to ${targetTier}${simulateExpired ? ' (EXPIRED READ-ONLY)' : ''}`,
+      isInternalDemoOrAdmin: tenantCtx.isInternalDemoOrAdmin,
+      message: `Workspace preview tier updated to ${targetTier}${simulateExpired ? ' (EXPIRED READ-ONLY)' : ''}`,
       data: {
         tier: targetTier,
         effectiveTier: targetTier,

@@ -15,6 +15,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient, Database } from '@/shared/db';
 import { OrgRole, RegulatorCode, LicenseType, PaymentRail } from '@/shared/types';
 import { logger } from '@/shared/logger';
+import { isFounderAdminEmail } from '@/lib/plans';
 
 export interface SyncTenantParams {
   clerkOrgId: string;
@@ -31,6 +32,7 @@ export interface SyncTenantResult {
   organizationId: string;
   userId: string;
   isNewOrganization: boolean;
+  isInternalDemoOrAdmin: boolean;
 }
 
 export class TenantSyncService {
@@ -64,6 +66,8 @@ export class TenantSyncService {
       `org-${clerkOrgId.slice(-8)}`;
 
     try {
+      const isFounderAdmin = isFounderAdminEmail(userEmail);
+
       // 1. Sync User record
       const { data: userRow, error: userError } = await this.adminClient
         .from('users')
@@ -73,6 +77,7 @@ export class TenantSyncService {
             email: userEmail,
             full_name: userFullName,
             avatar_url: userAvatarUrl || null,
+            ...(isFounderAdmin ? { is_internal_demo_or_admin: true } : {}),
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'clerk_user_id' }
@@ -88,10 +93,11 @@ export class TenantSyncService {
       let isNewOrganization = false;
       const { data: existingOrg } = await this.adminClient
         .from('organizations')
-        .select('id, created_at')
+        .select('id, created_at, is_internal_demo_or_admin')
         .eq('clerk_organization_id', clerkOrgId)
         .maybeSingle();
 
+      const isEffectiveFounderAdmin = isFounderAdmin || Boolean(existingOrg?.is_internal_demo_or_admin);
       let orgId: string;
 
       if (existingOrg) {
@@ -100,6 +106,7 @@ export class TenantSyncService {
           .from('organizations')
           .update({
             name: orgName,
+            ...(isEffectiveFounderAdmin ? { is_internal_demo_or_admin: true } : {}),
             updated_at: new Date().toISOString(),
           })
           .eq('id', orgId);
@@ -111,6 +118,7 @@ export class TenantSyncService {
             clerk_organization_id: clerkOrgId,
             name: orgName,
             slug: safeSlug,
+            is_internal_demo_or_admin: isEffectiveFounderAdmin,
           })
           .select('id')
           .single();
@@ -141,8 +149,8 @@ export class TenantSyncService {
           { onConflict: 'organization_id,user_id' }
         );
 
-      // 4. Ensure tenant subscription exists (anchored to org created_at)
-      await this.ensureTenantSubscription(orgId, existingOrg?.created_at);
+      // 4. Ensure tenant subscription exists (anchored to org created_at or unlocked for Founder Admin)
+      await this.ensureTenantSubscription(orgId, existingOrg?.created_at, isEffectiveFounderAdmin);
 
       logger.info(
         {
@@ -151,6 +159,7 @@ export class TenantSyncService {
           clerkUserId,
           userId: userRow.id,
           isNewOrganization,
+          isInternalDemoOrAdmin: isEffectiveFounderAdmin,
         },
         'Tenant context synchronized successfully'
       );
@@ -159,6 +168,7 @@ export class TenantSyncService {
         organizationId: orgId,
         userId: userRow.id,
         isNewOrganization,
+        isInternalDemoOrAdmin: isEffectiveFounderAdmin,
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -171,19 +181,47 @@ export class TenantSyncService {
   }
 
   /**
-   * Ensures an active institutional subscription is provisioned, anchored to org registration date
+   * Ensures an active institutional subscription is provisioned, anchored to org registration date.
+   * If tenant is internal demo or founder super-admin, unlocks unlimited ENTERPRISE entitlements.
    */
-  private async ensureTenantSubscription(organizationId: string, orgCreatedAt?: string): Promise<void> {
+  private async ensureTenantSubscription(
+    organizationId: string,
+    orgCreatedAt?: string,
+    isFounderAdmin = false
+  ): Promise<void> {
     try {
       const { data: existing } = await this.adminClient
         .from('tenant_subscriptions')
-        .select('id')
+        .select('id, tier, status')
         .eq('organization_id', organizationId)
         .maybeSingle();
 
+      const createdAt = orgCreatedAt ? new Date(orgCreatedAt) : new Date();
+
+      if (isFounderAdmin) {
+        // Automatically unlock ENTERPRISE with UNLIMITED quotas and zero trial lockouts
+        if (!existing || existing.status === 'trialing' || existing.tier !== 'ENTERPRISE') {
+          await (this.adminClient.from('tenant_subscriptions') as any).upsert(
+            {
+              organization_id: organizationId,
+              tier: 'ENTERPRISE',
+              status: 'active',
+              trial_ends_at: null,
+              current_period_start: createdAt.toISOString(),
+              current_period_end: new Date(Date.now() + 3650 * 86400000).toISOString(),
+              marketing_scan_quota: -1,
+              policy_document_quota: -1,
+              is_internal_demo_or_admin: true,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'organization_id' }
+          );
+        }
+        return;
+      }
+
       if (existing) return;
 
-      const createdAt = orgCreatedAt ? new Date(orgCreatedAt) : new Date();
       const trialEndsAt = new Date(createdAt.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
       await this.adminClient.from('tenant_subscriptions').insert([
@@ -196,6 +234,7 @@ export class TenantSyncService {
           current_period_end: trialEndsAt,
           marketing_scan_quota: 10,
           policy_document_quota: 1,
+          is_internal_demo_or_admin: false,
         },
       ]);
     } catch (err) {

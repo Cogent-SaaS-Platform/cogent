@@ -158,6 +158,43 @@ export const COGENT_PLANS: Record<SubscriptionTier, PlanMetadata> = {
       'Unlimited seats, SAML/SSO & Dedicated Concierge (<2h SLA)',
     ],
   },
+  FOUNDER_ADMIN: {
+    tier: 'FOUNDER_ADMIN',
+    name: 'Founder / Demo Super-Admin',
+    badge: 'Founder Super-Admin',
+    description: 'Internal demo & executive super-admin override with unlimited institutional capacity across all modules.',
+    paystackPlanCodeMonthly: 'PLN_INTERNAL_FOUNDER_MONTHLY',
+    paystackPlanCodeAnnual: 'PLN_INTERNAL_FOUNDER_ANNUAL',
+    pricing: {
+      usdMonthly: 0,
+      usdAnnual: 0,
+      ngnMonthlyKobo: 0,
+      ngnAnnualKobo: 0,
+      ngnMonthlyFormatted: '₦0',
+      ngnAnnualFormatted: '₦0',
+    },
+    limits: {
+      teamSeats: -1, // Unlimited
+      marketingScansPerMonth: -1,
+      aiRewritesPerMonth: -1,
+      policyDocuments: -1,
+      arconDossierType: 'FULL_CRYPTOGRAPHIC_BUNDLE',
+      regulatoryRadarCoverage: 'MULTI_JURISDICTION',
+      cascadeTriggers: 'REAL_TIME_CUSTOM_WEBHOOKS',
+      auditRetentionDays: 2555,
+      remediationDrafting: 'UNLIMITED_CUSTOM',
+    },
+    features: [
+      'Founder & Executive Demo Super-Admin Privileges',
+      'Zero trial expiration lockouts & unlimited quota bypass',
+      'All 7 Nigerian apex regulators + custom statutory baselines',
+      'Unlimited custom PDF/URL regulation ingestions & Criteria editing (✎)',
+      'Unlimited Multi-Regulation vs Multi-Policy Gap Analysis & Examiner Packs',
+      'Unlimited Marketing Studio campaigns, flyer vision audits & rewrites',
+      'Full Cryptographic ARCON ZIP Pre-Clearance Dossiers',
+      'Interactive Admin Plan Switcher enabled in Settings',
+    ],
+  },
 };
 
 export class PaystackClient {

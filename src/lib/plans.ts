@@ -13,7 +13,21 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { Database, createAdminClient } from '@/shared/db';
 import { logger } from '@/shared/logger';
 
-export type PlanTier = 'TRIAL' | 'STARTER' | 'PRO' | 'ENTERPRISE';
+export type PlanTier = 'TRIAL' | 'STARTER' | 'PRO' | 'ENTERPRISE' | 'FOUNDER_ADMIN';
+
+/**
+ * Checks whether an email address is listed in the FOUNDER_ADMIN_EMAILS environment variable allowlist.
+ */
+export function isFounderAdminEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const allowlistRaw = process.env.FOUNDER_ADMIN_EMAILS || '';
+  const allowlist = allowlistRaw
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+
+  return allowlist.includes(email.trim().toLowerCase());
+}
 
 export interface PlanPricingInfo {
   usdMonthly: number;
@@ -210,6 +224,47 @@ export const PLAN_CONFIG: Record<PlanTier, PlanEntitlements> = {
       'Unlimited seats, SAML/SSO & Dedicated Concierge (<2h SLA)',
     ],
   },
+
+  FOUNDER_ADMIN: {
+    tier: 'FOUNDER_ADMIN',
+    name: 'Founder / Demo Super-Admin (Unlimited)',
+    badge: 'Founder Super-Admin',
+    description: 'Internal demo & executive super-admin override with unlimited institutional capacity across all modules.',
+    maxSeats: -1,
+    maxRegulatorsMonitored: -1,
+    maxCustomRegulationIngestionsPerMonth: -1,
+    canEditObligationCriteria: true,
+    maxPoliciesUploaded: -1,
+    maxGapAnalysesPerMonth: -1,
+    canRunMultiRegGapAnalysis: true,
+    maxMarketingCampaignsPerMonth: -1,
+    maxInlineRewritesPerMonth: -1,
+    canAddCustomMarketingRules: true,
+    canExportDossierPdf: true,
+    canExportCryptographicBundle: true,
+    canAccessDepartmentalBriefs: true,
+    auditRetentionDays: 2555,
+    monthlyPriceUsd: 0,
+    monthlyPriceNgn: 0,
+    pricing: {
+      usdMonthly: 0,
+      usdAnnual: 0,
+      ngnMonthlyKobo: 0,
+      ngnAnnualKobo: 0,
+      ngnMonthlyFormatted: '₦0',
+      ngnAnnualFormatted: '₦0',
+    },
+    features: [
+      'Founder & Executive Demo Super-Admin Privileges',
+      'Zero trial expiration lockouts & unlimited quota bypass',
+      'All 7 Nigerian apex regulators + custom statutory baselines',
+      'Unlimited custom PDF/URL regulation ingestions & Criteria editing (✎)',
+      'Unlimited Multi-Regulation vs Multi-Policy Gap Analysis & Examiner Packs',
+      'Unlimited Marketing Studio campaigns, flyer vision audits & rewrites',
+      'Full Cryptographic ARCON ZIP Pre-Clearance Dossiers',
+      'Interactive Admin Plan Switcher enabled in Settings',
+    ],
+  },
 };
 
 export type EntitlementActionType =
@@ -307,7 +362,9 @@ export function resolveEffectiveTier(
   }
 
   let effectiveTier: PlanTier = 'STARTER';
-  if (isTrial) {
+  if (normalizedTier === 'FOUNDER_ADMIN') {
+    effectiveTier = 'FOUNDER_ADMIN';
+  } else if (isTrial) {
     effectiveTier = 'TRIAL';
   } else if (normalizedTier === 'ENTERPRISE') {
     effectiveTier = 'ENTERPRISE';
@@ -493,19 +550,32 @@ export async function verifyEntitlement(
   }
 
   try {
-    // 1. Fetch tenant subscription record
+    // 1. Fetch tenant subscription record and organization metadata
     const subQuery = (dbClient.from('tenant_subscriptions') as any)
       .select('*')
       .eq('organization_id', organizationId);
-    const { data: subData } = subQuery?.maybeSingle
-      ? await subQuery.maybeSingle()
-      : subQuery?.single
-      ? await subQuery.single()
-      : { data: null };
+    const orgQuery = (dbClient.from('organizations') as any)
+      .select('is_internal_demo_or_admin')
+      .eq('id', organizationId);
+
+    const [subRes, orgRes] = await Promise.all([
+      subQuery?.maybeSingle ? subQuery.maybeSingle() : subQuery?.single ? subQuery.single() : Promise.resolve({ data: null }),
+      orgQuery?.maybeSingle ? orgQuery.maybeSingle() : orgQuery?.single ? orgQuery.single() : Promise.resolve({ data: null }),
+    ]).catch(() => [{ data: null }, { data: null }]);
+
+    const subData = subRes?.data || null;
+    const orgData = orgRes?.data || null;
+
+    const isOrgFounderAdmin = Boolean(orgData?.is_internal_demo_or_admin || subData?.is_internal_demo_or_admin);
+    const isUserFounderAdmin = Boolean(
+      options?.isInternalDemoOrAdmin ||
+      (options?.userEmail && isFounderAdminEmail(options.userEmail))
+    );
+    const isInternalDemoOrAdmin = isOrgFounderAdmin || isUserFounderAdmin;
 
     const isDevOrg = organizationId === '00000000-0000-0000-0000-000000000001' || !organizationId;
-    const rawStatus = subData?.status || (isDevOrg ? 'active' : 'trialing');
-    const rawTier = subData?.tier || (isDevOrg ? 'PRO' : 'STARTER');
+    const rawStatus = subData?.status || (isDevOrg || isInternalDemoOrAdmin ? 'active' : 'trialing');
+    const rawTier = subData?.tier || (isInternalDemoOrAdmin ? 'FOUNDER_ADMIN' : isDevOrg ? 'PRO' : 'STARTER');
     const trialEndsAt = subData?.trial_ends_at || null;
     const now = new Date();
 
@@ -513,12 +583,20 @@ export async function verifyEntitlement(
     let isReadOnly = false;
 
     if (isTrial && trialEndsAt && new Date(trialEndsAt) < now) {
-      isReadOnly = true;
+      isReadOnly = isInternalDemoOrAdmin ? Boolean(options?.simulateExpired) : true;
     } else if (rawStatus === 'canceled' || rawStatus === 'unpaid') {
       isReadOnly = true;
     }
 
-    // 2. Immediate Trial Expiration / Read-Only Gate
+    const effectiveTier = resolveEffectiveTier(rawTier, rawStatus);
+
+    // 2. Founder Super-Admin Unlimited Entitlement Override
+    // Bypasses all quota checks with unlimited capacity and zero lockouts across all modules
+    if (effectiveTier === 'FOUNDER_ADMIN' || (isInternalDemoOrAdmin && !isReadOnly && effectiveTier === 'ENTERPRISE')) {
+      return { allowed: true, statusCode: 200, isFounderAdmin: true };
+    }
+
+    // 3. Immediate Trial Expiration / Read-Only Gate
     if (isReadOnly) {
       return formatRejection(402, {
         success: false,
@@ -532,8 +610,7 @@ export async function verifyEntitlement(
       });
     }
 
-    const effectiveTier = resolveEffectiveTier(rawTier, rawStatus);
-    const plan = PLAN_CONFIG[effectiveTier as PlanTier];
+    const plan = PLAN_CONFIG[effectiveTier as PlanTier] || PLAN_CONFIG.STARTER;
 
     // 3. Action-Specific Entitlement Gates
     switch (action) {

@@ -278,6 +278,7 @@ export interface Database {
           rc_number: string | null;
           fccpc_registration_number: string | null;
           cbn_approval_ref: string | null;
+          is_internal_demo_or_admin: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -289,6 +290,7 @@ export interface Database {
           rc_number?: string | null;
           fccpc_registration_number?: string | null;
           cbn_approval_ref?: string | null;
+          is_internal_demo_or_admin?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -304,6 +306,7 @@ export interface Database {
           job_title?: string | null;
           department?: string | null;
           avatar_url: string | null;
+          is_internal_demo_or_admin: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -315,6 +318,7 @@ export interface Database {
           job_title?: string | null;
           department?: string | null;
           avatar_url?: string | null;
+          is_internal_demo_or_admin?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -1122,6 +1126,7 @@ export interface Database {
           cancel_at_period_end: boolean;
           marketing_scan_quota: number;
           policy_document_quota: number;
+          is_internal_demo_or_admin: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -1140,6 +1145,7 @@ export interface Database {
           cancel_at_period_end?: boolean;
           marketing_scan_quota?: number;
           policy_document_quota?: number;
+          is_internal_demo_or_admin?: boolean;
           created_at?: string;
           updated_at?: string;
         };

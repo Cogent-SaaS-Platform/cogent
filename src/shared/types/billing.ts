@@ -3,7 +3,7 @@
  * Fully aligned with docs/launch/PHASE_A4_BILLING_SUBSCRIPTIONS.md
  */
 
-export type SubscriptionTier = 'STARTER' | 'PRO' | 'ENTERPRISE';
+export type SubscriptionTier = 'STARTER' | 'PRO' | 'ENTERPRISE' | 'FOUNDER_ADMIN';
 
 export type SubscriptionStatus =
   | 'trialing'
@@ -27,6 +27,7 @@ export interface TenantSubscriptionRow {
   cancel_at_period_end: boolean;
   marketing_scan_quota: number;
   policy_document_quota: number;
+  is_internal_demo_or_admin?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -46,6 +47,7 @@ export interface TenantSubscriptionSummary {
   isActive: boolean;
   isInGracePeriod: boolean;
   isReadOnly: boolean;
+  isInternalDemoOrAdmin?: boolean;
   trialEndsAt: string | null;
   gracePeriodEndsAt: string | null;
   currentPeriodEnd: string | null;

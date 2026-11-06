@@ -75,18 +75,20 @@ export default function SettingsPage() {
     isActive: boolean;
     isInGracePeriod: boolean;
     isReadOnly: boolean;
+    isInternalDemoOrAdmin?: boolean;
     trialEndsAt: string | null;
     gracePeriodEndsAt: string | null;
     marketingScanQuota: number;
     policyDocumentQuota: number;
   } | null>(null);
   const [telemetryData, setTelemetryData] = useState<{
-    effectiveTier: 'TRIAL' | 'STARTER' | 'PRO' | 'ENTERPRISE';
+    effectiveTier: 'TRIAL' | 'STARTER' | 'PRO' | 'ENTERPRISE' | 'FOUNDER_ADMIN';
     status: string;
     isActive: boolean;
     isTrial: boolean;
     isReadOnly: boolean;
     isInGracePeriod: boolean;
+    isInternalDemoOrAdmin?: boolean;
     trialEndsAt: string | null;
     daysRemaining: number;
     usage: {
@@ -97,6 +99,8 @@ export default function SettingsPage() {
       teamSeats: { used: number; limit: number; isUnlimited: boolean };
     };
   } | null>(null);
+  const isInternalDemoOrAdmin = Boolean(telemetryData?.isInternalDemoOrAdmin || subscriptionData?.isInternalDemoOrAdmin);
+  const showAdminSwitcher = process.env.NODE_ENV !== 'production' || isInternalDemoOrAdmin;
   const [isSwitchingTier, setIsSwitchingTier] = useState(false);
   const [tierSwitchToast, setTierSwitchToast] = useState<string | null>(null);
   const [checkoutFeedback, setCheckoutFeedback] = useState<string | null>(null);
@@ -147,7 +151,7 @@ export default function SettingsPage() {
   }, []);
 
   const handleDevSwitchTier = async (
-    targetTier: 'TRIAL' | 'STARTER' | 'PRO' | 'ENTERPRISE',
+    targetTier: 'TRIAL' | 'STARTER' | 'PRO' | 'ENTERPRISE' | 'FOUNDER_ADMIN',
     simulateExpired = false
   ) => {
     try {
@@ -1404,22 +1408,40 @@ export default function SettingsPage() {
             ─────────────────────────────────────────────────────────────────── */}
         {activeTab === 'plan' && (
           <div className="space-y-8 animate-in fade-in duration-200">
-            {/* Developer / Founder Test Mode Switcher Bench (Non-Production Only) */}
-            {process.env.NODE_ENV !== 'production' && (
+            {/* Admin Plan Switcher & Demo Sandbox Bench (Enabled for Non-Prod & Founder/Demo Super-Admins) */}
+            {showAdminSwitcher && (
               <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs">
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700">
-                      Developer &amp; Founder Sandbox Bench
+                      Admin Plan Switcher &amp; Demo Sandbox Bench
                     </span>
+                    {isInternalDemoOrAdmin && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-slate-900 text-white uppercase tracking-wider">
+                        Super-Admin
+                      </span>
+                    )}
                   </div>
                   <p className="text-[11px] text-slate-500">
-                    Instantly switch workspace entitlement tier in 1-click to test quota gates, upgrade popovers, and read-only mode.
+                    Preview workspace entitlement tiers in 1-click during institutional demos and executive walkthroughs.
                   </p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    disabled={isSwitchingTier}
+                    onClick={() => handleDevSwitchTier('FOUNDER_ADMIN')}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
+                      telemetryData?.effectiveTier === 'FOUNDER_ADMIN' ||
+                      (isInternalDemoOrAdmin && telemetryData?.effectiveTier === 'ENTERPRISE')
+                        ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    Founder Admin
+                  </button>
                   <button
                     type="button"
                     disabled={isSwitchingTier}
@@ -1473,7 +1495,8 @@ export default function SettingsPage() {
                     disabled={isSwitchingTier}
                     onClick={() => handleDevSwitchTier('ENTERPRISE')}
                     className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-medium border transition-colors cursor-pointer ${
-                      telemetryData?.effectiveTier === 'ENTERPRISE'
+                      telemetryData?.effectiveTier === 'ENTERPRISE' &&
+                      !(isInternalDemoOrAdmin && telemetryData?.effectiveTier === 'ENTERPRISE')
                         ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
                         : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                     }`}

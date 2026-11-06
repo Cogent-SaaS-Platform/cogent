@@ -294,6 +294,8 @@ export class EntitlementEngine {
     currentPeriodEnd?: string | null;
     marketingScanQuota?: number;
     policyDocumentQuota?: number;
+    isInternalDemoOrAdmin?: boolean;
+    simulateExpired?: boolean;
     paystackSubscriptionCode?: string | null;
     paystackPlanCode?: string | null;
   }): TenantSubscriptionSummary {
@@ -305,7 +307,9 @@ export class EntitlementEngine {
     let isInGracePeriod = false;
     let isReadOnly = false;
 
-    if (status === 'trialing') {
+    if (params.simulateExpired) {
+      isReadOnly = true;
+    } else if (status === 'trialing') {
       const trialEnds = params.trialEndsAt ? new Date(params.trialEndsAt) : null;
       if (trialEnds && trialEnds < now) {
         isReadOnly = true;
@@ -322,10 +326,16 @@ export class EntitlementEngine {
       isReadOnly = true;
     }
 
+    // Founder / Demo Super-Admin Override: Active with unlimited capacity by default
+    if (tier === 'FOUNDER_ADMIN' || (params.isInternalDemoOrAdmin && !params.simulateExpired && status === 'active')) {
+      isReadOnly = false;
+      isInGracePeriod = false;
+    }
+
     const isActive = !isReadOnly;
 
     const defaultLimits =
-      status === 'trialing' ? COGENT_TRIAL_LIMITS : COGENT_PLANS[tier].limits;
+      status === 'trialing' ? COGENT_TRIAL_LIMITS : (COGENT_PLANS[tier] || COGENT_PLANS.ENTERPRISE).limits;
 
     return {
       tier,
@@ -333,11 +343,12 @@ export class EntitlementEngine {
       isActive,
       isInGracePeriod,
       isReadOnly,
+      isInternalDemoOrAdmin: params.isInternalDemoOrAdmin || tier === 'FOUNDER_ADMIN',
       trialEndsAt: params.trialEndsAt || null,
       gracePeriodEndsAt: params.gracePeriodEndsAt || null,
       currentPeriodEnd: params.currentPeriodEnd || null,
-      marketingScanQuota: params.marketingScanQuota ?? defaultLimits.marketingScansPerMonth,
-      policyDocumentQuota: params.policyDocumentQuota ?? defaultLimits.policyDocuments,
+      marketingScanQuota: tier === 'FOUNDER_ADMIN' ? -1 : (params.marketingScanQuota ?? defaultLimits.marketingScansPerMonth),
+      policyDocumentQuota: tier === 'FOUNDER_ADMIN' ? -1 : (params.policyDocumentQuota ?? defaultLimits.policyDocuments),
       paystackSubscriptionCode: params.paystackSubscriptionCode || null,
       paystackPlanCode: params.paystackPlanCode || null,
     };

@@ -48,20 +48,30 @@ export async function GET(req?: NextRequest): Promise<NextResponse> {
           : { data: null };
 
         if (subRecord) {
+          const isExpiredTrial =
+            subRecord.status === 'trialing' &&
+            subRecord.trial_ends_at &&
+            new Date(subRecord.trial_ends_at) < new Date();
+
           subscription = {
             ...subscription,
             tier: subRecord.tier || 'STARTER',
             status: subRecord.status || 'trialing',
             trialEndsAt: subRecord.trial_ends_at || null,
-            isReadOnly:
-              subRecord.status === 'trialing' &&
-              subRecord.trial_ends_at &&
-              new Date(subRecord.trial_ends_at) < new Date(),
+            isInternalDemoOrAdmin: tenantCtx.isInternalDemoOrAdmin || Boolean(subRecord.is_internal_demo_or_admin),
+            isReadOnly: tenantCtx.isInternalDemoOrAdmin ? false : isExpiredTrial,
           };
         }
       } catch {
         // Safe fallback to tenantCtx.subscription
       }
+    }
+
+    if (tenantCtx.isInternalDemoOrAdmin) {
+      subscription = {
+        ...subscription,
+        isInternalDemoOrAdmin: true,
+      };
     }
 
     const effectiveTier: PlanTier = resolveEffectiveTier(
@@ -93,6 +103,7 @@ export async function GET(req?: NextRequest): Promise<NextResponse> {
       isTrial: subscription.status === 'trialing',
       isReadOnly: subscription.isReadOnly,
       isInGracePeriod: subscription.isInGracePeriod,
+      isInternalDemoOrAdmin: Boolean(tenantCtx.isInternalDemoOrAdmin),
       trialEndsAt: subscription.trialEndsAt,
       daysRemaining,
       usage: {
@@ -130,6 +141,11 @@ export async function GET(req?: NextRequest): Promise<NextResponse> {
       tier: effectiveTier,
       isTrial: subscription.status === 'trialing',
       isExpired: subscription.isReadOnly,
+      isInternalDemoOrAdmin: Boolean(tenantCtx.isInternalDemoOrAdmin),
+      isAdminSwitcherAllowed: Boolean(
+        process.env.NODE_ENV !== 'production' ||
+        tenantCtx.isInternalDemoOrAdmin
+      ),
       usage: {
         marketingCampaigns: liveCounts.campaignsCount,
         gapAnalyses: liveCounts.gapAnalysesCount,
@@ -141,6 +157,11 @@ export async function GET(req?: NextRequest): Promise<NextResponse> {
       data: {
         subscription,
         isSubscriptionActive: tenantCtx.isSubscriptionActive,
+        isInternalDemoOrAdmin: Boolean(tenantCtx.isInternalDemoOrAdmin),
+        isAdminSwitcherAllowed: Boolean(
+          process.env.NODE_ENV !== 'production' ||
+          tenantCtx.isInternalDemoOrAdmin
+        ),
         organizationId,
         availablePlans: COGENT_PLANS,
         allPlans: PLAN_CONFIG,
