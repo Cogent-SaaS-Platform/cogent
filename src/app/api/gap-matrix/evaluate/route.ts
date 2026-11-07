@@ -7,22 +7,22 @@ import { logger } from '@/shared/logger';
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const tenantCtx = await getTenantContext();
-
-    // Enforce active subscription / trial before compute-heavy policy gap matrix evaluation
-    EntitlementEngine.assertCanEvaluatePolicy(tenantCtx.subscription);
-
-    const gapSynthesisService = new GapSynthesisService({ dbClient: tenantCtx.dbClient });
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json(
+        { error: 'Missing required parameters: policyId and benchmarkDocumentVersionId' },
+        { status: 400 }
+      );
+    }
 
     const {
       policyId,
       benchmarkDocumentVersionId,
       policyTitle,
       department,
-    } = body;
-    const organizationId = tenantCtx.organizationId;
-    const userId = tenantCtx.userId;
+    } = body || {};
 
     if (!policyId || !benchmarkDocumentVersionId) {
       return NextResponse.json(
@@ -30,6 +30,15 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    const tenantCtx = await getTenantContext({ allowDevFallback: true });
+
+    // Enforce active subscription / trial before compute-heavy policy gap matrix evaluation
+    EntitlementEngine.assertCanEvaluatePolicy(tenantCtx.subscription);
+
+    const gapSynthesisService = new GapSynthesisService({ dbClient: tenantCtx.dbClient });
+    const organizationId = tenantCtx.organizationId;
+    const userId = tenantCtx.userId;
 
     const evaluation = await gapSynthesisService.evaluatePolicyGap({
       organizationId,

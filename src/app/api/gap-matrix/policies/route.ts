@@ -15,6 +15,14 @@ export async function GET(_req?: NextRequest) {
     const organizationId = tenantCtx.organizationId;
     const dbClient = tenantCtx.dbClient;
 
+    if (!dbClient) {
+      return NextResponse.json({
+        success: true,
+        data: [],
+        policies: [],
+      });
+    }
+
     const { data: policies, error } = await dbClient
       .from('policy_documents')
       .select(`

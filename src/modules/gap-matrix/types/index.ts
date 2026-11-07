@@ -83,3 +83,35 @@ export interface PolicyClauseMatch {
   clauseText: string;
   similarity: number;
 }
+
+export interface PolicySection {
+  id: string;
+  policyId: string;
+  sectionNumber: string;
+  sectionTitle: string;
+  verbatimContent: string;
+}
+
+export interface SeniorCounselBriefing {
+  executiveVerdict: string;
+  verdictSummary: string;
+  supervisoryContext: string;
+  evidentiaryAnalysis: string;
+  strategicRemediation: string;
+  briefingMarkdown: string;
+}
+
+export interface ExecutiveMacroBriefing {
+  headlineVerdict: string;
+  riskPostureRating: 'LOW_DEFENSE_EXPOSURE' | 'MODERATE_EXPOSURE' | 'CRITICAL_SUPERVISORY_EXPOSURE';
+  boardExecutiveSummary: string;
+  supervisoryInspectionVulnerabilities: string[];
+  systemicPolicyGaps: string[];
+  strategicRoadmap30_60_90: {
+    immediate30Days: string[];
+    intermediate60Days: string[];
+    strategic90Days: string[];
+  };
+  executiveBriefingMarkdown: string;
+}
+

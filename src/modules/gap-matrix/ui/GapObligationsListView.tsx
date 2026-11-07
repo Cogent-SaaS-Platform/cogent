@@ -22,6 +22,7 @@ export interface GapObligationItemViewModel {
   evaluationId: string;
   obligationCode?: string;
   obligationTitle?: string;
+  obligationDescription?: string;
   regulatoryClauseReference: string;
   statutoryLegalCitation: string;
   complianceStatus: ComplianceStatus;
@@ -41,6 +42,7 @@ export interface GapObligationItemViewModel {
   criteriaEvaluations?: any[];
   actionItems?: any[];
   isStarred?: boolean;
+  seniorCounselBriefing?: any;
 }
 
 interface GapObligationsListViewProps {
@@ -278,9 +280,9 @@ export function GapObligationsListView({
               }`}
             >
               <option value="ALL">Gap Status</option>
-              <option value="CRITICAL_GAP">Gap Status (Critical Gap)</option>
-              <option value="PARTIALLY_MET">Gap Status (Partial)</option>
-              <option value="ADEQUATELY_MET">Gap Status (Adequate)</option>
+              <option value="ADEQUATELY_MET">Adequate</option>
+              <option value="PARTIALLY_MET">Partial</option>
+              <option value="CRITICAL_GAP">Gap</option>
             </select>
           </div>
 
@@ -368,7 +370,7 @@ export function GapObligationsListView({
                               ? 'Adequate'
                               : isPartial
                               ? 'Partial'
-                              : 'Critical Gap'}
+                              : 'Gap'}
                           </span>
                         </span>
 
@@ -416,9 +418,9 @@ export function GapObligationsListView({
                       </div>
                     </div>
 
-                    {/* Summary text */}
-                    <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
-                      {item.whatHappened}
+                    {/* Summary text - untruncated per Architectural Mandate */}
+                    <p className="text-xs text-slate-600 leading-relaxed font-sans">
+                      {item.obligationDescription || item.whatHappened}
                     </p>
 
                     {/* Citations & Codes (Plain monospace per AGENTS.md - Zango Screen 4) */}

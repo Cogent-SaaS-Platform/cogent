@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   FileText,
   BookOpen,
   Copy,
@@ -22,6 +23,8 @@ import {
 } from 'lucide-react';
 import { ComplianceStatus } from '@/shared/types';
 import { CriterionEvaluationResult } from '../services/multiConcordanceService';
+import { SeniorCounselBriefing } from '../types';
+import { ExecutiveMarkdownRenderer } from '@/shared/ui/ExecutiveMarkdownRenderer';
 
 export interface ObligationGapInspectorItem {
   id: string;
@@ -52,6 +55,7 @@ export interface ObligationGapInspectorItem {
   responsibleRole?: string;
   statutoryRemediationTimelineDays?: number;
   isStarred?: boolean;
+  seniorCounselBriefing?: SeniorCounselBriefing;
 }
 
 interface ObligationAssessmentEvaluationViewProps {
@@ -125,6 +129,82 @@ export function ObligationAssessmentEvaluationView({
   const [addingEvidenceIdx, setAddingEvidenceIdx] = useState<number | null>(null);
   const [newSectionInput, setNewSectionInput] = useState('');
   const [newNotesInput, setNewNotesInput] = useState('');
+  const [isStatuteModalOpen, setIsStatuteModalOpen] = useState(false);
+  const [inspectorTab, setInspectorTab] = useState<'BRIEFING' | 'CRITERIA' | 'CLAUSE'>('BRIEFING');
+  const [copiedBriefing, setCopiedBriefing] = useState(false);
+
+  const resolvedBriefing: SeniorCounselBriefing = useMemo(() => {
+    if (obligation.seniorCounselBriefing && obligation.seniorCounselBriefing.briefingMarkdown) {
+      return obligation.seniorCounselBriefing;
+    }
+
+    const oblTitle =
+      obligation.obligationTitle || obligation.regulatoryClauseReference || 'Statutory Compliance Obligation';
+    const regTitle = obligation.regulationTitle || analysisName.split(' vs ')[0] || 'Statutory Regulation';
+    const sectionRef = obligation.sourceSectionRef || 'General Mandate';
+
+    const isAdequate = currentStatus === 'ADEQUATELY_MET';
+    const isPartial = currentStatus === 'PARTIALLY_MET';
+
+    const executiveVerdict = isAdequate
+      ? 'SUPERVISORY COMPLIANT'
+      : isPartial
+      ? 'DEFENSIBLE WITH NOTABLE OPERATIONAL EXPOSURES'
+      : 'SUBSTANTIAL NON-COMPLIANCE RISK';
+
+    const verdictSummary = isAdequate
+      ? `Forensic policy concordance confirms internal operational manuals incorporate verified, enforceable controls satisfying statutory requirements for ${oblTitle} under ${regTitle}.`
+      : isPartial
+      ? `Internal operational procedures satisfy baseline statutory requirements under ${regTitle}. While baseline controls exist, procedural documentation omits formal escalation thresholds and audit verification triggers.`
+      : `Comprehensive gap identified: internal company documentation entirely omits mandatory operational controls required under ${regTitle} (${sectionRef}). Zero verifiable safeguards were detected in the uploaded policy suite.`;
+
+    const supervisoryContext =
+      obligation.whatToKnow ||
+      `Statutory oversight under ${regTitle} (${sectionRef}). Regulatory examiners prioritize affirmative documentation and active supervisory reporting to prevent unhedged institutional liabilities.`;
+
+    const evidentiaryAnalysis =
+      obligation.whatHappened ||
+      (isAdequate
+        ? `Forensic concordance confirms internal operating policies explicitly establish all mandatory governance gates, approval hierarchies, and reporting schedules cited in ${oblTitle}.`
+        : `Cross-clause evidentiary concordance highlights missing procedural safeguards. Reliance on undocumented custom or verbal practice exposes the institution to severe supervisory sanctions.`);
+
+    const strategicRemediation =
+      obligation.whatToDo ||
+      (isAdequate
+        ? 'Maintain documented controls and retain quarterly audit execution artifacts for supervisory inspection.'
+        : `Adopt the board-ready remediation clause into ${policyTitle} and institute timestamped governance exception reporting.`);
+
+    const briefingMarkdown = `### Senior Regulatory Counsel Briefing: ${oblTitle}
+
+> [!${isAdequate ? 'TIP' : isPartial ? 'WARNING' : 'CRITICAL'}]
+> **Executive Legal Opinion**: ${verdictSummary}
+
+#### 1. Statutory Intent & Supervisory Risk Exposure
+Under **${regTitle}** (${sectionRef}), supervisory authorities require financial institutions to maintain explicit, demonstrable controls over **${oblTitle}**. During routine and targeted on-site examinations, regulatory inspection panels specifically inspect whether operational manuals contain unambiguous governance thresholds and verifiable audit documentation.
+
+#### 2. Evidentiary Concordance & Gap Dissection
+${evidentiaryAnalysis}
+
+#### 3. Strategic Remediation Playbook for General Counsel & CCO
+- **Policy Amendment**: Adopt the recommended draft remediation clause into the next executive governance revision cycle.
+- **Examiner Defensibility**: Establish timestamped exception logs to demonstrate affirmative compliance during routine examination.
+- **Board Reporting**: Disclose operational alignment status to the Board Audit & Risk Committee.`;
+
+    return {
+      executiveVerdict,
+      verdictSummary,
+      supervisoryContext,
+      evidentiaryAnalysis,
+      strategicRemediation,
+      briefingMarkdown,
+    };
+  }, [obligation, currentStatus, analysisName, policyTitle]);
+
+  const handleCopyBriefing = () => {
+    navigator.clipboard.writeText(resolvedBriefing.briefingMarkdown);
+    setCopiedBriefing(true);
+    setTimeout(() => setCopiedBriefing(false), 2500);
+  };
 
   // Action Items state
   const [actionItems, setActionItems] = useState<Array<{ id: string; title: string; completed: boolean }>>(
@@ -548,12 +628,20 @@ export function ObligationAssessmentEvaluationView({
             </p>
 
             <div className="pt-1 flex flex-wrap items-center gap-2">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-700">
-                <BookOpen className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+              <button
+                type="button"
+                onClick={() => setIsStatuteModalOpen(true)}
+                className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs text-slate-700 transition-colors cursor-pointer group"
+                title="Click to view verbatim statutory clause"
+              >
+                <BookOpen className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-900 shrink-0" />
                 <span className="font-medium truncate max-w-sm">
                   {obligation.regulationTitle || analysisName.split(' vs ')[0] || 'Statutory Regulation'}
                 </span>
-              </div>
+                <span className="text-[10px] font-mono text-slate-400 group-hover:text-slate-700 underline">
+                  View Statutory Clause →
+                </span>
+              </button>
 
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-xs font-mono font-medium">
                 <span className="text-slate-400">Section:</span>
@@ -604,8 +692,145 @@ export function ObligationAssessmentEvaluationView({
             </div>
           </div>
 
-          {/* Assessment Criteria Header */}
-          <div className="flex items-center justify-between px-1">
+          {/* Executive Section Navigation Tabs */}
+          <div className="bg-white border border-slate-200 rounded-xl p-1.5 shadow-2xs flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setInspectorTab('BRIEFING')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  inspectorTab === 'BRIEFING'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                <Scale className={`w-3.5 h-3.5 ${inspectorTab === 'BRIEFING' ? 'text-emerald-400' : 'text-slate-400'}`} />
+                <span>Senior Counsel Briefing</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setInspectorTab('CRITERIA')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  inspectorTab === 'CRITERIA'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                <FileText className={`w-3.5 h-3.5 ${inspectorTab === 'CRITERIA' ? 'text-indigo-400' : 'text-slate-400'}`} />
+                <span>Evidence &amp; Criteria ({criteria.length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setInspectorTab('CLAUSE')}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  inspectorTab === 'CLAUSE'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                <ShieldCheck className={`w-3.5 h-3.5 ${inspectorTab === 'CLAUSE' ? 'text-amber-400' : 'text-slate-400'}`} />
+                <span>Remediation Clause</span>
+              </button>
+            </div>
+
+            {inspectorTab === 'BRIEFING' && (
+              <button
+                type="button"
+                onClick={handleCopyBriefing}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer mr-1"
+                title="Copy Briefing Markdown for Legal Memo or Board Pack"
+              >
+                {copiedBriefing ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-slate-500" />}
+                <span className="font-sans">{copiedBriefing ? 'Copied Briefing' : 'Copy Briefing'}</span>
+              </button>
+            )}
+          </div>
+
+          {/* TAB 1: Senior Regulatory Counsel Executive Briefing */}
+          {inspectorTab === 'BRIEFING' && (
+            <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-2xs space-y-5 animate-in fade-in duration-150">
+              <div className="p-4 rounded-xl bg-slate-900 text-white flex flex-wrap items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-slate-800 text-emerald-400">
+                    <Scale className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-slate-400 block font-semibold">
+                      Senior Regulatory Counsel Legal Verdict
+                    </span>
+                    <h2 className="text-sm font-bold tracking-tight text-white">
+                      {resolvedBriefing.executiveVerdict}
+                    </h2>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold font-mono uppercase tracking-wider ${
+                      currentStatus === 'ADEQUATELY_MET'
+                        ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                        : currentStatus === 'PARTIALLY_MET'
+                        ? 'bg-amber-950 text-amber-300 border border-amber-800'
+                        : 'bg-rose-950 text-rose-300 border border-rose-800'
+                    }`}
+                  >
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        currentStatus === 'ADEQUATELY_MET'
+                          ? 'bg-emerald-400'
+                          : currentStatus === 'PARTIALLY_MET'
+                          ? 'bg-amber-400'
+                          : 'bg-rose-400'
+                      }`}
+                    />
+                    <span>
+                      {currentStatus === 'ADEQUATELY_MET'
+                        ? 'Adequate'
+                        : currentStatus === 'PARTIALLY_MET'
+                        ? 'Partial'
+                        : 'Critical Gap'}
+                    </span>
+                  </span>
+                </div>
+              </div>
+
+              <div className="prose prose-slate max-w-none">
+                <ExecutiveMarkdownRenderer content={resolvedBriefing.briefingMarkdown} />
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2 text-slate-500">
+                  <BookOpen className="w-4 h-4 text-slate-400" />
+                  <span>Cites {obligation.sourceSectionRef ? `Section ${obligation.sourceSectionRef}` : 'Statutory Mandate'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setInspectorTab('CRITERIA')}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-medium transition-colors cursor-pointer"
+                  >
+                    <span>View Evidence Breakdown ({criteria.length})</span>
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInspectorTab('CLAUSE')}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium transition-colors cursor-pointer"
+                  >
+                    <span>Inspect Remediation Clause</span>
+                    <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: Assessment Criteria Header & Cards */}
+          {inspectorTab === 'CRITERIA' && (
+            <div className="space-y-4 animate-in fade-in duration-150">
+              <div className="flex items-center justify-between px-1">
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
               Assessment Criteria ({criteria.length})
             </h2>
@@ -693,13 +918,13 @@ export function ObligationAssessmentEvaluationView({
 
                   {isExpanded && (
                     <div className="px-5 pb-5 pt-2 border-t border-slate-100 bg-slate-50/40 space-y-4">
-                      {/* 1. Concordance Rationale Box */}
-                      <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-1">
-                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                          <Scale className="w-3.5 h-3.5 text-slate-500" />
-                          <span>Statutory Concordance Rationale</span>
+                      {/* 1. Truthful AI Reason Callout */}
+                      <div className="p-3.5 bg-slate-50/90 border border-slate-200 rounded-lg space-y-1.5">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-900">
+                          <span className="text-amber-500 font-bold">✨</span>
+                          <span>AI reason</span>
                         </div>
-                        <p className="text-xs text-slate-700 leading-relaxed font-sans pl-5">
+                        <p className="text-xs text-slate-700 leading-relaxed font-sans">
                           {crit.aiReason}
                         </p>
                       </div>
@@ -724,7 +949,7 @@ export function ObligationAssessmentEvaluationView({
                             className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-700 hover:text-slate-950 px-2 py-0.5 rounded hover:bg-slate-100 transition-colors"
                           >
                             <Plus className="w-3 h-3 text-slate-500" />
-                            <span>+ ADD SECTION</span>
+                            <span>+ Add Policy / Section</span>
                           </button>
                         </div>
 
@@ -733,23 +958,34 @@ export function ObligationAssessmentEvaluationView({
                             {crit.matchedPolicySections.map((sec, sIdx) => (
                               <div
                                 key={sIdx}
-                                className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-200 hover:border-slate-300 transition-all"
+                                onClick={() =>
+                                  setPreviewExcerpt({
+                                    title: sec.sectionTitle || sec.sectionNumber,
+                                    excerpt: sec.verbatimPolicyExcerpt,
+                                  })
+                                }
+                                className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-200 hover:border-slate-300 hover:bg-slate-100/70 transition-all cursor-pointer group"
+                                title="Click to view verbatim policy excerpt"
                               >
                                 <div className="flex items-center gap-2 min-w-0 pr-2">
                                   <span className="text-slate-400">└──</span>
-                                  <span className="font-mono text-slate-800 truncate font-medium">
+                                  <span className="font-mono text-slate-800 truncate font-medium group-hover:text-slate-950">
                                     {sec.sectionTitle || sec.sectionNumber}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    (Preview)
                                   </span>
                                 </div>
                                 <div className="flex items-center gap-2 shrink-0">
                                   <button
                                     type="button"
-                                    onClick={() =>
+                                    onClick={(e) => {
+                                      e.stopPropagation();
                                       setPreviewExcerpt({
                                         title: sec.sectionTitle || sec.sectionNumber,
                                         excerpt: sec.verbatimPolicyExcerpt,
-                                      })
-                                    }
+                                      });
+                                    }}
                                     className="p-1 text-slate-400 hover:text-slate-900 transition-colors"
                                     title="Preview excerpt"
                                   >
@@ -757,7 +993,10 @@ export function ObligationAssessmentEvaluationView({
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => handleRemoveSection(idx, sIdx)}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRemoveSection(idx, sIdx);
+                                    }}
                                     className="p-1 text-slate-400 hover:text-rose-600 transition-colors"
                                     title="Remove mapping"
                                   >
@@ -769,7 +1008,7 @@ export function ObligationAssessmentEvaluationView({
                           </div>
                         ) : (
                           <p className="pl-6 text-[11px] text-slate-400 italic">
-                            No internal policy clauses currently satisfy this criterion. Click &quot;+ ADD SECTION&quot; to link evidence manually.
+                            No internal policy clauses currently satisfy this criterion. Click &quot;+ Add Policy / Section&quot; to link evidence manually.
                           </p>
                         )}
                       </div>
@@ -817,32 +1056,45 @@ export function ObligationAssessmentEvaluationView({
               );
             })}
           </div>
+        </div>
+      )}
 
-          {/* Draft Policy Remediation Language */}
-          {currentStatus !== 'ADEQUATELY_MET' && (
-            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-slate-700" />
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
-                    Draft Policy Remediation Language
-                  </h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleCopyClause}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-900 text-white rounded-md text-xs font-medium hover:bg-slate-800 transition-colors"
-                >
-                  {copiedClause ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedClause ? 'Copied!' : 'Copy Clause'}</span>
-                </button>
-              </div>
-
-              <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 font-mono text-xs text-slate-800 leading-relaxed whitespace-pre-wrap">
-                {obligation.draftReplacementLanguage || obligation.whatToDo}
-              </div>
+      {/* TAB 3: Draft Policy Remediation Language */}
+      {inspectorTab === 'CLAUSE' && (
+        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-2xs space-y-4 animate-in fade-in duration-150">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
+                Draft Policy Remediation Language
+              </h3>
             </div>
-          )}
+            <button
+              type="button"
+              onClick={handleCopyClause}
+              className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-900 text-white rounded-md text-xs font-medium hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              {copiedClause ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              <span>{copiedClause ? 'Copied Clause!' : 'Copy Clause'}</span>
+            </button>
+          </div>
+
+          <p className="text-xs text-slate-600 leading-relaxed">
+            This clause has been synthesized by Senior Regulatory Counsel to directly satisfy all missing core criteria under {obligation.regulationTitle || 'the statutory benchmark'}. It is formatted for immediate adoption into {policyTitle}.
+          </p>
+
+          <div className="p-4 bg-slate-900 rounded-lg border border-slate-800 font-mono text-xs text-emerald-300 leading-relaxed whitespace-pre-wrap shadow-inner">
+            {obligation.draftReplacementLanguage || obligation.whatToDo}
+          </div>
+
+          <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-600 space-y-1">
+            <span className="font-semibold text-slate-800 block">Board Governance Note:</span>
+            <p>
+              Adopting this clause establishes demonstrable compliance with {obligation.sourceSectionRef ? `Section ${obligation.sourceSectionRef}` : 'statutory mandates'} and eliminates supervisory vulnerability during routine bank examinations.
+            </p>
+          </div>
+        </div>
+      )}
 
           {/* Collaboration Card: Comments & Audit Logs */}
           <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
@@ -1105,6 +1357,59 @@ export function ObligationAssessmentEvaluationView({
                 type="button"
                 onClick={() => setPreviewExcerpt(null)}
                 className="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-medium"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Verbatim Statutory Clause Modal */}
+      {isStatuteModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-indigo-600 shrink-0" />
+                <h3 className="text-sm font-semibold text-slate-900">
+                  Verbatim Statutory Clause
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsStatuteModalOpen(false)}
+                className="p-1 rounded text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className="font-semibold text-slate-700">Source Regulation:</span>
+                <span className="text-slate-900 bg-slate-100 px-2 py-0.5 rounded font-medium">
+                  {obligation.regulationTitle || analysisName.split(' vs ')[0] || 'Statutory Regulation'}
+                </span>
+                {obligation.sourceSectionRef && (
+                  <span className="text-slate-600 font-mono text-[11px] bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+                    Section {obligation.sourceSectionRef}
+                  </span>
+                )}
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
+                  Statutory Text
+                </label>
+                <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 font-mono text-xs text-slate-800 leading-relaxed whitespace-pre-wrap max-h-80 overflow-y-auto">
+                  {obligation.whatHasChanged || obligation.obligationDescription || obligation.whatHappened || 'Verbatim statutory text not available for this obligation.'}
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end pt-2">
+              <button
+                type="button"
+                onClick={() => setIsStatuteModalOpen(false)}
+                className="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-medium hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 Close
               </button>

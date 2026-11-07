@@ -45,69 +45,11 @@ export async function POST(
       );
     }
 
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(evaluationId);
-
-    if (!isUuid) {
-      const mockResult: GapEvaluationResult = {
-        evaluationId,
-        organizationId: tenantCtx.organizationId,
-        policyId: 'pol-mock-1',
-        benchmarkDocumentVersionId: 'ver-mock-1',
-        policyTitle: 'Institutional AML/CFT Compliance Manual',
-        benchmarkTitle: 'BOFIA 2020 Statutory Benchmark',
-        overallCompliancePercentage: 75.0,
-        criticalGapsCount: 1,
-        partiallyMetCount: 1,
-        adequatelyMetCount: 2,
-        totalPotentialPenaltyNaira: 15000000,
-        executiveSummary: 'Statutory concordance review against BOFIA 2020 benchmark.',
-        analysisRunId: null,
-        auditId: 'aud-mock-1',
-        createdAt: new Date().toISOString(),
-        items: [
-          {
-            id: 'item-1',
-            regulatoryClauseId: 'cl-1',
-            obligationId: 'obl-1',
-            regulatoryClauseReference: 'Section 57(2)',
-            statutoryLegalCitation: 'BOFIA 2020 §57(2)',
-            complianceStatus: 'PARTIALLY_MET',
-            statutoryPenaltyNaira: 10000000,
-            matchedPolicySection: 'Clause 4.2',
-            matchedPolicyText: 'Internal review of CBN directives is conducted quarterly.',
-            suggestedStatus: 'PARTIALLY_MET',
-            whatHappened: 'Policy lacks mandatory 24-hour escalation clause.',
-            whatToKnow: 'CBN enforcement guidelines prescribe personal officer sanctions for non-conformance.',
-            whatHasChanged: 'Direct monetary penalty escalates daily for persistent policy non-conformance.',
-            whatToDo: 'Amend internal manual clause 4.2 to incorporate direct supervisory notification.',
-            draftReplacementLanguage: 'The institution shall comply with all monetary directives issued by the Central Bank of Nigeria without delay.',
-            draftReplacementPolicyLanguage: 'The institution shall comply with all monetary directives issued by the Central Bank of Nigeria without delay.',
-            derivedInsight: 'Mitigates ₦10,000,000 fine under Section 57(2).',
-            statutoryQuote: 'Every bank shall comply with the monetary guidelines and directives issued by the Central Bank of Nigeria.',
-            complianceCriteria: ['Board review required'],
-          },
-        ],
-      };
-
-      const dossier = await defaultDossierExportService.generateBankExaminerDossier({
-        evaluationResult: mockResult,
-        organizationName: organizationName || 'First Digital FinTech Ltd',
-        ccoName: ccoName || 'Chief Compliance Officer',
-        notes,
-      });
-
-      const markdown = defaultDossierExportService.exportDossierToMarkdown(dossier);
-      const html = defaultDossierExportService.exportDossierToHtml(dossier);
-
-      return NextResponse.json({
-        success: true,
-        data: {
-          dossier,
-          markdown,
-          html,
-          exportedAt: new Date().toISOString(),
-        },
-      });
+    if (!evaluationId) {
+      return NextResponse.json(
+        { success: false, error: 'Evaluation ID is required' },
+        { status: 400 }
+      );
     }
 
     const { data: evalRow, error: evalErr } = await (dbClient.from('gap_evaluations') as any)

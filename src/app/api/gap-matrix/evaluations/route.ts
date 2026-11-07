@@ -35,6 +35,7 @@ export interface GapAnalysisSummaryItem {
   actionPlan: any[];
   auditLogs: any[];
   comments: any[];
+  executiveBriefing?: any;
   createdByName: string;
   createdAt: string;
   lastModifiedAt: string;
@@ -185,6 +186,7 @@ export async function GET(req: NextRequest) {
         responsibleRole: it.responsible_role || 'Chief Compliance Officer',
         statutoryRemediationTimelineDays:
           typeof it.remediation_timeline_days === 'number' ? it.remediation_timeline_days : undefined,
+        seniorCounselBriefing: it.senior_counsel_briefing || (it.metadata as any)?.seniorCounselBriefing || null,
       }));
 
       const totalPenalty = items.reduce(
@@ -227,6 +229,7 @@ export async function GET(req: NextRequest) {
         actionPlan: evalRow.action_plan || [],
         auditLogs: evalRow.audit_logs || [],
         comments: evalRow.comments || [],
+        executiveBriefing: (evalRow.metadata as any)?.executiveBriefing || (evalRow as any).executive_briefing || null,
         createdByName: evalRow.created_by_name || 'Authorized Compliance Officer',
         createdAt: evalRow.created_at,
         lastModifiedAt: evalRow.created_at,
@@ -387,6 +390,7 @@ export async function GET(req: NextRequest) {
         actionPlan: row.action_plan || [],
         auditLogs: row.audit_logs || [],
         comments: row.comments || [],
+        executiveBriefing: (row.metadata as any)?.executiveBriefing || (row as any).executive_briefing || null,
         createdByName: row.created_by_name || 'Authorized Compliance Officer',
         createdAt: row.created_at,
         lastModifiedAt: row.created_at,

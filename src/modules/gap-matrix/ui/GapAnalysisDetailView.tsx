@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { GapAnalysisSummaryItem } from '@/app/api/gap-matrix/evaluations/route';
 import { ComplianceStatus } from '@/shared/types';
+import { ExecutiveMarkdownRenderer } from '@/shared/ui/ExecutiveMarkdownRenderer';
 
 interface GapAnalysisDetailViewProps {
   analysis: GapAnalysisSummaryItem;
@@ -54,10 +55,79 @@ export function GapAnalysisDetailView({
   onOpenDossierModal,
 }: GapAnalysisDetailViewProps) {
   const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedBriefing, setCopiedBriefing] = useState(false);
+  const [isBriefingExpanded, setIsBriefingExpanded] = useState(true);
   const [workflowStatus, setWorkflowStatus] = useState<string>(
     analysis.status === 'COMPLETED' ? 'Completed' : 'Review Pending'
   );
   const [activeCollaborationTab, setActiveCollaborationTab] = useState<'COMMENTS' | 'AUDIT_LOGS'>('COMMENTS');
+
+  const resolvedMacroBriefing = React.useMemo(() => {
+    if (analysis.executiveBriefing && analysis.executiveBriefing.executiveBriefingMarkdown) {
+      return analysis.executiveBriefing;
+    }
+
+    const total = analysis.obligationsAssessedCount || items.length;
+    const adequate = analysis.adequateCount;
+    const partial = analysis.partialCount;
+    const gap = analysis.gapCount;
+    const pct = analysis.overallCompliancePercentage;
+
+    const riskRating =
+      gap > 0 ? 'CRITICAL_SUPERVISORY_EXPOSURE' : partial > 0 ? 'MODERATE_EXPOSURE' : 'LOW_DEFENSE_EXPOSURE';
+
+    const headline =
+      gap > 0
+        ? `Material Supervisory Deficiencies Identified: ${gap} Critical Gap(s) Across Evaluated Policies`
+        : partial > 0
+        ? `Defensible Baseline with Operational Divergences: ${partial} Partial Gap(s) Requiring Board Action`
+        : `High-Fidelity Regulatory Concordance: Zero Critical Gaps Across Evaluated Policies`;
+
+    const memo = `This Senior Regulatory Counsel Briefing evaluates ${analysis.policyTitle} against binding statutory mandates under ${analysis.regulationTitle}. The assessment examined ${total} obligation(s), establishing ${adequate} adequate control(s), ${partial} partial divergence(s), and ${gap} critical gap(s), resulting in an institutional compliance posture of ${pct}%. Immediate executive oversight is recommended to operationalize board-ready remediation clauses.`;
+
+    const md = `# EXECUTIVE REGULATORY COUNSEL BRIEFING & BOARD ADVISORY DOSSIER
+**Analysis Name:** ${analysis.analysisName}  
+**Statutory Benchmark:** ${analysis.regulationTitle} (${analysis.regulatorCode})  
+**Internal Policy:** ${analysis.policyTitle} (v${analysis.versionTag})  
+**Concordance Rating:** **${pct}%** | **Risk Posture:** \`${riskRating}\`  
+
+---
+
+## 1. Executive Legal Verdict & Board Memorandum
+> [!${riskRating === 'LOW_DEFENSE_EXPOSURE' ? 'TIP' : riskRating === 'MODERATE_EXPOSURE' ? 'WARNING' : 'CRITICAL'}]
+> **${headline}**  
+> ${memo}
+
+---
+
+## 2. Key Supervisory Examination Focus Areas
+- **Affirmative Evidentiary Records**: Bank examiners will prioritize inspection of documented procedures and verifiable audit logs.
+- **Escalation Disconnects**: Policies lacking deterministic reporting timelines expose compliance officers to personal liability under statutory schedules.
+- **Remediation Priority**: Immediate board adoption of pre-drafted remediation clauses mitigates balance sheet sanction vulnerability.
+
+---
+
+## 3. Strategic 30-Day Executive Action Items
+1. Formalize and approve draft policy replacement clauses at the upcoming Board Audit & Risk Committee meeting.
+2. Institute timestamped exception approval logs for all high-risk operational transactions.
+3. Align departmental standard operating procedures with amended policy mandates.
+
+---
+*Project Cogent — Senior Regulatory Counsel & Banking Supervision Advisory Engine*`;
+
+    return {
+      headlineVerdict: headline,
+      riskPostureRating: riskRating,
+      boardExecutiveSummary: memo,
+      executiveBriefingMarkdown: md,
+    };
+  }, [analysis, items]);
+
+  const handleCopyMacroBriefing = () => {
+    navigator.clipboard.writeText(resolvedMacroBriefing.executiveBriefingMarkdown);
+    setCopiedBriefing(true);
+    setTimeout(() => setCopiedBriefing(false), 2500);
+  };
   const [comments, setComments] = useState<Array<{ id: string; authorName: string; authorRole: string; timestamp: string; content: string }>>(
     analysis.comments || []
   );
@@ -271,7 +341,7 @@ export function GapAnalysisDetailView({
               <button
                 type="button"
                 onClick={() => onNavigateToObligations('ADEQUATELY_MET')}
-                className="flex items-center justify-between p-2.5 rounded-lg hover:bg-slate-50 text-xs transition-colors group"
+                className="flex items-center justify-between p-2.5 rounded-lg hover:bg-slate-50 text-xs transition-colors group cursor-pointer"
               >
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-xs bg-emerald-500 shrink-0" />
@@ -279,7 +349,7 @@ export function GapAnalysisDetailView({
                     Adequate
                   </span>
                   <span className="font-mono text-slate-500 font-semibold">
-                    {adequateCount}
+                    [{adequateCount}]
                   </span>
                 </div>
                 <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-900 group-hover:translate-x-0.5 transition-all" />
@@ -288,7 +358,7 @@ export function GapAnalysisDetailView({
               <button
                 type="button"
                 onClick={() => onNavigateToObligations('PARTIALLY_MET')}
-                className="flex items-center justify-between p-2.5 rounded-lg hover:bg-slate-50 text-xs transition-colors group"
+                className="flex items-center justify-between p-2.5 rounded-lg hover:bg-slate-50 text-xs transition-colors group cursor-pointer"
               >
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-xs bg-amber-400 shrink-0" />
@@ -296,7 +366,7 @@ export function GapAnalysisDetailView({
                     Partial
                   </span>
                   <span className="font-mono text-slate-500 font-semibold">
-                    {partialCount}
+                    [{partialCount}]
                   </span>
                 </div>
                 <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-900 group-hover:translate-x-0.5 transition-all" />
@@ -305,7 +375,7 @@ export function GapAnalysisDetailView({
               <button
                 type="button"
                 onClick={() => onNavigateToObligations('CRITICAL_GAP')}
-                className="flex items-center justify-between p-2.5 rounded-lg hover:bg-slate-50 text-xs transition-colors group"
+                className="flex items-center justify-between p-2.5 rounded-lg hover:bg-slate-50 text-xs transition-colors group cursor-pointer"
               >
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-xs bg-rose-400 shrink-0" />
@@ -313,7 +383,7 @@ export function GapAnalysisDetailView({
                     Gap
                   </span>
                   <span className="font-mono text-slate-500 font-semibold">
-                    {gapCount}
+                    [{gapCount}]
                   </span>
                 </div>
                 <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-900 group-hover:translate-x-0.5 transition-all" />
@@ -352,6 +422,70 @@ export function GapAnalysisDetailView({
                 </span>
               </div>
             </div>
+          </div>
+
+          {/* Executive Regulatory Counsel Briefing & Board Advisory Dossier Card */}
+          <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-2xs space-y-0">
+            <div className="p-4 px-5 bg-slate-900 text-white flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-lg bg-slate-800 text-emerald-400">
+                  <Scale className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-slate-400 block font-semibold">
+                    Senior Regulatory Counsel Briefing
+                  </span>
+                  <h3 className="text-sm font-bold tracking-tight text-white flex items-center gap-2">
+                    <span>Executive Legal Opinion &amp; Board Advisory</span>
+                  </h3>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold font-mono uppercase tracking-wider bg-slate-800 border border-slate-700 text-slate-200">
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      resolvedMacroBriefing.riskPostureRating === 'LOW_DEFENSE_EXPOSURE'
+                        ? 'bg-emerald-400'
+                        : resolvedMacroBriefing.riskPostureRating === 'MODERATE_EXPOSURE'
+                        ? 'bg-amber-400'
+                        : 'bg-rose-400'
+                    }`}
+                  />
+                  <span>
+                    {resolvedMacroBriefing.riskPostureRating === 'LOW_DEFENSE_EXPOSURE'
+                      ? 'Low Exposure'
+                      : resolvedMacroBriefing.riskPostureRating === 'MODERATE_EXPOSURE'
+                      ? 'Moderate Risk'
+                      : 'Critical Exposure'}
+                  </span>
+                </span>
+
+                <button
+                  type="button"
+                  onClick={handleCopyMacroBriefing}
+                  className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Copy Executive Memorandum in Markdown for Board Packs"
+                >
+                  {copiedBriefing ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
+                  <span>{copiedBriefing ? 'Copied Memo' : 'Copy Memo'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsBriefingExpanded(!isBriefingExpanded)}
+                  className="p-1 rounded text-slate-400 hover:text-white transition-colors cursor-pointer"
+                >
+                  <ChevronRight className={`w-4 h-4 transition-transform duration-200 ${isBriefingExpanded ? 'rotate-90' : ''}`} />
+                </button>
+              </div>
+            </div>
+
+            {isBriefingExpanded && (
+              <div className="p-6 bg-white border-t border-slate-100">
+                <ExecutiveMarkdownRenderer content={resolvedMacroBriefing.executiveBriefingMarkdown} />
+              </div>
+            )}
           </div>
 
           {/* Action Plan Table (Zango temp (13).png - 03:12) */}

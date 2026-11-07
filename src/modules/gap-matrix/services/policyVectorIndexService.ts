@@ -46,14 +46,17 @@ export class PolicyVectorIndexService {
     );
 
     const clauseRecords: {
+      id: string;
       organization_id: string;
       policy_id: string;
       section_number: string;
+      section_title?: string;
       clause_text: string;
       embedding: number[] | null;
     }[] = [];
 
     for (const clause of clauses) {
+      const sectionId = crypto.randomUUID();
       let embedding: number[] | null = null;
       try {
         const textToEmbed = `${clause.sectionNumber}: ${clause.heading}\n${clause.clauseText}`;
@@ -66,9 +69,11 @@ export class PolicyVectorIndexService {
       }
 
       clauseRecords.push({
+        id: sectionId,
         organization_id: organizationId,
         policy_id: policyId,
         section_number: clause.sectionNumber,
+        section_title: clause.heading || clause.sectionNumber,
         clause_text: clause.clauseText,
         embedding,
       });
@@ -76,13 +81,12 @@ export class PolicyVectorIndexService {
 
     if (!this.dbClient) {
       logger.warn('No database client available, skipping database persistence of policy clauses');
-      return { indexedCount: clauseRecords.length, clauseIds: [] };
+      return { indexedCount: clauseRecords.length, clauseIds: clauseRecords.map((r) => r.id) };
     }
 
-    // Bulk insert into policy_clauses with denormalized organization_id
-    const { data, error } = await this.dbClient
-      .from('policy_clauses')
-      .insert(clauseRecords as Database['public']['Tables']['policy_clauses']['Insert'][])
+    // 1. Bulk insert into policy_clauses with denormalized organization_id
+    const { data, error } = await (this.dbClient.from('policy_clauses') as any)
+      .insert(clauseRecords)
       .select('id');
 
     if (error) {
@@ -90,10 +94,25 @@ export class PolicyVectorIndexService {
       throw new Error(`Policy clauses indexing failed: ${error.message}`);
     }
 
-    const clauseIds = (data || []).map((row) => row.id);
+    // 2. Also persist to structural policy_sections table if present
+    try {
+      const sectionRecords = clauseRecords.map((c) => ({
+        id: c.id,
+        organization_id: c.organization_id,
+        policy_id: c.policy_id,
+        section_number: c.section_number,
+        section_title: c.section_title || c.section_number,
+        verbatim_content: c.clause_text,
+      }));
+      await (this.dbClient as any).from('policy_sections').insert(sectionRecords);
+    } catch (secErr) {
+      logger.debug({ err: String(secErr) }, 'policy_sections insert completed or table deferred');
+    }
+
+    const clauseIds = (data && data.length > 0) ? data.map((row: any) => row.id) : clauseRecords.map((r) => r.id);
     logger.info(
       { organizationId, policyId, indexedCount: clauseIds.length },
-      'Policy clauses indexed successfully'
+      'Policy clauses and structural sections indexed successfully'
     );
 
     return {

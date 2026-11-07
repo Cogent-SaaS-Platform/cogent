@@ -73,13 +73,54 @@ export class PolicyStructureExtractor {
 
   private async resolveRawText(input: PolicyExtractionInput): Promise<string> {
     if (input.rawText && input.rawText.trim().length > 0) {
-      return input.rawText.trim();
+      const trimmed = input.rawText.trim();
+      if (!trimmed.startsWith('%PDF') && !trimmed.includes('\x00')) {
+        return trimmed;
+      }
     }
 
     if (input.fileBuffer) {
       const buf = Buffer.isBuffer(input.fileBuffer) ? input.fileBuffer : Buffer.from(input.fileBuffer);
 
-      // 1. PDF Detection (%PDF header or mimeType or filename)
+      // 1. DOCX Detection (PK\x03\x04 zip header or mimeType or filename)
+      const isDocx =
+        input.fileName?.toLowerCase().endsWith('.docx') ||
+        input.mimeType?.includes('wordprocessingml') ||
+        (buf.length >= 4 && buf[0] === 0x50 && buf[1] === 0x4B && buf[2] === 0x03 && buf[3] === 0x04);
+
+      if (isDocx) {
+        try {
+          const mammoth = await import('mammoth');
+          const result = await mammoth.extractRawText({ buffer: buf });
+          const docxText = result.value?.trim() || '';
+          if (docxText.length >= 50) {
+            logger.info({ charCount: docxText.length }, 'Extracted authentic policy text via mammoth');
+            return docxText;
+          }
+        } catch (mErr) {
+          logger.warn({ err: String(mErr) }, 'Mammoth DOCX extraction failed, trying XML fallback');
+        }
+
+        try {
+          // Fallback plain text from DOCX XML stream
+          const text = buf.toString('latin1');
+          const textMatches = text.match(/<w:t[^>]*>(.*?)<\/w:t>/g);
+          if (textMatches && textMatches.length > 0) {
+            const docxContent = textMatches
+              .map((t) => t.replace(/<[^>]+>/g, ''))
+              .join(' ')
+              .replace(/\s+/g, ' ')
+              .trim();
+            if (docxContent.length >= 50) {
+              return docxContent;
+            }
+          }
+        } catch (docxErr) {
+          logger.warn({ err: String(docxErr) }, 'DOCX XML fallback failed');
+        }
+      }
+
+      // 2. PDF Detection (%PDF header or mimeType or filename)
       const isPdf =
         input.mimeType === 'application/pdf' ||
         input.fileName?.toLowerCase().endsWith('.pdf') ||
@@ -97,7 +138,7 @@ export class PolicyStructureExtractor {
             return localText.trim();
           }
         } catch (unpdfErr) {
-          logger.warn({ err: String(unpdfErr) }, 'Local unpdf text extraction failed, attempting multimodal OCR');
+          logger.warn({ err: String(unpdfErr) }, 'Local unpdf text extraction failed, attempting pdf-parse/multimodal OCR');
         }
 
         // B. Gemini Multimodal Document Understanding Fallback (for scanned / raster PDFs)
@@ -125,7 +166,7 @@ export class PolicyStructureExtractor {
               ],
             });
             const ocrText = response.text?.trim() || '';
-            if (ocrText.length >= 50) {
+            if (ocrText.length >= 50 && !ocrText.startsWith('%PDF')) {
               logger.info({ charCount: ocrText.length }, 'Successfully extracted policy text via Gemini Multimodal OCR');
               return ocrText;
             }
@@ -135,35 +176,9 @@ export class PolicyStructureExtractor {
         }
       }
 
-      // 2. DOCX Detection (PK\x03\x04 zip header or mimeType or filename)
-      const isDocx =
-        input.fileName?.toLowerCase().endsWith('.docx') ||
-        input.mimeType?.includes('wordprocessingml') ||
-        (buf.length >= 4 && buf[0] === 0x50 && buf[1] === 0x4B && buf[2] === 0x03 && buf[3] === 0x04);
-
-      if (isDocx) {
-        try {
-          // Extract plain text from DOCX XML stream
-          const text = buf.toString('latin1');
-          const textMatches = text.match(/<w:t[^>]*>(.*?)<\/w:t>/g);
-          if (textMatches && textMatches.length > 0) {
-            const docxContent = textMatches
-              .map((t) => t.replace(/<[^>]+>/g, ''))
-              .join(' ')
-              .replace(/\s+/g, ' ')
-              .trim();
-            if (docxContent.length >= 50) {
-              return docxContent;
-            }
-          }
-        } catch (docxErr) {
-          logger.warn({ err: String(docxErr) }, 'DOCX text extraction fallback failed');
-        }
-      }
-
-      // 3. UTF-8 Plain text fallback (only if not a binary PDF header)
+      // 3. UTF-8 Plain text fallback (only if not a binary PDF or corrupted header)
       const utf8Text = buf.toString('utf-8');
-      if (!utf8Text.includes('\x00') && !utf8Text.startsWith('%PDF')) {
+      if (!utf8Text.includes('\x00') && !utf8Text.startsWith('%PDF') && utf8Text.trim().length >= 50) {
         return utf8Text.trim();
       }
     }
