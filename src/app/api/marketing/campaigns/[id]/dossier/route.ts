@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getTenantContext } from '@/shared/auth';
+import { createAdminClient } from '@/shared/db';
 import { logger } from '@/shared/logger';
 import { verifyEntitlement } from '@/lib/plans';
 
@@ -24,12 +25,19 @@ export async function GET(
     const tenantCtx = await getTenantContext({ allowDevFallback: true });
     const { organizationId, dbClient } = tenantCtx;
 
-    if (!dbClient) {
+    let db = dbClient;
+    try {
+      db = createAdminClient();
+    } catch {
+      db = dbClient;
+    }
+
+    if (!db) {
       return new Response('Database unavailable', { status: 503 });
     }
 
     // Enforce plan entitlement for Pre-Clearance Dossier PDF export
-    const entitlement = await verifyEntitlement(dbClient, organizationId, 'DOSSIER_PDF_EXPORT');
+    const entitlement = await verifyEntitlement(db, organizationId, 'DOSSIER_PDF_EXPORT');
     const isJsonCheck =
       req.nextUrl.searchParams.get('check') === 'true' ||
       req.headers.get('accept')?.includes('application/json');
@@ -53,7 +61,7 @@ export async function GET(
       return NextResponse.json({ success: true, allowed: true });
     }
 
-    const { data: campaign } = await dbClient
+    const { data: campaign } = await db
       .from('marketing_campaigns')
       .select('*, organizations(name)')
       .eq('id', id)
@@ -64,7 +72,7 @@ export async function GET(
       return new Response('Campaign not found', { status: 404 });
     }
 
-    const { data: claims } = await dbClient
+    const { data: claims } = await db
       .from('extracted_promotional_claims')
       .select('*')
       .eq('campaign_id', id)

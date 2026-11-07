@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/shared/auth';
+import { createAdminClient } from '@/shared/db';
 import { logger } from '@/shared/logger';
 import { MarketingComplianceService } from '@/modules/marketing-shield/services/marketingComplianceService';
 import { verifyEntitlement } from '@/lib/plans';
@@ -18,7 +19,14 @@ export async function GET(req: NextRequest) {
     const tenantCtx = await getTenantContext({ allowDevFallback: true });
     const { organizationId, dbClient } = tenantCtx;
 
-    if (!dbClient) {
+    let db = dbClient;
+    try {
+      db = createAdminClient();
+    } catch {
+      db = dbClient;
+    }
+
+    if (!db) {
       return NextResponse.json({ success: false, error: 'Database unavailable' }, { status: 503 });
     }
 
@@ -27,7 +35,7 @@ export async function GET(req: NextRequest) {
     const scopedRegulators = regulator && regulator !== 'ALL' ? [regulator] : undefined;
 
     const rules = await complianceService.getApplicableRules(
-      dbClient,
+      db,
       organizationId,
       undefined,
       undefined,
@@ -54,12 +62,19 @@ export async function POST(req: NextRequest) {
     const tenantCtx = await getTenantContext({ allowDevFallback: true });
     const { organizationId, dbClient } = tenantCtx;
 
-    if (!dbClient) {
+    let db = dbClient;
+    try {
+      db = createAdminClient();
+    } catch {
+      db = dbClient;
+    }
+
+    if (!db) {
       return NextResponse.json({ success: false, error: 'Database unavailable' }, { status: 503 });
     }
 
     // Enforce Pro entitlement for adding custom marketing rules (+ Add Rule)
-    const entitlement = await verifyEntitlement(dbClient, organizationId, 'MARKETING_CUSTOM_RULE');
+    const entitlement = await verifyEntitlement(db, organizationId, 'MARKETING_CUSTOM_RULE');
     if (!entitlement.allowed) {
       return NextResponse.json(entitlement.errorPayload, { status: entitlement.statusCode });
     }
@@ -79,7 +94,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Title and verbatim clause are required' }, { status: 400 });
     }
 
-    const { data, error } = await dbClient
+    const { data, error } = await db
       .from('marketing_knowledge_rules')
       .insert({
         organization_id: organizationId,

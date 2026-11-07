@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/shared/auth';
+import { createAdminClient } from '@/shared/db';
 import { logger } from '@/shared/logger';
 import { ExtractedPromotionalClaim } from '@/modules/marketing-shield/types';
 
@@ -14,14 +15,21 @@ export async function GET(req: NextRequest) {
     const tenantCtx = await getTenantContext({ allowDevFallback: true });
     const { organizationId, dbClient } = tenantCtx;
 
-    if (!dbClient) {
+    let db = dbClient;
+    try {
+      db = createAdminClient();
+    } catch {
+      db = dbClient;
+    }
+
+    if (!db) {
       return NextResponse.json({ success: true, claims: [] });
     }
 
     const { searchParams } = new URL(req.url);
     const status = searchParams.get('status');
 
-    let query = dbClient
+    let query = db
       .from('extracted_promotional_claims')
       .select('*, marketing_campaigns(title)')
       .eq('organization_id', organizationId)

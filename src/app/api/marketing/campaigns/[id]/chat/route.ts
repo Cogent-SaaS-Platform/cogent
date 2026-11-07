@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/shared/auth';
+import { createAdminClient } from '@/shared/db';
 import { logger } from '@/shared/logger';
 import { Database } from '@/shared/db/types';
 import { MarketingComplianceService } from '@/modules/marketing-shield/services/marketingComplianceService';
@@ -21,12 +22,19 @@ export async function POST(
     const tenantCtx = await getTenantContext({ allowDevFallback: true });
     const { organizationId, dbClient } = tenantCtx;
 
-    if (!dbClient) {
+    let db = dbClient;
+    try {
+      db = createAdminClient();
+    } catch {
+      db = dbClient;
+    }
+
+    if (!db) {
       return NextResponse.json({ success: false, error: 'Database unavailable' }, { status: 503 });
     }
 
     // Verify campaign belongs to the authenticated organization
-    const { data: campaignRow, error: cErr } = await dbClient
+    const { data: campaignRow, error: cErr } = await db
       .from('marketing_campaigns')
       .select('id, organization_id')
       .eq('id', id)
@@ -50,7 +58,7 @@ export async function POST(
     const textToAnalyze = currentCanvasContent.trim() || userMessageContent.trim();
 
     // Fetch recent chat history (last 6 messages) for multi-turn conversation memory
-    const { data: previousChatMessages } = await dbClient
+    const { data: previousChatMessages } = await db
       .from('campaign_chat_messages')
       .select('role, content')
       .eq('campaign_id', id)
@@ -65,7 +73,7 @@ export async function POST(
       }));
 
     // 1. Record User Message
-    await dbClient.from('campaign_chat_messages').insert({
+    await db.from('campaign_chat_messages').insert({
       campaign_id: id,
       role: 'USER',
       content:
@@ -79,7 +87,7 @@ export async function POST(
     });
 
     // 2. Perform Intelligent Supervisory Concordance Evaluation
-    const analysis = await complianceService.analyzeCampaign(dbClient, {
+    const analysis = await complianceService.analyzeCampaign(db, {
       campaignId: id,
       organizationId,
       copyText: textToAnalyze,
@@ -95,7 +103,7 @@ export async function POST(
     });
 
     // 3. Record Assistant Message with Structured Findings Table
-    await dbClient.from('campaign_chat_messages').insert({
+    await db.from('campaign_chat_messages').insert({
       campaign_id: id,
       role: 'ASSISTANT',
       content: analysis.replyMessage,
@@ -104,7 +112,7 @@ export async function POST(
 
     // 4. Upsert Extracted Claims into Registry
     if (analysis.extractedClaims.length > 0) {
-      await dbClient.from('extracted_promotional_claims').delete().eq('campaign_id', id);
+      await db.from('extracted_promotional_claims').delete().eq('campaign_id', id);
 
       const claimsToInsert: Database['public']['Tables']['extracted_promotional_claims']['Insert'][] =
         analysis.extractedClaims.map((c) => ({
@@ -121,7 +129,7 @@ export async function POST(
           review_status: 'PENDING' as const,
         }));
 
-      await dbClient.from('extracted_promotional_claims').insert(claimsToInsert);
+      await db.from('extracted_promotional_claims').insert(claimsToInsert);
     }
 
     // 5. Update Campaign Summary
@@ -146,7 +154,7 @@ export async function POST(
       updatePayload.status = 'IN_REVIEW';
     }
 
-    await dbClient
+    await db
       .from('marketing_campaigns')
       .update(updatePayload)
       .eq('id', id)

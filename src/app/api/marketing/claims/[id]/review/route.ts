@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/shared/auth';
+import { createAdminClient } from '@/shared/db';
 import { logger } from '@/shared/logger';
 
 export const dynamic = 'force-dynamic';
@@ -17,7 +18,14 @@ export async function POST(
     const tenantCtx = await getTenantContext({ allowDevFallback: true });
     const { organizationId, dbClient } = tenantCtx;
 
-    if (!dbClient) {
+    let db = dbClient;
+    try {
+      db = createAdminClient();
+    } catch {
+      db = dbClient;
+    }
+
+    if (!db) {
       return NextResponse.json({ success: false, error: 'Database unavailable' }, { status: 503 });
     }
 
@@ -28,7 +36,7 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Invalid reviewStatus' }, { status: 400 });
     }
 
-    const { data, error } = await dbClient
+    const { data, error } = await db
       .from('extracted_promotional_claims')
       .update({
         review_status: reviewStatus,

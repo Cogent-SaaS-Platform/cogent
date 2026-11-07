@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/shared/auth';
+import { createAdminClient } from '@/shared/db';
 import { logger } from '@/shared/logger';
 import { MarketingComplianceService } from '@/modules/marketing-shield/services/marketingComplianceService';
 import { verifyEntitlement } from '@/lib/plans';
@@ -21,12 +22,19 @@ export async function POST(
     const tenantCtx = await getTenantContext({ allowDevFallback: true });
     const { organizationId, dbClient } = tenantCtx;
 
-    if (!dbClient) {
+    let db = dbClient;
+    try {
+      db = createAdminClient();
+    } catch {
+      db = dbClient;
+    }
+
+    if (!db) {
       return NextResponse.json({ success: false, error: 'Database unavailable' }, { status: 503 });
     }
 
     // Verify campaign tenant ownership
-    const { data: campaignRow, error: cErr } = await dbClient
+    const { data: campaignRow, error: cErr } = await db
       .from('marketing_campaigns')
       .select('id, organization_id, canvas_content')
       .eq('id', id)
@@ -38,7 +46,7 @@ export async function POST(
     }
 
     // Enforce plan quota for inline rewrites
-    const entitlement = await verifyEntitlement(dbClient, organizationId, 'MARKETING_INLINE_REWRITE');
+    const entitlement = await verifyEntitlement(db, organizationId, 'MARKETING_INLINE_REWRITE');
     if (!entitlement.allowed) {
       return NextResponse.json(entitlement.errorPayload, { status: entitlement.statusCode });
     }
@@ -63,7 +71,7 @@ export async function POST(
     });
 
     // Record inline rewrite telemetry event for Starter monthly quota tracking
-    await dbClient.from('tenant_ingestion_events').insert({
+    await db.from('tenant_ingestion_events').insert({
       organization_id: organizationId,
       event_type: 'MARKETING_INLINE_REWRITE',
       entity_id: id,

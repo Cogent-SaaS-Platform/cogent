@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/shared/auth';
+import { createAdminClient } from '@/shared/db';
 import { logger } from '@/shared/logger';
 import { MarketingCampaign, CampaignLifecycleStatus } from '@/modules/marketing-shield/types';
 import { verifyEntitlement } from '@/lib/plans';
@@ -15,7 +16,14 @@ export async function GET(req: NextRequest) {
     const tenantCtx = await getTenantContext({ allowDevFallback: true });
     const { organizationId, dbClient } = tenantCtx;
 
-    if (!dbClient) {
+    let db = dbClient;
+    try {
+      db = createAdminClient();
+    } catch {
+      db = dbClient;
+    }
+
+    if (!db) {
       return NextResponse.json({
         success: true,
         campaigns: [],
@@ -27,7 +35,7 @@ export async function GET(req: NextRequest) {
     const statusFilter = searchParams.get('status');
     const search = searchParams.get('search');
 
-    let query = dbClient
+    let query = db
       .from('marketing_campaigns')
       .select('*')
       .eq('organization_id', organizationId)
@@ -60,7 +68,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Also get all campaigns to compute status counts
-    const { data: allData } = await dbClient
+    const { data: allData } = await db
       .from('marketing_campaigns')
       .select('status')
       .eq('organization_id', organizationId);
@@ -118,12 +126,19 @@ export async function POST(req: NextRequest) {
     const tenantCtx = await getTenantContext({ allowDevFallback: true });
     const { organizationId, dbClient, userId } = tenantCtx;
 
-    if (!dbClient) {
+    let db = dbClient;
+    try {
+      db = createAdminClient();
+    } catch {
+      db = dbClient;
+    }
+
+    if (!db) {
       return NextResponse.json({ success: false, error: 'Database unavailable' }, { status: 503 });
     }
 
     // Quota & Plan Entitlement Verification
-    const entitlement = await verifyEntitlement(dbClient, organizationId, 'MARKETING_CAMPAIGN_CREATE');
+    const entitlement = await verifyEntitlement(db, organizationId, 'MARKETING_CAMPAIGN_CREATE');
     if (!entitlement.allowed) {
       return NextResponse.json(entitlement.errorPayload, { status: entitlement.statusCode });
     }
@@ -137,7 +152,7 @@ export async function POST(req: NextRequest) {
     const attachedAssetType = body.attachedAssetType || null;
     const createdBy = userId ? `Compliance User (${userId.slice(0, 8)})` : 'Authorized Marketer';
 
-    const { data, error } = await dbClient
+    const { data, error } = await db
       .from('marketing_campaigns')
       .insert({
         organization_id: organizationId,

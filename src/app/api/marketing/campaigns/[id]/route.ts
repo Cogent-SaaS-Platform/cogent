@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext } from '@/shared/auth';
+import { createAdminClient } from '@/shared/db';
 import { logger } from '@/shared/logger';
 import { Database } from '@/shared/db/types';
 import {
@@ -24,11 +25,18 @@ export async function GET(
     const tenantCtx = await getTenantContext({ allowDevFallback: true });
     const { organizationId, dbClient } = tenantCtx;
 
-    if (!dbClient) {
+    let db = dbClient;
+    try {
+      db = createAdminClient();
+    } catch {
+      db = dbClient;
+    }
+
+    if (!db) {
       return NextResponse.json({ success: false, error: 'Database unavailable' }, { status: 503 });
     }
 
-    const { data: campaignRow, error: cErr } = await dbClient
+    const { data: campaignRow, error: cErr } = await db
       .from('marketing_campaigns')
       .select('*')
       .eq('id', id)
@@ -40,12 +48,12 @@ export async function GET(
     }
 
     const [messagesRes, claimsRes] = await Promise.all([
-      dbClient
+      db
         .from('campaign_chat_messages')
         .select('*')
         .eq('campaign_id', id)
         .order('created_at', { ascending: true }),
-      dbClient
+      db
         .from('extracted_promotional_claims')
         .select('*')
         .eq('campaign_id', id)
@@ -129,7 +137,14 @@ export async function PUT(
     const tenantCtx = await getTenantContext({ allowDevFallback: true });
     const { organizationId, dbClient } = tenantCtx;
 
-    if (!dbClient) {
+    let db = dbClient;
+    try {
+      db = createAdminClient();
+    } catch {
+      db = dbClient;
+    }
+
+    if (!db) {
       return NextResponse.json({ success: false, error: 'Database unavailable' }, { status: 503 });
     }
 
@@ -161,7 +176,7 @@ export async function PUT(
     if (body.riskSummary !== undefined) updatePayload.risk_summary = body.riskSummary;
     if (body.totalFindings !== undefined) updatePayload.total_findings = body.totalFindings;
 
-    const { data, error } = await dbClient
+    const { data, error } = await db
       .from('marketing_campaigns')
       .update(updatePayload)
       .eq('id', id)
@@ -222,11 +237,18 @@ export async function DELETE(
     const tenantCtx = await getTenantContext({ allowDevFallback: true });
     const { organizationId, dbClient } = tenantCtx;
 
-    if (!dbClient) {
+    let db = dbClient;
+    try {
+      db = createAdminClient();
+    } catch {
+      db = dbClient;
+    }
+
+    if (!db) {
       return NextResponse.json({ success: false, error: 'Database unavailable' }, { status: 503 });
     }
 
-    const { error } = await dbClient
+    const { error } = await db
       .from('marketing_campaigns')
       .delete()
       .eq('id', id)
