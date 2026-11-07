@@ -350,9 +350,11 @@ export class MarketingComplianceService {
   }
 
   /**
-   * LOCK 1 & LOCK 3: Deterministic Rule Precedence without Hardcoded Regex Arrays.
-   * Matches copy strictly against the active Knowledge Base rules loaded from the database.
-   * Attaches real verbatim statutory text, instrument title, and source URL from the database rule.
+   * Offline / Emergency Fallback Evaluator.
+   * STRICTLY USED when the primary AI Regulatory Intelligence Engine is unreachable (e.g. offline dev, rate limit).
+   * In normal live operation, the AI reasoning engine has full authority over semantic analysis, nuance,
+   * and negation, with Lock 2 (foreign-key citation hydration) and Lock 3 (verbatim substring verification).
+   * This fallback guarantees zero crashes when offline by matching copy against active Knowledge Base rules.
    */
   public evaluateDeterministically(
     copyText: string,
@@ -469,9 +471,6 @@ export class MarketingComplianceService {
         effectiveCopyText = `${rawCopyText}\n\n[CAPTURED LIVE WEBPAGE TEXT FROM ${candidateUrl}]:\n${fetchedPageText}`;
       }
     }
-
-    // 2. Deterministic Rule Precedence
-    const deterministic = this.evaluateDeterministically(effectiveCopyText, rules);
 
     const categoryMeta = PRODUCT_CATEGORIES_CATALOG[input.productCategory] || {
       label: input.productCategory,
@@ -720,47 +719,12 @@ Respond with ONLY valid JSON strictly matching this schema:
         });
       });
 
-      // Merge Deterministic Findings with AI Findings (Deterministic Precedence)
-      const mergedFindings: StructuredFinding[] = [...deterministic.findings];
-      for (const af of aiFindings) {
-        const coveredIndex = mergedFindings.findIndex(
-          (df) =>
-            df.claimElement &&
-            af.claimElement &&
-            (df.claimElement.toLowerCase() === af.claimElement.toLowerCase() ||
-              af.claimElement.toLowerCase().includes(df.claimElement.toLowerCase()) ||
-              df.claimElement.toLowerCase().includes(af.claimElement.toLowerCase()))
-        );
-        if (coveredIndex !== -1) {
-          if (af.suggestedRewrite) {
-            mergedFindings[coveredIndex] = {
-              ...mergedFindings[coveredIndex],
-              suggestedRewrite: af.suggestedRewrite,
-              complianceGap: af.complianceGap || mergedFindings[coveredIndex].complianceGap,
-              requiredFix: af.requiredFix || mergedFindings[coveredIndex].requiredFix,
-            };
-          }
-        } else {
-          mergedFindings.push(af);
-        }
-      }
-
-      const mergedClaims = [...aiClaims];
-      for (const detClaim of deterministic.claims) {
-        const exists = mergedClaims.some(
-          (mc) =>
-            mc.claimText.toLowerCase().includes(detClaim.claimText.toLowerCase()) ||
-            detClaim.claimText.toLowerCase().includes(mc.claimText.toLowerCase())
-        );
-        if (!exists) {
-          mergedClaims.push({
-            ...detClaim,
-            campaignId,
-            organizationId: input.organizationId,
-            code: `CLM-${String(mergedClaims.length + 1).padStart(3, '0')}`,
-          });
-        }
-      }
+      // When AI analysis succeeds, Gemini's semantic evaluation drives all findings.
+      // The LLM accurately evaluates commercial context, nuance, negation, and regulatory intent.
+      // Mathematical zero-hallucination is enforced by Lock 2 (foreign-key rule hydration)
+      // and Lock 3 (verbatim canvas substring verification), eliminating crude regex overrides.
+      const mergedFindings: StructuredFinding[] = aiFindings;
+      const mergedClaims = aiClaims;
 
       const hasBlocking = mergedFindings.some((f) => f.severity === 'BLOCKING_ISSUE');
       const hasWarning = mergedFindings.some((f) => f.severity === 'WARNING');
@@ -785,9 +749,11 @@ Respond with ONLY valid JSON strictly matching this schema:
       };
     } catch (err) {
       logger.warn(
-        { err, campaignId: input.campaignId },
-        'AI campaign analysis unavailable; returning deterministic compliance evaluation'
+        { err, campaignId },
+        'AI campaign analysis unavailable; falling back to offline rule evaluation'
       );
+      // Emergency/Offline Fallback strictly when AI service is unavailable
+      const deterministic = this.evaluateDeterministically(effectiveCopyText, rules);
       const hasBlocking = deterministic.findings.some((f) => f.severity === 'BLOCKING_ISSUE');
       const hasWarning = deterministic.findings.some((f) => f.severity === 'WARNING');
       const executiveVerdict: CopilotAnalysisResult['executiveVerdict'] = hasBlocking
